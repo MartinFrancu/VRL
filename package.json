@@ -1,0 +1,16 @@
+{
+  "name": "videoreferee-solo",
+  "version": "0.3.0",
+  "private": true,
+  "type": "module",
+  "description": "One referee, one phone: film a bout, mark the moments, look at them again.",
+  "license": "GPL-3.0",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "serve": "node tools/serve.js"
+  },
+  "devDependencies": {
+    "vitest": "^3.0.5"
+  }
+}
