@@ -108,15 +108,10 @@
       }
       .hud .grow { flex: 1; }
       #elapsed { font-variant-numeric: tabular-nums; font-family: ui-monospace, Menlo, monospace; }
-      body[data-screen="idle"] #elapsed, body[data-screen="idle"] #recording-dot { display: none; }
-      #recording-dot {
-        width: 10px;
-        height: 10px;
-        border-radius: 50%;
-        background: var(--mark);
-        animation: pulse 1.4s ease-in-out infinite;
-      }
-      @keyframes pulse { 50% { opacity: 0.25; } }
+      /* Both belong to a bout in progress. In idle there is no elapsed time
+         and no marks, so neither has anything to say. */
+      body[data-screen="idle"] #elapsed,
+      body[data-screen="idle"] #dots { display: none; }
 
       #dots { display: flex; gap: 6px; }
       #dots i {
@@ -320,7 +315,6 @@
         <video id="preview" playsinline muted autoplay></video>
         <div id="flash"></div>
         <div class="hud">
-          <span id="recording-dot"></span>
           <span id="elapsed">0:00</span>
           <span id="dots"></span>
           <span class="grow"></span>
@@ -342,7 +336,7 @@
     <section id="review">
       <nav id="topbar">
         <div id="tabs"></div>
-        <button id="toRecord">RECORD</button>
+        <button id="toRecord">BACK</button>
       </nav>
 
       <div class="stage" id="stage">
