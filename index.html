@@ -49,8 +49,11 @@
           env(safe-area-inset-bottom) env(safe-area-inset-left);
       }
 
+      /* Three modes. Idle and recording share the camera, so they share a
+         section and differ only in what is offered underneath it. */
       section { display: none; flex: 1; min-height: 0; flex-direction: column; }
-      body[data-screen="live"] #live,
+      body[data-screen="idle"] #live,
+      body[data-screen="recording"] #live,
       body[data-screen="review"] #review { display: flex; }
 
       video {
@@ -80,7 +83,7 @@
 
       .stage { position: relative; flex: 1; min-height: 0; }
 
-      /* ---------- the live screen ---------- */
+      /* ---------- idle and recording ---------- */
 
       .hud {
         position: absolute;
@@ -98,6 +101,7 @@
       }
       .hud .grow { flex: 1; }
       #elapsed { font-variant-numeric: tabular-nums; font-family: ui-monospace, Menlo, monospace; }
+      body[data-screen="idle"] #elapsed, body[data-screen="idle"] #recording-dot { display: none; }
       #recording-dot {
         width: 10px;
         height: 10px;
@@ -126,23 +130,50 @@
       /* So "am I running the one you just fixed?" is answerable without asking. */
       .ver { font-size: 11px; color: var(--faded); font-family: ui-monospace, Menlo, monospace; }
 
+      /*
+        While recording, the whole picture is the BOOKMARK button. It is the
+        biggest target a phone can offer and it needs no looking at — which is
+        the point, because the referee is watching the fight, not the screen.
+      */
+      #flash {
+        position: absolute;
+        inset: 0;
+        background: #fff;
+        opacity: 0;
+        pointer-events: none;
+      }
+      #flash.on { animation: flash 200ms ease-out; }
+      @keyframes flash { 0% { opacity: 0.5; } 100% { opacity: 0; } }
+
+      .tapHint {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 10px;
+        margin: 0;
+        text-align: center;
+        font-size: 13px;
+        color: rgba(255, 255, 255, 0.75);
+        text-shadow: 0 1px 4px rgba(0, 0, 0, 0.95);
+        pointer-events: none;
+      }
+      body[data-screen="idle"] .tapHint { display: none; }
+
       .actions { display: flex; gap: 10px; padding: 12px; flex: none; }
-      #start, #bookmark { flex: 1; font-size: 26px; font-weight: 700; letter-spacing: 0.04em; padding: 26px 16px; }
-      #start { background: var(--accent); color: #06232a; border-color: var(--accent); }
-      #bookmark { background: var(--mark); border-color: var(--mark); color: #fff; }
-      #stop { flex: none; font-size: 16px; }
+      #start { flex: 1; font-size: 26px; font-weight: 700; letter-spacing: 0.04em; padding: 26px 16px; background: var(--accent); color: #06232a; border-color: var(--accent); }
+      #toReview, #end { flex: 1; font-size: 17px; padding: 16px 0; }
+      #toReview { border-color: var(--accent); color: var(--accent); }
+      body[data-screen="idle"] #toReview,
+      body[data-screen="idle"] #end,
+      body[data-screen="recording"] #start { display: none; }
 
-      /* ---------- the review screen ----------
-
-         Two thin edges hold what is always needed — which mark, and which way of
-         looking at it — and the band between them belongs to one mode at a time.
-         Everything a mode does not need is not on the screen while it is on. */
+      /* ---------- review ---------- */
 
       #topbar { display: flex; gap: 8px; padding: 10px 12px 0; flex: none; align-items: stretch; }
       #tabs { display: flex; gap: 8px; flex: 1; min-width: 0; }
       #tabs button { flex: 1; font-size: 20px; font-weight: 700; padding: 12px 0; }
       #tabs button.on { border-color: var(--accent); color: var(--accent); }
-      #again { font-size: 13px; padding: 12px 10px; flex: none; }
+      #toRecord { font-size: 13px; padding: 12px 10px; flex: none; border-color: var(--mark); color: var(--mark); }
 
       /* Over the footage rather than beside it: it costs no room there. */
       #readout {
@@ -156,7 +187,6 @@
         border-radius: 6px;
         background: rgba(0, 0, 0, 0.55);
         color: var(--ink);
-        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
       }
 
       /* Where in the window the footage is, without spending a row on saying so. */
@@ -176,34 +206,38 @@
       }
       #shortfall:empty { display: none; }
 
-      /* The one strip belonging to whichever mode is on. */
-      .band { flex: none; padding: 10px 12px 0; }
-      .strip { display: none; gap: 8px; align-items: center; }
-      #review[data-mode="loop"] .strip[data-mode="loop"],
-      #review[data-mode="scrub"] .strip[data-mode="scrub"],
-      #review[data-mode="step"] .strip[data-mode="step"],
-      #review[data-mode="shuttle"] .strip[data-mode="shuttle"] { display: flex; }
-
-      .strip[data-mode="loop"] button { flex: 1; font-size: 18px; padding: 18px 0; }
-      .strip[data-mode="loop"] button.on { border-color: var(--accent); color: var(--accent); }
-
-      .strip[data-mode="scrub"] { flex-direction: column; align-items: stretch; gap: 10px; }
-      /* Tall, because it is the whole interaction in this mode. */
-      #scrub { width: 100%; accent-color: var(--accent); height: 34px; }
+      .band { flex: none; padding: 12px 12px 0; display: flex; flex-direction: column; gap: 12px; }
+      /* Tall, because it is the whole interaction on this screen. */
+      #scrub { width: 100%; accent-color: var(--accent); height: 36px; }
       .toggle { display: flex; align-items: center; gap: 10px; font-size: 13.5px; color: var(--faded); }
       .toggle input { width: 20px; height: 20px; accent-color: var(--accent); }
 
-      .strip[data-mode="step"] button { flex: 1; font-size: 17px; padding: 20px 0; }
+      .foot { display: flex; gap: 10px; padding: 12px; flex: none; justify-content: flex-end; }
 
-      .strip[data-mode="shuttle"] { justify-content: center; }
-      .hint { font-size: 13.5px; color: var(--faded); padding: 20px 0; text-align: center; }
+      /* ---------- asking before throwing something away ---------- */
 
-      /* Dragging the picture must not drag the page with it. */
-      #review[data-mode="shuttle"] .stage { touch-action: none; }
-
-      #modes { display: flex; gap: 8px; padding: 10px 12px; flex: none; }
-      #modes button { flex: 1; font-size: 14px; padding: 13px 0; }
-      #modes button.on { border-color: var(--accent); color: var(--accent); background: rgba(55, 200, 216, 0.1); }
+      #confirm {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-content: center;
+        padding: 24px;
+        background: rgba(0, 0, 0, 0.72);
+        z-index: 20;
+      }
+      #confirm[hidden] { display: none; }
+      #confirm .box {
+        background: var(--panel);
+        border: 1px solid var(--rule);
+        border-radius: 14px;
+        padding: 22px;
+        max-width: 360px;
+      }
+      #confirm h3 { margin: 0 0 10px; font-size: 18px; }
+      #confirm p { margin: 0 0 18px; font-size: 14.5px; color: var(--faded); }
+      #confirm .row { display: flex; gap: 10px; }
+      #confirm .row button { flex: 1; }
+      #confirm .danger { background: var(--mark); border-color: var(--mark); color: #fff; }
 
       /* ---------- the panel behind the ⓘ ---------- */
 
@@ -230,7 +264,10 @@
       .tune input[type="range"] { flex: 1; min-width: 0; accent-color: var(--faded); }
       #lead-value, #tail-value { flex: none; min-width: 34px; text-align: right; font-variant-numeric: tabular-nums; }
 
+      /* Only ever has something to say before filming starts, or when something
+         has gone wrong — and both of those happen in idle. */
       .note { padding: 12px; color: var(--faded); font-size: 13.5px; text-align: center; }
+      body[data-screen="recording"] #live-note { display: none; }
 
       /* ---------- held sideways ----------
 
@@ -241,37 +278,33 @@
       @media (orientation: landscape) and (max-height: 600px) {
         #live { flex-direction: row; }
         #live-note { display: none; }
-        .actions { flex-direction: column; width: 180px; justify-content: center; }
-        #start, #bookmark { font-size: 21px; padding: 20px 8px; }
+        .actions { flex-direction: column; width: 170px; justify-content: center; }
+        #start { font-size: 21px; padding: 20px 8px; }
 
         body[data-screen="review"] #review {
           display: grid;
-          grid-template-columns: 1fr 300px;
+          grid-template-columns: 1fr 290px;
           grid-template-rows: auto 1fr auto;
           grid-template-areas:
             "stage topbar"
             "stage band"
-            "stage modes";
+            "stage foot";
         }
         #review .stage { grid-area: stage; }
         #topbar { grid-area: topbar; padding-left: 0; }
         .band { grid-area: band; padding-left: 0; align-self: center; }
-        #modes { grid-area: modes; padding-left: 0; flex-wrap: wrap; }
-        #modes button { flex: 1 1 40%; }
-        .strip[data-mode="loop"] { flex-wrap: wrap; }
-        .strip[data-mode="loop"] button { flex: 1 1 40%; }
-        .strip[data-mode="step"] { flex-wrap: wrap; }
-        .strip[data-mode="step"] button { flex: 1 1 40%; }
+        .foot { grid-area: foot; padding-left: 0; }
       }
     </style>
   </head>
-  <body data-screen="live">
-    <!-- ---------------- live ---------------- -->
+  <body data-screen="idle">
+    <!-- ---------------- idle and recording ---------------- -->
     <section id="live">
-      <div class="stage">
+      <div class="stage" id="camera">
         <video id="preview" playsinline muted autoplay></video>
+        <div id="flash"></div>
         <div class="hud">
-          <span id="recording-dot" hidden></span>
+          <span id="recording-dot"></span>
           <span id="elapsed">0:00</span>
           <span id="dots"></span>
           <span class="grow"></span>
@@ -279,20 +312,21 @@
           <button class="icon" id="share" title="Put this on somebody else's phone">&#8599;</button>
           <button class="icon" id="info" title="What this device can do">&#9432;</button>
         </div>
+        <p class="tapHint" id="tapHint">tap anywhere to mark</p>
       </div>
       <p class="note" id="live-note">Point it at the fight, then press START.</p>
       <div class="actions">
         <button id="start">START</button>
-        <button id="bookmark" hidden>BOOKMARK</button>
-        <button id="stop" hidden>STOP</button>
+        <button id="toReview" disabled>REVIEW</button>
+        <button id="end">END</button>
       </div>
     </section>
 
     <!-- ---------------- review ---------------- -->
-    <section id="review" data-mode="loop">
+    <section id="review">
       <nav id="topbar">
         <div id="tabs"></div>
-        <button id="again">New bout</button>
+        <button id="toRecord">RECORD</button>
         <button class="icon" id="info2" title="What this device can do">&#9432;</button>
       </nav>
 
@@ -304,44 +338,27 @@
       </div>
 
       <div class="band">
-        <!-- Loop: it goes round on its own, so the only question is how fast. -->
-        <div class="strip" data-mode="loop">
-          <button class="speed" data-rate="1">1&times;</button>
-          <button class="speed" data-rate="0.5">&frac12;&times;</button>
-          <button class="speed" data-rate="0.25">&frac14;&times;</button>
-          <button class="speed" data-rate="0.125">&#8539;&times;</button>
-        </div>
-
-        <!-- Scrub: the slider is the whole interaction, so nothing else is here. -->
-        <div class="strip" data-mode="scrub">
-          <input id="scrub" type="range" step="1" />
-          <label class="toggle">
-            <input id="resume" type="checkbox" checked />
-            keep playing when I let go
-          </label>
-        </div>
-
-        <!-- Step: four targets, thumb-sized, two each way. -->
-        <div class="strip" data-mode="step">
-          <button data-step="-3">&#9664;&#9664; 3</button>
-          <button data-step="-1">&#9664; 1</button>
-          <button data-step="1">1 &#9654;</button>
-          <button data-step="3">3 &#9654;&#9654;</button>
-        </div>
-
-        <!-- Shuttle: no control at all. The picture is the control. -->
-        <div class="strip" data-mode="shuttle">
-          <span class="hint">drag anywhere across the picture</span>
-        </div>
+        <input id="scrub" type="range" step="1" />
+        <label class="toggle">
+          <input id="resume" type="checkbox" checked />
+          keep playing when I let go
+        </label>
       </div>
 
-      <nav id="modes">
-        <button data-mode="loop">Loop</button>
-        <button data-mode="scrub">Scrub</button>
-        <button data-mode="step">Step</button>
-        <button data-mode="shuttle">Shuttle</button>
-      </nav>
+      <div class="foot"></div>
     </section>
+
+    <!-- ---------------- throwing a bout away ---------------- -->
+    <div id="confirm" hidden>
+      <div class="box">
+        <h3 id="confirm-title">Discard this bout?</h3>
+        <p id="confirm-text"></p>
+        <div class="row">
+          <button id="confirm-cancel">Keep filming</button>
+          <button class="danger" id="confirm-end">Discard</button>
+        </div>
+      </div>
+    </div>
 
     <div id="diag" hidden>
       <button class="close" id="diag-close">Close</button>
