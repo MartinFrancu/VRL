@@ -134,6 +134,7 @@
       /* Only in idle. While filming the whole picture is the mark button, and
          anything sitting on top of it is somewhere a mark can be lost. */
       body[data-screen="recording"] #info,
+      body[data-screen="recording"] #help-open,
       body[data-screen="recording"] .ver { display: none; }
 
       /*
@@ -289,6 +290,49 @@
 
       /* Only ever has something to say before filming starts, or when something
          has gone wrong — and both of those happen in idle. */
+
+      /* ---------- how to use it ----------
+         Read while standing in a hall before a tournament, so: ordinary type
+         rather than the monospace of the diagnostics panel, generous size, and
+         short enough that somebody might actually finish it. */
+      #help {
+        position: fixed;
+        inset: 0;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        background: var(--ground);
+        z-index: 20;
+        padding: calc(16px + env(safe-area-inset-top)) 20px calc(24px + env(safe-area-inset-bottom));
+      }
+      #help[hidden] { display: none; }
+      #help .sheet { max-width: 34em; margin: 0 auto; }
+      #help h2 { font-size: 15px; color: var(--accent); margin: 26px 0 8px; letter-spacing: 0.02em; }
+      #help h2:first-of-type { margin-top: 8px; }
+      #help p { font-size: 15px; line-height: 1.5; margin: 0 0 10px; color: var(--ink); }
+      #help ol { margin: 0; padding: 0; list-style: none; counter-reset: step; }
+      /* The number hangs in the margin. Not a grid or a flex row: those make a
+         separate item of every run of text and every <b> inside the line, which
+         sets the whole step one word per line. */
+      #help ol li {
+        counter-increment: step;
+        position: relative;
+        padding-left: 28px;
+        font-size: 15px;
+        line-height: 1.5;
+        margin-bottom: 12px;
+      }
+      #help ol li::before {
+        content: counter(step);
+        position: absolute;
+        left: 0;
+        top: 0;
+        font-variant-numeric: tabular-nums;
+        font-weight: 700;
+        color: var(--accent);
+      }
+      #help b { color: var(--ink); }
+      #help .close { width: 100%; margin-top: 24px; padding: 16px; font-size: 16px; }
+
       .note { padding: 12px; color: var(--faded); font-size: 13.5px; text-align: center; }
       body[data-screen="recording"] #live-note { display: none; }
 
@@ -319,6 +363,7 @@
           <span id="dots"></span>
           <span class="grow"></span>
           <span class="ver" id="version"></span>
+          <button class="icon" id="help-open" title="How to use it">?</button>
           <button class="icon" id="share" title="Put this on somebody else's phone">&#8599;</button>
           <button class="icon" id="info" title="What this device can do">&#9432;</button>
         </div>
@@ -357,6 +402,35 @@
           <button id="confirm-cancel">Keep filming</button>
           <button class="danger" id="confirm-end">Discard</button>
         </div>
+      </div>
+    </div>
+
+
+    <!-- Read before a tournament, not during one. Kept short on purpose. -->
+    <div id="help" hidden>
+      <div class="sheet">
+        <h2>How to use it</h2>
+        <ol>
+          <li>Point it at the fight and press <b>START</b>. Hold the phone the way you want to film <b>before</b> you press it.</li>
+          <li><b>Tap the picture</b> whenever you see something worth a second look. It keeps filming — up to five times.</li>
+          <li>Press <b>REVIEW</b> when the fight is stopped.</li>
+          <li><b>Drag across the picture</b> to move through the moment. The numbers switch between your marks, and <b>BACK</b> returns to filming.</li>
+        </ol>
+
+        <h2>Turn the phone before you start</h2>
+        <p>
+          The recording keeps the shape it had the moment you pressed START.
+          Turning the phone while filming will not change it — the footage just
+          comes back the wrong way round.
+        </p>
+
+        <h2>Nothing is saved</h2>
+        <p>
+          <b>END</b> throws the bout away, and asks first if you have marks you
+          have not looked at. Closing the app loses everything.
+        </p>
+
+        <button class="close" id="help-close">Close</button>
       </div>
     </div>
 

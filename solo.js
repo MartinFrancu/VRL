@@ -12,7 +12,7 @@
 
 import { clampWithin, draggedTo, frameClockUsable, shortfallLabel, windowFor } from './windows.js';
 
-const VERSION = '0.8.1';
+const VERSION = '0.9.0';
 const MAX_MARKS = 5;
 
 const el = (id) => document.getElementById(id);
@@ -665,6 +665,14 @@ el('camera').addEventListener('pointerdown', (event) => {
 // On the review screen the picture is the scrubber instead.
 el('stage').addEventListener('pointerdown', onDragStart);
 el('stage').addEventListener('pointermove', onDragMove);
+
+el('help-open').addEventListener('click', () => {
+  el('help').hidden = false;
+  el('help').scrollTop = 0;
+});
+el('help-close').addEventListener('click', () => {
+  el('help').hidden = true;
+});
 
 el('info').addEventListener('click', showDiagnostics);
 el('share').addEventListener('click', shareApp);
