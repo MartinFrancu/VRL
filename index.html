@@ -133,7 +133,6 @@
       .ver { font-size: 11px; color: var(--faded); font-family: ui-monospace, Menlo, monospace; }
       /* Only in idle. While filming the whole picture is the mark button, and
          anything sitting on top of it is somewhere a mark can be lost. */
-      body[data-screen="recording"] #info,
       body[data-screen="recording"] #help-open,
       body[data-screen="recording"] .ver { display: none; }
 
@@ -274,7 +273,7 @@
         font-family: ui-monospace, Menlo, Consolas, monospace;
         font-size: 12.5px;
         line-height: 1.6;
-        z-index: 10;
+        z-index: 30;
       }
       #diag[hidden] { display: none; }
       #diag-body { white-space: pre-wrap; word-break: break-word; }
@@ -348,6 +347,17 @@
         word-break: break-all;
       }
       #help .close { width: 100%; margin-top: 24px; padding: 16px; font-size: 16px; }
+      /* Below the way out, and quieter than it: this is for the afternoon
+         something goes wrong, not for the afternoon it works. */
+      #help .debug {
+        width: 100%;
+        margin-top: 10px;
+        padding: 12px;
+        font-size: 13px;
+        color: var(--faded);
+        background: none;
+        border-color: transparent;
+      }
 
       .note { padding: 12px; color: var(--faded); font-size: 13.5px; text-align: center; }
       body[data-screen="recording"] #live-note { display: none; }
@@ -380,7 +390,6 @@
           <span class="grow"></span>
           <span class="ver" id="version"></span>
           <button class="icon" id="help-open" title="How to use it">?</button>
-          <button class="icon" id="info" title="What this device can do">&#9432;</button>
         </div>
         <p class="tapHint" id="tapHint">tap anywhere to mark</p>
       </div>
@@ -456,6 +465,7 @@
         </p>
 
         <button class="close" id="help-close">Close</button>
+        <button class="debug" id="info">Settings &amp; diagnostics</button>
       </div>
     </div>
 
