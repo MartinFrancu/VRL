@@ -12,7 +12,7 @@
 
 import { clampWithin, draggedTo, frameClockUsable, shortfallLabel, windowFor } from './windows.js';
 
-const VERSION = '0.6.0';
+const VERSION = '0.6.1';
 const MAX_MARKS = 5;
 
 const el = (id) => document.getElementById(id);
@@ -72,7 +72,9 @@ let shownMs = null;
  * up and the page around it is not. These three numbers tell them apart, and
  * cannot be got at from anywhere but the phone it happened on.
  */
-let filmed = { shape: '?', held: '?', clip: '?' };
+let filmed = { shape: '?', held: '?' };
+/** The same, for the last bout actually reviewed. Nothing resets this. */
+let lastReviewed = null;
 
 function orientationNow() {
   return screen.orientation?.type ?? (window.innerWidth > window.innerHeight ? 'landscape' : 'portrait');
@@ -181,7 +183,6 @@ function startRecording() {
   filmed = {
     shape: `${settings.width ?? '?'}×${settings.height ?? '?'}`,
     held: orientationNow(),
-    clip: 'not stopped yet',
   };
 
   screenIs('recording');
@@ -294,6 +295,8 @@ function releaseClip() {
   if (blobUrl) URL.revokeObjectURL(blobUrl);
   blobUrl = null;
   clip.removeAttribute('src');
+  // Dropping the attribute does not drop the resource behind it.
+  clip.load();
   durationMs = Number.POSITIVE_INFINITY;
 }
 
@@ -303,9 +306,23 @@ async function finish() {
   if (blobUrl) URL.revokeObjectURL(blobUrl);
   blobUrl = URL.createObjectURL(blob);
   clip.src = blobUrl;
+  // Not optional, and the reason the second bout of a session came back
+  // sideways while the first was fine: handing a media element a new source
+  // does not make it forget the old one. Everything it worked out about the
+  // last clip — its shape, and which way up it should be drawn — survives into
+  // the next unless it is told to start again.
+  clip.load();
 
   await measureDuration();
-  filmed.clip = `${clip.videoWidth}×${clip.videoHeight}`;
+  // Kept where nothing resets it. The question these answer is asked on the
+  // idle screen, which is reached by starting another bout, which would
+  // otherwise have wiped them on the way past.
+  lastReviewed = {
+    shape: filmed.shape,
+    held: filmed.held,
+    clip: `${clip.videoWidth}×${clip.videoHeight}`,
+    reviewedIn: orientationNow(),
+  };
   renderTabs();
   select(0);
   screenIs('review');
@@ -338,16 +355,23 @@ function measureDuration() {
       resolve();
     };
 
-    clip.addEventListener('durationchange', done);
+    // Both come off together once the answer is in, or every bout of an
+    // afternoon would leave another pair behind on the same element.
+    const listening = new AbortController();
+    const settle = (how) => {
+      how();
+      if (settled) listening.abort();
+    };
+    clip.addEventListener('durationchange', () => settle(done), { signal: listening.signal });
     clip.addEventListener(
       'loadedmetadata',
       () => {
-        if (Number.isFinite(clip.duration)) return done();
+        if (Number.isFinite(clip.duration)) return settle(done);
         clip.currentTime = 1e6;
       },
-      { once: true }
+      { signal: listening.signal }
     );
-    setTimeout(giveUp, 4000);
+    setTimeout(() => settle(giveUp), 4000);
   });
 }
 
@@ -502,11 +526,13 @@ function renderDiagnostics() {
     `recorded as ${recorder?.mimeType || pickMimeType() || '(browser default)'}\n` +
     `<h2>recording</h2>` +
     `${(blobBytes / 1e6).toFixed(1)} MB, ${Number.isFinite(durationMs) ? (durationMs / 1000).toFixed(2) + ' s' : 'duration unknown'}\n` +
-    `<h2>which way up</h2>` +
-    `camera gave   ${filmed.shape}\n` +
-    `phone held    ${filmed.held}\n` +
-    `file came out ${filmed.clip}\n` +
-    `phone now     ${orientationNow()}\n` +
+    `<h2>which way up — the last bout you reviewed</h2>` +
+    (lastReviewed
+      ? `camera gave   ${lastReviewed.shape}\n` +
+        `phone held    ${lastReviewed.held}\n` +
+        `file came out ${lastReviewed.clip}\n` +
+        `reviewed in   ${lastReviewed.reviewedIn}\n`
+      : 'nothing reviewed yet this session\n') +
     `showing ${shownMs === null ? '—' : (shownMs / 1000).toFixed(3) + ' s'}\n` +
     `<h2>marks — page clock vs camera clock</h2>` +
     (marks.length
