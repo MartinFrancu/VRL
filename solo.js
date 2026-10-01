@@ -12,7 +12,7 @@
 
 import { clampWithin, draggedTo, frameClockUsable, shortfallLabel, windowFor } from './windows.js';
 
-const VERSION = '0.5.1';
+const VERSION = '0.6.0';
 const MAX_MARKS = 5;
 
 const el = (id) => document.getElementById(id);
@@ -61,6 +61,22 @@ let markSource = 'wall';
 
 /** The media time of the frame currently on screen. */
 let shownMs = null;
+
+/**
+ * How the phone was held, and what shape the camera was giving, when the
+ * recording began — against what shape the file turned out to be.
+ *
+ * A recording that comes back sideways is one of two different faults wearing
+ * the same description, and they want opposite fixes: either the file is in a
+ * different orientation from the one it was filmed in, or it is the right way
+ * up and the page around it is not. These three numbers tell them apart, and
+ * cannot be got at from anywhere but the phone it happened on.
+ */
+let filmed = { shape: '?', held: '?', clip: '?' };
+
+function orientationNow() {
+  return screen.orientation?.type ?? (window.innerWidth > window.innerHeight ? 'landscape' : 'portrait');
+}
 
 // ---------------------------------------------------------------- the camera
 
@@ -160,6 +176,13 @@ function startRecording() {
   recorder.start(1000);
   startedAtWallMs = performance.now();
   startedAtFrameMs = lastFrameMediaMs;
+
+  const settings = stream.getVideoTracks()[0]?.getSettings() ?? {};
+  filmed = {
+    shape: `${settings.width ?? '?'}×${settings.height ?? '?'}`,
+    held: orientationNow(),
+    clip: 'not stopped yet',
+  };
 
   screenIs('recording');
   // A fresh bout has nothing to review and no marks spent, whatever the last
@@ -282,6 +305,7 @@ async function finish() {
   clip.src = blobUrl;
 
   await measureDuration();
+  filmed.clip = `${clip.videoWidth}×${clip.videoHeight}`;
   renderTabs();
   select(0);
   screenIs('review');
@@ -402,6 +426,9 @@ let draggingFromMs = 0;
 let draggingFromX = 0;
 
 function onDragStart(event) {
+  // Or the browser claims the gesture as a drag of its own — a selection, an
+  // image — and abandons ours one move in, leaving the footage barely moved.
+  event.preventDefault();
   draggingFromMs = positionMs;
   draggingFromX = event.clientX;
   el('stage').setPointerCapture?.(event.pointerId);
@@ -475,6 +502,11 @@ function renderDiagnostics() {
     `recorded as ${recorder?.mimeType || pickMimeType() || '(browser default)'}\n` +
     `<h2>recording</h2>` +
     `${(blobBytes / 1e6).toFixed(1)} MB, ${Number.isFinite(durationMs) ? (durationMs / 1000).toFixed(2) + ' s' : 'duration unknown'}\n` +
+    `<h2>which way up</h2>` +
+    `camera gave   ${filmed.shape}\n` +
+    `phone held    ${filmed.held}\n` +
+    `file came out ${filmed.clip}\n` +
+    `phone now     ${orientationNow()}\n` +
     `showing ${shownMs === null ? '—' : (shownMs / 1000).toFixed(3) + ' s'}\n` +
     `<h2>marks — page clock vs camera clock</h2>` +
     (marks.length
@@ -565,7 +597,6 @@ el('stage').addEventListener('pointerdown', onDragStart);
 el('stage').addEventListener('pointermove', onDragMove);
 
 el('info').addEventListener('click', showDiagnostics);
-el('info2').addEventListener('click', showDiagnostics);
 el('share').addEventListener('click', shareApp);
 el('diag-close').addEventListener('click', () => {
   el('diag').hidden = true;
