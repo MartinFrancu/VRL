@@ -12,7 +12,7 @@
 
 import { clampWithin, draggedTo, frameClockUsable, shortfallLabel, windowFor } from './windows.js';
 
-const VERSION = '0.7.2';
+const VERSION = '0.8.0';
 const MAX_MARKS = 5;
 
 const el = (id) => document.getElementById(id);
@@ -625,7 +625,7 @@ async function shareApp() {
   const url = location.href.split(/[?#]/)[0];
   try {
     if (navigator.share) {
-      await navigator.share({ title: 'VideoReferee Solo', text: 'Film a bout, mark the moments, look at them again.', url });
+      await navigator.share({ title: 'SBA Referee Aid', text: 'Film a bout, mark the moments, look at them again.', url });
       return;
     }
     await navigator.clipboard.writeText(url);

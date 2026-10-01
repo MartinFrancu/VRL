@@ -1,4 +1,4 @@
-# VideoReferee Solo
+# SBA Referee Aid
 
 One referee, one phone, no setup.
 
@@ -22,7 +22,8 @@ browser chrome — and after that first load it works with no signal at all.
 
 ## Where this came from
 
-The sibling of [VideoReferee](https://github.com/MartinFrancu/VideoReferee),
+Built for the SBA. The sibling of
+[VideoReferee](https://github.com/MartinFrancu/VideoReferee),
 which does the same job with several phones and a laptop, and is worth the setup
 when several angles matter. This one is for when setting four phones up was
 never going to happen.

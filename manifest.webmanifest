@@ -1,6 +1,6 @@
 {
-  "name": "VideoReferee Solo",
-  "short_name": "Replay",
+  "name": "SBA Referee Aid",
+  "short_name": "SBA Replay",
   "description": "Film a bout, mark the moments, look at them again. Nothing is kept.",
   "start_url": "./",
   "scope": "./",
