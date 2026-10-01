@@ -65,16 +65,11 @@
         /*
           Every touch belongs to the layer above: marking while filming,
           dragging through the footage while reviewing. Letting the video element
-          see them is what made iOS draw its own play glyph over the picture.
+          see them is what made iOS draw its own play glyph over the picture —
+          so it does not see them, and there is no glyph to hide afterwards.
         */
         pointer-events: none;
       }
-      /* And in case it draws one anyway. These are its controls, not ours. */
-      video::-webkit-media-controls,
-      video::-webkit-media-controls-panel,
-      video::-webkit-media-controls-play-button,
-      video::-webkit-media-controls-start-playback-button,
-      video::-webkit-media-controls-overlay-play-button { display: none !important; }
 
       button {
         font: inherit;

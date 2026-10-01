@@ -1,6 +1,6 @@
 {
   "name": "videoreferee-solo",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "private": true,
   "type": "module",
   "description": "One referee, one phone: film a bout, mark the moments, look at them again.",
