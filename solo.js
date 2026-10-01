@@ -12,7 +12,7 @@
 
 import { clampWithin, draggedTo, frameClockUsable, shortfallLabel, windowFor } from './windows.js';
 
-const VERSION = '0.6.1';
+const VERSION = '0.7.0';
 const MAX_MARKS = 5;
 
 const el = (id) => document.getElementById(id);
@@ -83,6 +83,10 @@ function orientationNow() {
 // ---------------------------------------------------------------- the camera
 
 async function openCamera() {
+  // Whatever was open goes first. Two streams from one camera is a way to be
+  // handed the wrong one.
+  for (const track of stream?.getTracks() ?? []) track.stop();
+
   stream = await navigator.mediaDevices.getUserMedia({
     // The back camera, and as many frames a second as we can get: every extra
     // frame is another position the referee can stop on.
@@ -121,6 +125,45 @@ function watchPreviewFrames() {
     watchPreviewFrames();
   });
 }
+
+/**
+ * Follow the phone, but only while idle.
+ *
+ * The camera hands over a stream shaped the way the phone is being held at the
+ * moment it is asked, and never changes its mind afterwards. So a bout started
+ * upright and then filmed sideways is a portrait recording of a sideways world,
+ * however it looked in the preview — which is what made a landscape bout come
+ * back wrong after a portrait one.
+ *
+ * Asking again whenever the phone turns fixes that, as long as nothing is
+ * relying on the stream staying as it is. Recording is: a recording cannot
+ * change shape halfway through. So the camera is fixed from START until the
+ * bout is let go of, and free the rest of the time.
+ */
+let reopening = false;
+let reopenSoon = null;
+
+async function followOrientation() {
+  const screenNow = document.body.dataset['screen'];
+  if (screenNow !== 'idle' || reopening) return;
+  reopening = true;
+  try {
+    await openCamera();
+  } catch {
+    el('live-note').textContent = 'The camera did not come back. Reload the page.';
+  } finally {
+    reopening = false;
+  }
+}
+
+/** Rotation fires a flurry of these, and the camera is expensive to reopen. */
+function orientationChanged() {
+  clearTimeout(reopenSoon);
+  reopenSoon = setTimeout(followOrientation, 400);
+}
+
+screen.orientation?.addEventListener?.('change', orientationChanged);
+window.addEventListener('orientationchange', orientationChanged);
 
 function onCameraLost() {
   if (!recorder) return;
