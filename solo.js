@@ -12,7 +12,7 @@
 
 import { clampWithin, draggedTo, frameClockUsable, shortfallLabel, windowFor } from './windows.js';
 
-const VERSION = '0.7.0';
+const VERSION = '0.7.1';
 const MAX_MARKS = 5;
 
 const el = (id) => document.getElementById(id);
@@ -204,10 +204,11 @@ function startRecording() {
   const mimeType = pickMimeType();
   recorder = new MediaRecorder(stream, {
     ...(mimeType ? { mimeType } : {}),
-    // Four megabits rather than eight. At the size a phone screen shows this
-    // the difference is invisible, and it halves what a long bout costs — a
-    // minute of filming is about thirty megabytes rather than sixty.
-    videoBitsPerSecond: 4_000_000,
+    // Eight megabits. Four was half the size and visibly worse — fast motion
+    // at 1080p is where a codec spends everything it is given, and a knife
+    // fight is nothing but fast motion. The saving was against a memory
+    // problem nobody had met, which is the kind of economy worth undoing.
+    videoBitsPerSecond: 8_000_000,
   });
   recorder.ondataavailable = (event) => {
     if (event.data.size) chunks.push(event.data);
