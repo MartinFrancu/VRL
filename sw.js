@@ -12,7 +12,7 @@
 // and the next opening has the new version. A version behind is a fair price
 // for never waiting.
 
-const CACHE = 'vrl-v1';
+const CACHE = 'vrl-v2';
 
 const SHELL = [
   './',
@@ -20,6 +20,7 @@ const SHELL = [
   './solo.js',
   './windows.js',
   './manifest.webmanifest',
+  './qr.svg',
   './icon-180.png',
   './icon-192.png',
   './icon-512.png',

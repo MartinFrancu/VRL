@@ -12,7 +12,7 @@
 
 import { clampWithin, draggedTo, frameClockUsable, shortfallLabel, windowFor } from './windows.js';
 
-const VERSION = '0.9.1';
+const VERSION = '0.10.0';
 const MAX_MARKS = 5;
 
 const el = (id) => document.getElementById(id);
@@ -613,29 +613,6 @@ function showDiagnostics() {
 
 // ------------------------------------------------- getting it onto a phone
 
-/**
- * Hand this app to somebody else's phone.
- *
- * The native share sheet rather than anything of our own: on an iPhone that
- * means AirDrop to the referee standing next to you, and on anything else it
- * means whatever they already message each other with. Nothing to install, and
- * the app is a link — so "I'll send it to you" is literally true.
- */
-async function shareApp() {
-  const url = location.href.split(/[?#]/)[0];
-  try {
-    if (navigator.share) {
-      await navigator.share({ title: 'SBA Referee Aid', text: 'Film a bout, mark the moments, look at them again.', url });
-      return;
-    }
-    await navigator.clipboard.writeText(url);
-    el('live-note').textContent = 'Link copied — paste it to whoever needs it.';
-  } catch {
-    // Sharing refused or cancelled. Showing the address is still an answer.
-    el('live-note').textContent = url;
-  }
-}
-
 /** Keep working when the signal does not. See sw.js. */
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
@@ -675,7 +652,6 @@ el('help-close').addEventListener('click', () => {
 });
 
 el('info').addEventListener('click', showDiagnostics);
-el('share').addEventListener('click', shareApp);
 el('diag-close').addEventListener('click', () => {
   el('diag').hidden = true;
 });

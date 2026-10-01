@@ -331,6 +331,22 @@
         color: var(--accent);
       }
       #help b { color: var(--ink); }
+      /* On its own white card: a QR needs a light quiet zone around it or a
+         scanner cannot find its edges against a dark screen. */
+      #help .qr {
+        display: block;
+        width: 180px;
+        height: 180px;
+        margin: 4px 0 8px;
+        background: #fff;
+        border-radius: 8px;
+      }
+      #help .url {
+        font-family: ui-monospace, Menlo, Consolas, monospace;
+        font-size: 13px;
+        color: var(--faded);
+        word-break: break-all;
+      }
       #help .close { width: 100%; margin-top: 24px; padding: 16px; font-size: 16px; }
 
       .note { padding: 12px; color: var(--faded); font-size: 13.5px; text-align: center; }
@@ -364,7 +380,6 @@
           <span class="grow"></span>
           <span class="ver" id="version"></span>
           <button class="icon" id="help-open" title="How to use it">?</button>
-          <button class="icon" id="share" title="Put this on somebody else's phone">&#8599;</button>
           <button class="icon" id="info" title="What this device can do">&#9432;</button>
         </div>
         <p class="tapHint" id="tapHint">tap anywhere to mark</p>
@@ -429,6 +444,15 @@
           <b>BACK</b> from review starts a new bout straight away — the marks you
           were looking at are gone, with no warning. <b>END</b> throws the bout
           away too, but asks first if there are marks you have not looked at.
+        </p>
+
+        <h2>Put it on another phone</h2>
+        <p>Point their camera at this.</p>
+        <img class="qr" src="qr.svg" alt="" width="180" height="180" />
+        <p class="url">martinfrancu.github.io/VRL/</p>
+        <p>
+          They need a signal for that one load and never again — afterwards it
+          runs with no internet at all, like this one does.
         </p>
 
         <button class="close" id="help-close">Close</button>
