@@ -1,6 +1,6 @@
 {
   "name": "sba-referee-aid",
-  "version": "0.10.1",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "description": "One referee, one phone: film a bout, mark the moments, look at them again.",

@@ -12,7 +12,7 @@
 
 import { clampWithin, draggedTo, frameClockUsable, shortfallLabel, windowFor } from './windows.js';
 
-const VERSION = '0.10.1';
+const VERSION = '1.0.0';
 const MAX_MARKS = 5;
 
 const el = (id) => document.getElementById(id);
