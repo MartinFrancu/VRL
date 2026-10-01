@@ -49,11 +49,17 @@ Up to five. Two small buttons underneath:
 - **END** — back to idle. It asks first if you have marks you have not looked
   at, because that is the only thing here that cannot be got back.
 
-**Review** — the numbered marks along the top, the slider underneath, and
-**RECORD**, which drops straight back into filming. Tap the picture to start and
-stop it; the toggle decides whether letting go of the slider carries on playing.
-The readout on the picture is relative to the mark itself, so `+0.00s` is the
-instant you tapped, and the hairline under it is where you are in the window.
+**Review** — the numbered marks along the top, **RECORD** to drop straight back
+into filming, and the picture. **Drag your thumb across the picture** to move
+through the moment: the full width is the full window, which on a phone works
+out finer than one frame per pixel. There is no slider, because the picture is a
+target the size of the screen rather than one six millimetres tall, and it can
+be used without looking down at your hand.
+
+Nothing plays, and a tap does nothing at all — the only thing that moves the
+footage is a thumb asking it to. The readout on the picture is relative to the
+mark itself, so `+0.00s` is the instant you tapped, and the hairline under it is
+where you are in the window.
 
 There is no way from review back to idle except through recording — press
 RECORD then END, which will not nag you because a fresh bout has no marks.
@@ -78,11 +84,11 @@ looking. Find the numbers that suit and tell me what they were.
   afternoon ever gives trouble.
 
 **Frame stepping is gone**, along with the measurement that used to be the first
-line of this panel. The slider is now the only way through a moment, which was
-the right call for a screen with fewer things on it — but it does mean the
-slider has to be able to land where you want. If it turns out it cannot, two
-small ±1 frame buttons beside it bring both the stepping and the measurement
-back, and that is a ten-minute change.
+line of this panel. Dragging is now the only way through a moment, which was the
+right call for a screen with fewer things on it — but it does mean the drag has
+to be able to land where you want. If it turns out it cannot, two small ±1 frame
+buttons bring both the stepping and the measurement back, and that is a
+ten-minute change.
 
 ## What it deliberately does not do
 
@@ -90,7 +96,7 @@ No saving, no settings screen, no audio, and nothing kept between bouts.
 
 ## Reporting back
 
-- Can the slider land on the frame you want, or does it skid past it?
+- Can the drag land on the frame you want, or does it skid past it?
 - Did the marked moment land where you expected, or early, or late?
 - What did you end up setting *before* and *after* to?
 - Did anything stop the camera — a notification, the screen sleeping, switching

@@ -62,7 +62,19 @@
         height: 100%;
         object-fit: contain;
         background: #000;
+        /*
+          Every touch belongs to the layer above: marking while filming,
+          dragging through the footage while reviewing. Letting the video element
+          see them is what made iOS draw its own play glyph over the picture.
+        */
+        pointer-events: none;
       }
+      /* And in case it draws one anyway. These are its controls, not ours. */
+      video::-webkit-media-controls,
+      video::-webkit-media-controls-panel,
+      video::-webkit-media-controls-play-button,
+      video::-webkit-media-controls-start-playback-button,
+      video::-webkit-media-controls-overlay-play-button { display: none !important; }
 
       button {
         font: inherit;
@@ -206,11 +218,24 @@
       }
       #shortfall:empty { display: none; }
 
-      .band { flex: none; padding: 12px 12px 0; display: flex; flex-direction: column; gap: 12px; }
-      /* Tall, because it is the whole interaction on this screen. */
-      #scrub { width: 100%; accent-color: var(--accent); height: 36px; }
-      .toggle { display: flex; align-items: center; gap: 10px; font-size: 13.5px; color: var(--faded); }
-      .toggle input { width: 20px; height: 20px; accent-color: var(--accent); }
+      /*
+        No slider: the picture is the slider. A thumb dragged across it spans the
+        whole window, which is a target the size of the screen instead of one
+        six millimetres tall — and it works without looking down at your hand.
+      */
+      #review .stage { touch-action: none; }
+      .dragHint {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 12px;
+        margin: 0;
+        text-align: center;
+        font-size: 13px;
+        color: rgba(255, 255, 255, 0.7);
+        text-shadow: 0 1px 4px rgba(0, 0, 0, 0.95);
+        pointer-events: none;
+      }
 
       .foot { display: flex; gap: 10px; padding: 12px; flex: none; justify-content: flex-end; }
 
@@ -272,28 +297,16 @@
       /* ---------- held sideways ----------
 
          A fight moves across, not up, so the phone will be held landscape — and
-         a phone on its side has about 400px of height, which the stacked
-         controls would eat entirely. Put them down the right instead and leave
-         the footage the whole of the rest. */
+         a phone on its side has about 400px of height, which stacked controls
+         would eat entirely. Filming puts its two buttons down the right; review
+         has no controls left to move, so the picture simply takes everything
+         under the marks. */
       @media (orientation: landscape) and (max-height: 600px) {
         #live { flex-direction: row; }
         #live-note { display: none; }
         .actions { flex-direction: column; width: 170px; justify-content: center; }
         #start { font-size: 21px; padding: 20px 8px; }
-
-        body[data-screen="review"] #review {
-          display: grid;
-          grid-template-columns: 1fr 290px;
-          grid-template-rows: auto 1fr auto;
-          grid-template-areas:
-            "stage topbar"
-            "stage band"
-            "stage foot";
-        }
-        #review .stage { grid-area: stage; }
-        #topbar { grid-area: topbar; padding-left: 0; }
-        .band { grid-area: band; padding-left: 0; align-self: center; }
-        .foot { grid-area: foot; padding-left: 0; }
+        #tabs button { padding: 8px 0; }
       }
     </style>
   </head>
@@ -333,19 +346,10 @@
       <div class="stage" id="stage">
         <video id="clip" playsinline></video>
         <span id="readout">+0.00s</span>
+        <p class="dragHint">drag anywhere to move through it</p>
         <div id="shortfall"></div>
         <div id="progress"><i></i></div>
       </div>
-
-      <div class="band">
-        <input id="scrub" type="range" step="1" />
-        <label class="toggle">
-          <input id="resume" type="checkbox" checked />
-          keep playing when I let go
-        </label>
-      </div>
-
-      <div class="foot"></div>
     </section>
 
     <!-- ---------------- throwing a bout away ---------------- -->

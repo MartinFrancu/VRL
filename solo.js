@@ -10,9 +10,9 @@
 // to it. One recorder runs for the bout, stopping it hands back a complete file
 // the browser wrote itself, and a mark is a millisecond offset into that file.
 
-import { clampWithin, frameClockUsable, shortfallLabel, windowFor } from './windows.js';
+import { clampWithin, draggedTo, frameClockUsable, shortfallLabel, windowFor } from './windows.js';
 
-const VERSION = '0.4.0';
+const VERSION = '0.5.0';
 const MAX_MARKS = 5;
 
 const el = (id) => document.getElementById(id);
@@ -43,7 +43,6 @@ let durationMs = Number.POSITIVE_INFINITY;
 let current = 0;
 let positionMs = 0;
 let window_ = { startMs: 0, endMs: 0, atMs: 0, shortLeadMs: 0, shortTailMs: 0 };
-let playing = false;
 
 let leadMs = 1500;
 let tailMs = 1000;
@@ -231,7 +230,6 @@ function toReview() {
  * point of having been in here. No confirmation for that reason.
  */
 function toRecord() {
-  pause();
   releaseClip();
   startRecording();
 }
@@ -270,7 +268,6 @@ function endNow() {
 }
 
 function releaseClip() {
-  pause();
   if (blobUrl) URL.revokeObjectURL(blobUrl);
   blobUrl = null;
   clip.removeAttribute('src');
@@ -354,13 +351,7 @@ function renderTabs() {
  */
 function select(index) {
   current = index;
-  pause();
   window_ = windowFor({ atMs: markMs(marks[index]), leadMs, tailMs, durationMs });
-
-  const scrub = el('scrub');
-  scrub.min = String(Math.round(window_.startMs));
-  scrub.max = String(Math.round(window_.endMs));
-
   el('shortfall').textContent = shortfallLabel(window_) ?? '';
   renderTabs();
   // Land on the moment that was marked, not on the start of the run-up.
@@ -378,7 +369,6 @@ function seekTo(ms) {
 function renderPosition() {
   const relative = (positionMs - window_.atMs) / 1000;
   el('readout').textContent = `${relative >= 0 ? '+' : ''}${relative.toFixed(2)}s`;
-  el('scrub').value = String(Math.round(positionMs));
   const span = window_.endMs - window_.startMs;
   const through = span > 0 ? (positionMs - window_.startMs) / span : 0;
   el('progress').firstElementChild.style.width = `${Math.round(through * 100)}%`;
@@ -393,30 +383,40 @@ function watchShownFrame() {
   });
 }
 
-function play() {
-  if (positionMs >= window_.endMs - 20) seekTo(window_.startMs);
-  playing = true;
-  void clip.play().catch(() => pause());
-  follow();
+/**
+ * Moving through the moment by dragging across the picture.
+ *
+ * The whole frame is the control — a target the size of the screen rather than
+ * a slider six millimetres tall, and one that can be used without looking down
+ * at your own hand. The full width spans the full window, which on a phone
+ * works out finer than one frame per pixel.
+ *
+ * Relative to where the footage already was, not to where the thumb landed: an
+ * absolute mapping would jump the picture the instant it was touched, and the
+ * instant it is touched is the moment somebody is trying to look at it.
+ *
+ * Nothing plays here. A tap does nothing at all, deliberately — the only thing
+ * that moves the footage is a thumb asking it to.
+ */
+let draggingFromMs = 0;
+let draggingFromX = 0;
+
+function onDragStart(event) {
+  draggingFromMs = positionMs;
+  draggingFromX = event.clientX;
+  el('stage').setPointerCapture?.(event.pointerId);
 }
 
-function pause() {
-  if (!playing) return;
-  clip.pause();
-  playing = false;
-}
-
-/** Stop at the end of the window rather than running on into the rest of the bout. */
-function follow() {
-  if (!playing) return;
-  positionMs = clip.currentTime * 1000;
-  renderPosition();
-  if (positionMs >= window_.endMs || clip.ended) {
-    pause();
-    seekTo(window_.endMs);
-    return;
-  }
-  requestAnimationFrame(follow);
+function onDragMove(event) {
+  if (!event.buttons) return;
+  const width = el('stage').clientWidth || 1;
+  seekTo(
+    draggedTo({
+      fromMs: draggingFromMs,
+      acrossFraction: (event.clientX - draggingFromX) / width,
+      window: window_,
+    })
+  );
 }
 
 // ---------------------------------------------------------------- the trimmings
@@ -560,25 +560,15 @@ el('camera').addEventListener('pointerdown', (event) => {
   markAt();
 });
 
-// On the review screen the picture starts and stops the footage instead.
-el('stage').addEventListener('pointerdown', () => {
-  if (playing) pause();
-  else play();
-});
+// On the review screen the picture is the scrubber instead.
+el('stage').addEventListener('pointerdown', onDragStart);
+el('stage').addEventListener('pointermove', onDragMove);
 
 el('info').addEventListener('click', showDiagnostics);
 el('info2').addEventListener('click', showDiagnostics);
 el('share').addEventListener('click', shareApp);
 el('diag-close').addEventListener('click', () => {
   el('diag').hidden = true;
-});
-
-el('scrub').addEventListener('input', (event) => {
-  pause();
-  seekTo(Number(event.target.value));
-});
-el('scrub').addEventListener('change', () => {
-  if (el('resume').checked) play();
 });
 
 for (const [input, get, set] of [
