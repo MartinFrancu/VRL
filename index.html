@@ -113,7 +113,9 @@
       body[data-screen="idle"] #elapsed,
       body[data-screen="idle"] #dots { display: none; }
 
-      #dots { display: flex; gap: 6px; }
+      /* One per mark, however many that turns out to be. It wraps rather than
+         running off the edge, which only happens at counts no bout reaches. */
+      #dots { display: flex; gap: 6px; flex-wrap: wrap; max-width: 60%; row-gap: 4px; }
       #dots i {
         width: 11px;
         height: 11px;
@@ -176,8 +178,27 @@
       /* ---------- review ---------- */
 
       #topbar { display: flex; gap: 8px; padding: 10px 12px 0; flex: none; align-items: stretch; }
-      #tabs { display: flex; gap: 8px; flex: 1; min-width: 0; }
-      #tabs button { flex: 1; font-size: 20px; font-weight: 700; padding: 12px 0; }
+      /* Five shared the width comfortably; twelve would be slivers. So they keep
+         a size a thumb can hit and the strip scrolls instead. */
+      #tabs {
+        display: flex;
+        gap: 8px;
+        flex: 1;
+        min-width: 0;
+        overflow-x: auto;
+        scrollbar-width: none;
+        -webkit-overflow-scrolling: touch;
+        scroll-snap-type: x proximity;
+      }
+      #tabs::-webkit-scrollbar { display: none; }
+      #tabs button {
+        flex: 1 0 auto;
+        min-width: 56px;
+        font-size: 20px;
+        font-weight: 700;
+        padding: 12px 0;
+        scroll-snap-align: start;
+      }
       #tabs button.on { border-color: var(--accent); color: var(--accent); }
       #toRecord { font-size: 13px; padding: 12px 10px; flex: none; border-color: var(--mark); color: var(--mark); }
 
@@ -436,7 +457,7 @@
         <h2>How to use it</h2>
         <ol>
           <li>Point it at the fight and press <b>START</b>. Hold the phone the way you want to film <b>before</b> you press it.</li>
-          <li><b>Tap the picture</b> whenever you see something worth a second look. It keeps filming — up to five times.</li>
+          <li><b>Tap the picture</b> whenever you see something worth a second look. It keeps filming, and you can mark as often as you like.</li>
           <li>Press <b>REVIEW</b> when the fight is stopped.</li>
           <li><b>Drag across the picture</b> to move through the moment. The numbers switch between your marks, and <b>BACK</b> returns to filming.</li>
         </ol>

@@ -12,8 +12,7 @@
 
 import { clampWithin, draggedTo, frameClockUsable, shortfallLabel, windowFor } from './windows.js';
 
-const VERSION = '1.0.0';
-const MAX_MARKS = 5;
+const VERSION = '1.1.0';
 
 const el = (id) => document.getElementById(id);
 const preview = el('preview');
@@ -249,7 +248,7 @@ function startRecording() {
  * let the review screen use whichever can be believed.
  */
 function markAt() {
-  if (!recorder || recorder.state !== 'recording' || marks.length >= MAX_MARKS) return;
+  if (!recorder || recorder.state !== 'recording') return;
   marks.push({
     wallMs: performance.now() - startedAtWallMs,
     frameMs:
@@ -425,16 +424,27 @@ function markMs(mark) {
   return markSource === 'frame' && frameClockUsable(marks) ? mark.frameMs : mark.wallMs;
 }
 
+/** Built once per bout. Rebuilding on every change would throw away where the
+ *  strip is scrolled to, which with a dozen marks means jumping back to the
+ *  first one every time you choose the twelfth. */
 function renderTabs() {
   const tabs = el('tabs');
   tabs.innerHTML = '';
   marks.forEach((_mark, index) => {
     const button = document.createElement('button');
     button.textContent = String(index + 1);
-    button.className = index === current ? 'on' : '';
     button.addEventListener('click', () => select(index));
     tabs.append(button);
   });
+}
+
+/** Which one is being looked at, and keeping it where it can be seen. */
+function markActiveTab() {
+  const tabs = [...el('tabs').children];
+  tabs.forEach((button, index) => button.classList.toggle('on', index === current));
+  // 'nearest' on both axes: enough to bring it into the strip, not enough to
+  // scroll the screen underneath it.
+  tabs[current]?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 }
 
 /**
@@ -445,7 +455,7 @@ function select(index) {
   current = index;
   window_ = windowFor({ atMs: markMs(marks[index]), leadMs, tailMs, durationMs });
   el('shortfall').textContent = shortfallLabel(window_) ?? '';
-  renderTabs();
+  markActiveTab();
   // Land on the moment that was marked, not on the start of the run-up.
   seekTo(window_.atMs);
 }
@@ -516,19 +526,19 @@ function onDragMove(event) {
 
 // ---------------------------------------------------------------- the trimmings
 
+/** One dot per mark taken, so the count is read rather than counted. */
 function renderDots() {
   const dots = el('dots');
   dots.innerHTML = '';
-  for (let index = 0; index < MAX_MARKS; index += 1) {
+  for (const _mark of marks) {
     const dot = document.createElement('i');
-    if (index < marks.length) dot.className = 'on';
+    dot.className = 'on';
     dots.append(dot);
   }
 }
 
 function renderTapHint() {
-  el('tapHint').textContent =
-    marks.length >= MAX_MARKS ? `all ${MAX_MARKS} marks used` : 'tap anywhere to mark';
+  el('tapHint').textContent = 'tap anywhere to mark';
 }
 
 function tickElapsed() {

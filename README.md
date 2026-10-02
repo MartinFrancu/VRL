@@ -2,8 +2,8 @@
 
 One referee, one phone, no setup.
 
-Film a bout. **Tap the picture** when you see something worth a second look — up
-to five times, and it keeps filming. When the fight is stopped, hit **REVIEW**
+Film a bout. **Tap the picture** when you see something worth a second look —
+as often as you like, and it keeps filming. When the fight is stopped, hit **REVIEW**
 and every mark is there to look at: the second and a half before it and the
 second after, scrubbed through as slowly as you like.
 

@@ -42,7 +42,7 @@ at a pair you already have.
 whole picture is the button, because the referee is watching the fight rather
 than the screen and the target has to be findable without looking; it flashes
 and buzzes so you know it took, and the dots along the top count what you have.
-Up to five. Two small buttons underneath:
+As many as you like. Two small buttons underneath:
 
 - **REVIEW** — grey until you have marked something, so the grey also tells you
   whether you have.
