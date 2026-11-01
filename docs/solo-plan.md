@@ -1,4 +1,4 @@
-# SBA Referee Aid — plan
+# SBA Replay Lite — plan
 
 A second, much smaller tool: **one referee, one phone, no laptop, no setup**.
 Parallel to the main version, not a replacement for it.
