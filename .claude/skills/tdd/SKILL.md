@@ -1,6 +1,6 @@
 ---
 name: tdd
-description: The TDD working agreement for this repo — red/green/refactor discipline, the test list protocol, batch size, and when to stop and ask. Use whenever writing or changing code in src/, and whenever adding or reordering tests. Follows tdd.mooc.fi.
+description: The TDD working agreement for this repo — red/green/refactor discipline, batch size, where the levels are, and when to stop and ask. Use whenever writing or changing code, and whenever adding or reordering tests. Follows tdd.mooc.fi.
 ---
 
 # TDD in this repo
@@ -21,7 +21,7 @@ checkpoints that make the friction visible anyway.
 
 ## The loop, with the checkpoints that matter
 
-For each item taken from `docs/TESTLIST.md`:
+For each item on the list agreed in the chunk description:
 
 1. **Write one test.** Name it as a sentence about behaviour, not about the
    implementation. The bar: *if all production code vanished, could someone
@@ -57,23 +57,31 @@ to correct before there are five tests pinning it in place.
   replaces the annoyance a human would have felt.* Say what was awkward and what
   the design might want instead; do not silently write the awkward test.
 - A test would be **deleted or weakened** to get to green.
-- The `## Now` section of the test list runs dry.
+- The agreed list runs dry.
 - More than a few minutes of thrashing: prefer `git reset --hard` and smaller
   steps over pushing through.
 
 ## The test list
 
-`docs/TESTLIST.md` is the working artifact, and it lives in the repo rather than in
-a conversation because conversations end and sessions lose context.
+There is no test-list file here. The list is the one written out in the chunk
+description and agreed before building — the `chunks` skill requires that
+description anyway, so the list is already where the yes was given.
 
-- `## Now` — ordered, the next handful. The human sets this order.
-- `## Later` — unordered, everything noticed along the way. Add freely; noticing a
-  case mid-loop and writing it down is how the list stays honest.
-- `## Done` — append-only.
-- `## Design smells` — the reports from the rule above, so they accumulate visibly
-  instead of being mentioned once and forgotten.
+What that costs: a list only lives as long as the conversation. So anything
+noticed mid-loop and not being done now goes to `docs/BACKLOG.md` in the same
+commit, which is the part that does have to outlive the session.
 
-Update the list in the same commit as the work.
+## Characterization tests are the one exception to law 1
+
+Law 1 says no production code without a failing test. Pinning behaviour that
+already works inverts it: the code exists, and the test is written to pass
+first time against it.
+
+That makes step 2 of the loop — read the failure — impossible as written, and
+it is the step that catches a test asserting nothing. So substitute for it:
+**break the behaviour on purpose, watch the new test go red, then put it back.**
+Paste that red into the conversation the same way. A characterization test that
+was never seen to fail is decoration.
 
 ## What good tests look like here
 
@@ -84,33 +92,51 @@ Update the list in the same commit as the work.
   both.
 - **Only fake what we own.** Do not mock `MediaRecorder`, the filesystem, or a
   socket — put our own seam in front of it and fake that.
-- **Time is a parameter, never a global.** Nothing in `src/core/` calls
-  `Date.now()` or `performance.now()`; the caller passes the instant in. This is
-  what makes the alignment logic deterministic.
+- **Time is a parameter, never a global.** Nothing in a pure module calls
+  `Date.now()` or `performance.now()`; the caller passes the instant in.
+  `windows.js` is the example — it does arithmetic on milliseconds handed to it,
+  which is why a sign error in it is catchable at all.
+- **Assert relationships, not clock readings.** A browser test films a real
+  recording, so the millisecond a mark lands on differs every run. "the second
+  mark is later than the first" holds; "the second mark is at 2.933s" is a
+  coin toss dressed up as an assertion.
 
 ## Levels, and where to spend effort
 
-Most of the value lives in the first level:
+Two levels, and — unlike the multi-camera version — **the slow one carries the
+suite**. That inversion is deliberate and worth understanding before arguing
+with it.
 
-- **Unit — `src/core/`.** Pure functions, no IO. Container parsing, keyframe
-  detection, timestamp rebasing, clock-offset maths, bout state. Fast, deterministic,
-  fixture-driven. This is where TDD actually runs.
-- **Integration — `src/hub/`.** Real hub, fake cameras that replay committed
-  fixture recordings. No browser needed. This is possible *because* phones are dumb
-  (see INV-2, INV-3 in `docs/architecture.md`) — protect that property.
-- **End-to-end — Playwright.** Real browsers, fake camera streams. **Cap at ~10
-  total.** They are the only tests that can catch "the wire is wrong", and they are
-  too slow and flaky to carry the suite.
+- **Unit — the pure modules.** `windows.js` today: milliseconds in,
+  milliseconds out, no DOM and no browser. Fast, deterministic, and where TDD
+  proper runs. Every piece of logic that *can* live here should, because this is
+  the only level where a test is cheap.
+- **End-to-end — Playwright, real Chromium, fake camera.** `e2e/`. Everything
+  else: the mode machine, the recorder's lifecycle, the blob plumbing, the
+  seeking, the gestures. **No cap.**
 
-## Fixtures
+The multi-camera version caps end-to-end tests at about ten, because there it
+has a large pure core beneath it and the browser is only there to check the
+wiring. Here there is no such core — the app is one file of DOM code — so a cap
+would mean most of the behaviour going untested. Lift the cap, and accept the
+cost: the browser tests take tens of seconds, so `npm run test:unit` is what you
+run while working and `npm test` is what you run before releasing.
 
-Committed recordings under `fixtures/`. Generate new ones with
-`tools/make-alignment-fixtures.mjs`, which burns a shared-epoch clock into the
-video as digits and as a machine-readable binary bar — so a test can assert
-*which instant* a decoded frame shows, not merely that decoding worked.
+The honest way to shrink this level is to move logic *down* into pure modules
+until the browser tests only have the browser left to check. That is a refactor,
+and it is the direction of travel — not a reason to skip the test today.
 
-Keep fixtures small (a few seconds), and record what each one is for in a
-`fixtures/README.md` — an unexplained binary blob is worse than no fixture.
+## What the browser cannot tell us
+
+The fake camera runs in headless Chromium on a desktop. The two worst bugs this
+app has had — a live stream's `mediaTime` stuck at zero on iOS, and the camera
+stream's shape being frozen at `getUserMedia` time — **would both pass this
+suite green.**
+
+So the suite is not the whole net. It covers logic and wiring. Device behaviour
+is covered by a short list run by hand on a real phone before a release, and by
+the quirks recorded as comments at the line each one bit. Never delete one of
+those comments during a refactor without carrying it to the new line.
 
 ## The failure modes this file exists to prevent
 

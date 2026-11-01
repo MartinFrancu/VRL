@@ -81,11 +81,22 @@ it does not move between branches without being asked for.
 ## Every chunk carries its own paperwork
 
 1. **One commit**, subject starting `R: `, `B: ` or `D: `.
-2. **Bump the patch version** — the third number, `0.0.1` → `0.0.2` — in
-   `package.json`, `package-lock.json`, `web/operator/package.json` and
-   `web/operator/package-lock.json`.
+2. **Bump the patch version** — the third number, `1.1.1` → `1.1.2` — in
+   **both** manifests this repo has:
+   - `package.json`
+   - `package-lock.json`, where it appears **twice**: the top-level `"version"`
+     and the one inside `packages.""`. Nothing else. Several dependencies carry
+     a version that happens to read `1.1.1` too, so change the two by hand and
+     never by search-and-replace.
+   - `solo.js`, the `VERSION` constant — this is the one shown on the idle
+     screen and in the diagnostics panel, so a referee reporting a problem is
+     reading *this* number. A browser test asserts it matches `package.json`,
+     which is what stops the three drifting apart.
 3. **One entry in `CHANGELOG.md`**, under the new version, marked with the same
    letter.
+
+There is no `web/operator/` here. That is the multi-camera version's Angular
+app, in the other repository.
 
 ## Edge cases, held lightly
 
