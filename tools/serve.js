@@ -9,9 +9,13 @@ import { createServer } from 'node:https';
 import { join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { ensureCerts } from './certs.js';
+
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
 const BASE = '/VRL/';
-const PORT = 4443;
+// The browser tests start their own copy on a free port, so this is only the
+// default for a human running `npm run serve`.
+const PORT = Number(process.env['VRL_PORT'] ?? 4443);
 
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -23,11 +27,12 @@ const TYPES = {
   '.css': 'text/css; charset=utf-8',
 };
 
-const certDir = process.env['VRL_CERTS'] ?? join(ROOT, 'certs');
+// Made on first run rather than committed — see tools/certs.js.
+const { key, cert } = ensureCerts(process.env['VRL_CERTS'] ?? join(ROOT, 'certs'));
 const server = createServer(
   {
-    key: readFileSync(join(certDir, 'key.pem')),
-    cert: readFileSync(join(certDir, 'cert.pem')),
+    key: readFileSync(key),
+    cert: readFileSync(cert),
   },
   (req, res) => {
     const path = decodeURIComponent((req.url ?? '/').split('?')[0]);

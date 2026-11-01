@@ -1,0 +1,40 @@
+name: tests
+
+# Every push, on every branch, and every pull request.
+#
+# Not just main, deliberately: main is what GitHub Pages serves, so by the time
+# a failure shows up there it has already gone out to whatever phones have the
+# app installed. Running on branches is what makes it possible to see a change
+# is green *before* it becomes the thing referees are using.
+#
+# Worth knowing: this does not *stop* a deploy. Pages publishes from its branch
+# as soon as it is pushed, without waiting for anything. Gating the deploy on a
+# green run means moving Pages over to deploying from a workflow instead, which
+# is a change to how the site is published and is not made here.
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # The browser the end-to-end tests drive. `--with-deps` adds the system
+      # libraries a headless Chromium needs on a bare runner.
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      # The https certificate for localhost is generated on first use
+      # (tools/certs.js), so there is nothing to set up here.
+      - run: npm test

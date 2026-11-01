@@ -76,14 +76,42 @@ repository is what runs, and `git push` is the deploy.
 
 ```
 npm install
-npm test          # the window arithmetic, which is the only logic worth testing
-npm run serve     # https://localhost:4443/VRL/
+npx playwright install chromium   # once, ever — the browser the tests drive
+npm run serve                     # https://localhost:4443/VRL/
 ```
 
 `npm run serve` uses the same `/VRL/` sub-path as GitHub Pages on purpose: a
 manifest or a service worker whose scope assumes the root fails in ways that
-only appear on a phone. It wants `certs/key.pem` and `certs/cert.pem` — the
-camera will not start without https — or point `VRL_CERTS` at a pair you have.
+only appear on a phone. It makes its own https certificate on first run
+(`tools/certs.js`), since the camera will not start without one — or point
+`VRL_CERTS` at a pair you already have.
+
+### The tests
+
+```
+npm test            # everything. ~21s. what to run before releasing
+npm run test:unit   # the window arithmetic. ~1s. what to run while working
+npm run test:e2e    # a real browser filming real bouts. ~20s
+npm run test:watch  # the fast ones, re-running as you type
+
+npm run test:e2e:headed    # the same, but watch it happen in a window
+```
+
+Green reads `Tests  35 passed (35)`. A failure names itself as a sentence —
+`× places the three marks in order, as far apart as they were taken` — so a red
+run says what broke without anyone reading the code.
+
+`test:e2e:headed` is the one worth running once out of curiosity: a browser
+window opens and you watch a bout being filmed, tapped three times, reviewed,
+dragged and ended. It is also the fastest way to see *where* a failure happens.
+
+**What the tests cannot see.** They run in headless Chromium on a desktop with
+a synthetic camera. Both of the worst bugs this app has had — a live stream's
+frame clock reading zero on iOS, and the camera keeping the shape it had when it
+was first asked — would pass this suite green. So a release still wants a few
+minutes on a real phone. The device-specific traps are written down as comments
+at the line each one bit; a refactor must carry those comments along with the
+code they explain.
 
 | File | |
 |---|---|
@@ -91,6 +119,9 @@ camera will not start without https — or point `VRL_CERTS` at a pair you have.
 | `solo.js` | the camera, the marks, the three screens |
 | `windows.js` | which slice of the recording a mark shows. Pure, and tested |
 | `sw.js` | the offline cache |
+| `e2e/harness.js` | drives the real app in a real browser. The only file that knows an element id |
+| `e2e/workflow.test.js` | what the app does, pinned from the outside |
+| `tools/certs.js` | the https certificate for localhost, made on demand |
 | `tools/make-icons.mjs` | the icons, from `logo.png` |
 | `tools/make-qr.mjs` | the QR, if the address ever changes |
 

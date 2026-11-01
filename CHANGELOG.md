@@ -8,6 +8,19 @@ One entry per chunk, newest first, marked with the chunk's own letter:
 
 See `.claude/skills/chunks/SKILL.md` for the agreement these letters come from.
 
+## 1.1.3
+
+- **R** — The workflow is pinned from the outside by 17 browser tests, driving
+  the real app in real Chromium against a synthetic camera: filming, marking,
+  reviewing, dragging, the asking before a bout is thrown away, and opening with
+  the network cut. No behaviour changed. Each test was checked by breaking the
+  app on purpose and watching it fail — ten mutations, ten kills, including the
+  one that reproduces the bug where every mark of a bout landed on the same
+  instant. They run in CI on every push, on every branch, so a change can be
+  seen green before it becomes the thing referees are using. The https
+  certificate they need is now generated on first use rather than assumed to
+  exist, so the suite works from a clean clone.
+
 ## 1.1.2
 
 - **D** — The working agreement now matches this repository. `CHANGELOG.md` and
