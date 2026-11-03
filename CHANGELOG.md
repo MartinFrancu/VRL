@@ -8,6 +8,16 @@ One entry per chunk, newest first, marked with the chunk's own letter:
 
 See `.claude/skills/chunks/SKILL.md` for the agreement these letters come from.
 
+## 1.1.4
+
+- **R** — `docs/architecture.md`: the shape being moved towards, as six layers
+  each sharing a data structure with one neighbour. Records the two findings the
+  design turns on — that answering "what does this moment look like?" with an
+  array makes several phones a different number rather than a different design,
+  and that instant replay, the highlight video and trimming for storage are one
+  operation with three sinks. Also where each undecided thing lives so it can
+  stay undecided, where today's code goes, and why no framework. Nothing built.
+
 ## 1.1.3
 
 - **R** — The workflow is pinned from the outside by 17 browser tests, driving
