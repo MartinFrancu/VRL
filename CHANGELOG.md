@@ -8,6 +8,19 @@ One entry per chunk, newest first, marked with the chunk's own letter:
 
 See `.claude/skills/chunks/SKILL.md` for the agreement these letters come from.
 
+## 1.1.5
+
+- **R** — `src/contracts.ts`: the shapes the layers agree on, as TypeScript
+  types and nothing else. No runtime, no imports, nothing wired — it exists so
+  the data structures can be argued about before logic is written against them.
+  TypeScript is type-checked only (`npm run typecheck`, now part of `npm test`
+  and so of CI) and compiled never, because nothing in `src/` has reached the
+  browser; vitest transpiles it for tests on its own. The checker was verified
+  by making six mistakes on purpose — a take's id passed as a mark's, a read
+  inside an opaque handle, a write to a read-only field, an unchecked array
+  index, a record version of 2, an explicitly-undefined optional — and watching
+  each one be refused.
+
 ## 1.1.4
 
 - **R** — `docs/architecture.md`: the shape being moved towards, as six layers

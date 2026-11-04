@@ -1,0 +1,37 @@
+// Type-checking only — noEmit.
+//
+// Nothing here is compiled, because nothing in src/ has reached the browser
+// yet: vitest transpiles TypeScript itself for the tests. The build step
+// becomes a real question the day a layer is wired into the running app, and
+// docs/architecture.md has the two honest answers ready for then.
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+
+    // NodeNext forces relative imports to carry an explicit .js extension,
+    // which is what plain ESM in a browser needs. Writing them that way from
+    // the start means the sources are already shippable, and vitest resolves
+    // ./foo.js to ./foo.ts for us.
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+
+    "strict": true,
+
+    // Beyond strict, and both chosen for this app specifically: indexing an
+    // array can return undefined, and an optional field is absent rather than
+    // explicitly undefined. The bugs that have actually shipped here were
+    // millisecond arithmetic going quietly wrong, which is what these catch.
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitReturns": true,
+
+    "noEmit": true,
+    "skipLibCheck": true
+  },
+  "include": ["src/**/*.ts"]
+}

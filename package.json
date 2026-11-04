@@ -1,12 +1,13 @@
 {
   "name": "sba-replay-lite",
-  "version": "1.1.4",
+  "version": "1.1.5",
   "private": true,
   "type": "module",
   "description": "One referee, one phone: film a bout, mark the moments, look at them again.",
   "license": "GPL-3.0",
   "scripts": {
-    "test": "vitest run",
+    "test": "npm run typecheck && vitest run",
+    "typecheck": "tsc",
     "test:unit": "vitest run --project unit",
     "test:e2e": "vitest run --project e2e",
     "test:e2e:headed": "VRL_HEADED=1 vitest run --project e2e",
@@ -15,6 +16,7 @@
   },
   "devDependencies": {
     "playwright": "^1.62.1",
+    "typescript": "5.9.3",
     "vitest": "^3.0.5"
   }
 }

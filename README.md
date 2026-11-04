@@ -89,7 +89,8 @@ only appear on a phone. It makes its own https certificate on first run
 ### The tests
 
 ```
-npm test            # everything. ~21s. what to run before releasing
+npm test            # typecheck + everything. ~22s. before releasing
+npm run typecheck   # the types in src/ only. ~2s
 npm run test:unit   # the window arithmetic. ~1s. what to run while working
 npm run test:e2e    # a real browser filming real bouts. ~20s
 npm run test:watch  # the fast ones, re-running as you type
@@ -118,6 +119,7 @@ code they explain.
 | `index.html` | every screen, and all the styling |
 | `solo.js` | the camera, the marks, the three screens |
 | `windows.js` | which slice of the recording a mark shows. Pure, and tested |
+| `src/contracts.ts` | the shapes the layers agree on. Types only, nothing wired yet |
 | `sw.js` | the offline cache |
 | `e2e/harness.js` | drives the real app in a real browser. The only file that knows an element id |
 | `e2e/workflow.test.js` | what the app does, pinned from the outside |
