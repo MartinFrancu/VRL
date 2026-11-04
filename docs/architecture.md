@@ -155,14 +155,32 @@ to get right and should move with their internals and their comments intact.
 | Layer | From `solo.js` / `windows.js` |
 |---|---|
 | 0 Media | `pickMimeType`, the `Blob` assembly in `finish`, `measureDuration`, `releaseClip`, the blob URL |
-| 1 Capture | `openCamera`, `watchPreviewFrames`, `followOrientation`, `orientationChanged`, `onCameraLost`, `startRecording`, `stopRecorder`, `filmed`, `keepAwake` |
-| 2 Bout | `marks`, `markAt`'s two readings, `markMs`, `markSource`, `frameClockUsable`, and all of `windows.js` |
+| 1 Capture | `openCamera`, `watchPreviewFrames`, `followOrientation`, `orientationChanged`, `onCameraLost`, `startRecording`, `stopRecorder`, `filmed`, `keepAwake`, and — corrected below — `markAt`'s two readings, `markMs`, `markSource`, `frameClockUsable` |
+| 2 Bout | `marks`, and all of `windows.js` |
 | 3 Render | `seekTo`, `select`, `renderPosition`, `watchShownFrame`, `clampWithin`, `draggedTo`, `positionMs` |
 | 4 UI | every `el(...)`, `screenIs`, `renderDots`, `renderTabs`, `markActiveTab`, `tickElapsed`, the confirm dialog, help, diagnostics, the wiring block |
 | 5 Store | nothing yet |
 
 `windows.js` moving into Bout brings its 18 tests with it unchanged, which is
 why Bout is a good place to start: the first layer out has a net already.
+
+### Correction, from building Bout
+
+This table first put `markMs`, `markSource` and `frameClockUsable` in Bout.
+Writing Bout showed they belong in **Capture**, and the change is worth stating
+rather than quietly making.
+
+Those three exist to turn a device instant into an offset into a recording —
+choosing between the page's clock and the camera's, and refusing a camera clock
+that never ran. That is a question about a recording and the device that made
+it, which is Capture's subject, and it is where every other device quirk already
+lives. Bout should be handed marks already resolved onto the bout's clock.
+
+The payoff is that `Mark` stays `{ id, atMs }`. If Bout held both readings, the
+iOS quirk would be visible in the type that Store and the AI dataset are built
+from, and a device's oddity would have leaked into the format. Capture resolves
+it at stop, when it has all the readings and can see whether the camera's clock
+ran.
 
 ## How the tests come along
 

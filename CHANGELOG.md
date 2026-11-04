@@ -8,6 +8,20 @@ One entry per chunk, newest first, marked with the chunk's own letter:
 
 See `.claude/skills/chunks/SKILL.md` for the agreement these letters come from.
 
+## 1.1.6
+
+- **R** — The Bout layer: `src/bout/bout.ts`, with 14 tests written against it
+  test-first. Marks in the order they happened, a duplicate id refused, how far
+  a bout reaches (the furthest angle, not the first to stop), and cutting it
+  down to what is worth watching. One mark cut is instant replay; several is the
+  highlight video; they are the same function. Eleven mutations, eleven kills,
+  no survivors. Nothing is wired to it yet, so behaviour is unchanged. Two
+  findings recorded rather than acted on: the clock-choosing code belongs in
+  Capture, not here (`docs/architecture.md`), and serialising a bout kept as
+  snippets does not model cleanly yet, so it waits for Store
+  (`docs/BACKLOG.md`). Also fixes the `unit` test project, which only matched
+  root-level `.js` and so silently ran none of the new tests.
+
 ## 1.1.5
 
 - **R** — `src/contracts.ts`: the shapes the layers agree on, as TypeScript

@@ -12,8 +12,10 @@ export default defineConfig({
       {
         test: {
           name: 'unit',
-          // Root level only — otherwise this picks up the browser tests too.
-          include: ['*.test.js'],
+          // The old root-level tests, plus the layers under src/. Spelled out
+          // rather than left to the default, which would swallow the browser
+          // tests in e2e/ as well.
+          include: ['*.test.js', 'src/**/*.test.ts'],
         },
       },
       {

@@ -8,6 +8,20 @@ Unordered. Nothing here is a commitment.
 
 ## Open questions — decide before building
 
+- **How does a bout saved as snippets read back?** Serialisation was left out of
+  the Bout layer on purpose, because the snippets case does not model cleanly
+  yet. `StoredTake.media` is a list of pieces, but `Take.media` is one handle.
+  Reading back a bout kept as marked windows therefore wants one of:
+  - `Take.media` becomes a list, and a take is assembled from pieces; or
+  - each snippet reads back as its own short take, positioned by `startedAtMs`
+    — which is tidier, except that `clock: { kind: 'take', take: t1 }` then
+    names a take that no longer exists on its own.
+
+  Neither is obviously right, and the answer depends on the whole-versus-windows
+  decision below. `toRecord` and `fromRecord` should be written with Store, once
+  that is settled, rather than guessed at now. Whole-footage serialisation is
+  straightforward either way.
+
 - **Should BACK discard the bout without asking?** Today it does: leaving review
   for the recording screen throws the marks away on the reasoning that you have
   just looked at them. Deliberately left out of the characterization suite in
