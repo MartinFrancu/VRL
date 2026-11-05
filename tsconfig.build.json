@@ -1,0 +1,17 @@
+// Emitting, for the browser. `tsconfig.json` is the type-checking pass.
+//
+// Plain tsc with no bundler: each module comes out as its own ES module with
+// its imports intact, which is why the sources are written with explicit .js
+// extensions. What lands in app/ is what the browser loads.
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "outDir": "app",
+    "rootDir": "src",
+    "removeComments": false,
+    "sourceMap": true
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["src/**/*.test.ts"]
+}

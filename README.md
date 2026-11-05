@@ -71,14 +71,26 @@ Still a prototype, and still being shaped by use.
 
 ## Working on it
 
-Plain HTML, CSS and JavaScript. No framework and no build step — what is in the
-repository is what runs, and `git push` is the deploy.
+No framework, by choice — the whole app is around 50 KB of source, and a
+framework runtime would be several times the thing it was added to. The reasons
+are in [docs/architecture.md](docs/architecture.md).
+
+The core is TypeScript, compiled by `tsc` alone with no bundler. What is in the
+repository is still what runs, and `git push` is still the deploy.
 
 ```
 npm install
 npx playwright install chromium   # once, ever — the browser the tests drive
+npm run build                     # src/*.ts -> app/*.js
 npm run serve                     # https://localhost:4443/VRL/
 ```
+
+**There is a build step now, and its output is committed.** `src/` is
+TypeScript; `app/` is what `tsc` emits and what the browser actually loads.
+They are both in the repository so that `git push` is still the deploy and
+GitHub Pages has nothing to compile. CI checks that `app/` matches `src/`, so
+if you change a layer, run `npm run build` and commit the result — a stale
+`app/` fails the build rather than shipping quietly.
 
 `npm run serve` uses the same `/VRL/` sub-path as GitHub Pages on purpose: a
 manifest or a service worker whose scope assumes the root fails in ways that
@@ -89,8 +101,9 @@ only appear on a phone. It makes its own https certificate on first run
 ### The tests
 
 ```
-npm test            # typecheck + everything. ~22s. before releasing
+npm test            # typecheck + everything. ~21s. before releasing
 npm run typecheck   # the types in src/ only. ~2s
+npm run build       # compile src/ to app/. ~2s
 npm run test:unit   # the window arithmetic. ~1s. what to run while working
 npm run test:e2e    # a real browser filming real bouts. ~20s
 npm run test:watch  # the fast ones, re-running as you type
@@ -117,9 +130,13 @@ code they explain.
 | File | |
 |---|---|
 | `index.html` | every screen, and all the styling |
-| `solo.js` | the camera, the marks, the three screens |
-| `windows.js` | which slice of the recording a mark shows. Pure, and tested |
-| `src/contracts.ts` | the shapes the layers agree on. Types only, nothing wired yet |
+| `solo.js` | the shell: the camera, the elements, the gestures |
+| `src/contracts.ts` | the shapes the layers agree on. Types only |
+| `src/bout/` | a bout and its marks, and cutting it to what is worth watching |
+| `src/capture/` | filming one bout, and which clock places its marks |
+| `src/render/` | where the playhead is, and what moves it |
+| `src/media/` | the codec boundary. The only file that knows mp4 from webm |
+| `app/` | the above, compiled. What the browser loads. Do not edit |
 | `sw.js` | the offline cache |
 | `e2e/harness.js` | drives the real app in a real browser. The only file that knows an element id |
 | `e2e/workflow.test.js` | what the app does, pinned from the outside |

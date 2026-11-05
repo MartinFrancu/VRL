@@ -8,6 +8,21 @@ One entry per chunk, newest first, marked with the chunk's own letter:
 
 See `.claude/skills/chunks/SKILL.md` for the agreement these letters come from.
 
+## 1.1.7
+
+- **R** — The rest of the separation, and the wiring. `src/capture/` (filming
+  one bout, split into the pure clock and the lifecycle), `src/render/`
+  (the playhead, gestures and readout) and `src/media/` (the codec boundary —
+  the only file that knows mp4 from webm). `solo.js` is now the shell only:
+  the camera, the elements, the gestures. `windows.js` is gone, its arithmetic
+  living on in Bout and the playhead with equivalent tests. 58 unit tests and
+  the 17 browser tests all green, the latter unchanged throughout, which is
+  what says behaviour did not move. TypeScript now compiles to `app/`, which
+  is committed so `git push` is still the deploy; CI rebuilds and fails on any
+  drift. The service worker's shell list gained the compiled layers and its
+  cache name was bumped, without which the app would work online and break in
+  a sports hall.
+
 ## 1.1.6
 
 - **R** — The Bout layer: `src/bout/bout.ts`, with 14 tests written against it

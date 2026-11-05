@@ -207,48 +207,71 @@ Two chunks rather than one so that "did I model it right" is separable from "did
 I wire it right". Once the pattern is proven on the first layer or two, later
 ones can merge them.
 
-## The order
+## The order, and where it has got to
 
-1. **Contracts** — the types above, as a file. No runtime, nothing wired.
-2. **Bout** — pure, highest value, arrives with a net.
-3. **Capture** — the other half of what the features need.
-4. **Render** — including the gestures' arithmetic.
-5. **Media** — kept as the thinnest possible wrapper until something forces
-   WebCodecs.
-6. **Store**, then the highlight video.
+1. ~~**Contracts**~~ — `src/contracts.ts`. Done.
+2. ~~**Bout**~~ — `src/bout/`. Done.
+3. ~~**Capture**~~ — `src/capture/`, split into `clock.ts` (pure, where the
+   worst bug lived) and `capture.ts` (the lifecycle). Done.
+4. ~~**Render**~~ — `src/render/playhead.ts`. The pure half only; the screen
+   sink is still the shell seeking a `<video>` element. Done enough.
+5. ~~**Media**~~ — `src/media/media.ts`, the thinnest wrapper that works. Done.
+6. **Store**, then the highlight video. Not started.
 
-Steps 1–3 are where the value is. Step 5 is deliberately late: there is no
-reason to pay for a codec abstraction before anything needs a second codec.
+Layer 4, the shell, is still `solo.js` in plain JavaScript, and that is
+deliberate. It is the layer the browser tests cover from the outside, the layer
+with no logic worth extracting, and the one where a blind rewrite would risk
+the most for the least — the help screen, the diagnostics panel, the lead and
+tail sliders, the wake lock and the orientation re-acquire are all in it and
+none of them is covered by a test.
 
-## Why not Angular, and why not a build step yet
+### Each layer split in two
+
+A pattern that was not planned and turned out to matter: every device-coupled
+layer divides cleanly into a part that is pure and a part that is the browser.
+
+| Layer | Pure, unit-tested | The browser, covered end-to-end |
+|---|---|---|
+| Capture | `clock.ts` — which clock to believe | `capture.ts`'s recorder, and the shell's camera |
+| Render | `playhead.ts` — gestures, readout, clamping | seeking a `<video>` element |
+| Media | `preferredMimeType` | `MediaRecorder`, blobs, duration measurement |
+
+The pure halves hold most of the logic and all of the arithmetic, which is
+where this app's bugs have actually lived. The browser halves are thin, and
+their quirks are the ones that cannot be tested on a desktop anyway.
+
+## The build step
+
+`src/` is TypeScript. `app/` is what `tsc` emits — plain ES modules, no bundler
+— and it is committed, because Pages serves the branch as it is and `git push`
+being the deploy is worth keeping. CI rebuilds and fails on any difference, so
+a stale `app/` cannot ship quietly.
+
+The alternative, having Pages deploy from a workflow that builds and refuses a
+red build, is still the better end state and still not done: it would also gate
+the deploy on green tests. It is a change to how the site is published, so it
+wants doing deliberately rather than in passing.
+
+## Why not Angular
 
 The multi-camera version is an Angular app and should be — it has an operator
 console, forms, routing and many cameras. This one has three screens and a drag.
 
-What makes this app work at all is that there is nothing to install and nothing
-to build: open a URL, add it to the home screen, and it runs with no signal.
-The whole app is about 50 KB of source. A framework runtime would be several
-times the thing it was added to, and it would touch only Layer 4 — the layer
-that already works.
+What makes this app work at all is that there is nothing to install: open a URL,
+add it to the home screen, and it runs with no signal. The whole app is about
+50 KB of source. A framework runtime would be several times the thing it was
+added to, and it would touch only Layer 4 — the layer that already works and
+has no logic left in it worth managing.
 
 There is also a specific trap worth naming. The two worst bugs in the
 multi-camera version were both *a bound input not being updated synchronously
-after its source signal was set*. That class of bug does not exist in an app
+after its source signal was set* — the rename field wiping itself, and the trim
+nudges moving the wrong distance. That class of bug does not exist in an app
 with no framework, and adding one would import it.
 
-So: **TypeScript yes, framework no.** And the build step is deferred, because
-`vitest` transpiles TypeScript itself — the core can be written and fully tested
-with no build step at all, as long as none of it has reached the browser yet.
-The decision only bites when the first layer is wired into the running app, and
-there are two honest answers then:
-
-- commit the compiled output, so `git push` stays the deploy, with CI checking
-  the output is current; or
-- have GitHub Pages deploy from a workflow that builds and refuses to publish a
-  red build — which also gets the deploy gated on green tests, which is wanted
-  anyway.
-
-Both are fine. Neither needs deciding now.
+**TypeScript yes, framework no.** The types caught real mistakes immediately —
+see the branded ids, which make a take's id unusable where a mark's is wanted —
+and cost nothing at runtime, because they are erased entirely.
 
 ## Open questions
 

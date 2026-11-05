@@ -1,7 +1,7 @@
 // What makes this work in a hall with no internet.
 //
-// Everything the app is — four files and three icons — is taken on the first
-// visit and served from the phone from then on. After that first load there is
+// Everything the app is — the shell, the compiled layers under app/, and three
+// icons — is taken on the first visit and served from the phone from then on. After that first load there is
 // no network call at all, which is the whole point: a venue's Wi-Fi is not
 // something to depend on, and neither is a signal in a sports hall.
 //
@@ -12,13 +12,20 @@
 // and the next opening has the new version. A version behind is a fair price
 // for never waiting.
 
-const CACHE = 'vrl-v2';
+const CACHE = 'vrl-v3';
 
 const SHELL = [
   './',
   './index.html',
   './solo.js',
-  './windows.js',
+  // The compiled layers. Every one of these is imported at load, so a missing
+  // entry is an app that works online and breaks in a sports hall — which is
+  // the one place it has to work.
+  './app/bout/bout.js',
+  './app/capture/capture.js',
+  './app/capture/clock.js',
+  './app/media/media.js',
+  './app/render/playhead.js',
   './manifest.webmanifest',
   './qr.svg',
   './icon-180.png',

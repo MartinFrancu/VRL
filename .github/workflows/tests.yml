@@ -37,4 +37,15 @@ jobs:
 
       # The https certificate for localhost is generated on first use
       # (tools/certs.js), so there is nothing to set up here.
+      # app/ is compiled from src/ and committed, because GitHub Pages serves
+      # the branch as it is and `git push` is the deploy. That only stays
+      # honest if the committed output matches the sources, so check it: a
+      # rebuild must change nothing. The emit is byte-reproducible, so a diff
+      # here means someone edited src/ and forgot `npm run build`.
+      - name: The committed build matches the sources
+        run: |
+          npm run build
+          git diff --exit-code -- app/ \
+            || { echo "::error::app/ is stale — run 'npm run build' and commit the result"; exit 1; }
+
       - run: npm test

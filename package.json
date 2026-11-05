@@ -1,6 +1,6 @@
 {
   "name": "sba-replay-lite",
-  "version": "1.1.6",
+  "version": "1.1.7",
   "private": true,
   "type": "module",
   "description": "One referee, one phone: film a bout, mark the moments, look at them again.",
@@ -12,7 +12,8 @@
     "test:e2e": "vitest run --project e2e",
     "test:e2e:headed": "VRL_HEADED=1 vitest run --project e2e",
     "test:watch": "vitest --project unit",
-    "serve": "node tools/serve.js"
+    "serve": "node tools/serve.js",
+    "build": "tsc -p tsconfig.build.json"
   },
   "devDependencies": {
     "playwright": "^1.62.1",

@@ -1,4 +1,4 @@
-// One referee, one phone, no setup.
+// Layer 4 — the shell. Elements, gestures, and which screen is showing.
 //
 // Three modes and nothing else. **Idle** is pointed at the fight and waiting.
 // **Recording** is filming, and the whole picture is the mark button — the
@@ -7,12 +7,27 @@
 //
 // Filming and reviewing never overlap, which is the whole reason this is
 // simple: there is never any need to read the recent past while still writing
-// to it. One recorder runs for the bout, stopping it hands back a complete file
-// the browser wrote itself, and a mark is a millisecond offset into that file.
+// to it.
+//
+// Everything that is not about the screen now lives under src/, compiled to
+// app/ — see docs/architecture.md. What is left here is the camera (which
+// outlives any one bout), the elements, and the gestures. This file is
+// deliberately still plain JavaScript: it is the layer the browser tests cover
+// from the outside and the one least worth rewriting blind.
 
-import { clampWithin, draggedTo, frameClockUsable, shortfallLabel, windowFor } from './windows.js';
+import { cut, durationOf } from './app/bout/bout.js';
+import { Capture } from './app/capture/capture.js';
+import { cameraClockUsable } from './app/capture/clock.js';
+import * as media from './app/media/media.js';
+import {
+  clampWithin,
+  draggedTo,
+  progressThrough,
+  readoutFor,
+  shortfallLabel,
+} from './app/render/playhead.js';
 
-const VERSION = '1.1.6';
+const VERSION = '1.1.7';
 
 const el = (id) => document.getElementById(id);
 const preview = el('preview');
@@ -21,58 +36,58 @@ const clip = el('clip');
 /** The camera, open from the moment permission is granted until the tab dies. */
 let stream = null;
 let frameMs = 1000 / 30;
-
-let recorder = null;
-/** What to do once the recorder has actually stopped: 'review' or 'discard'. */
-let onStopped = 'discard';
-let chunks = [];
-let startedAtWallMs = 0;
-/** The preview's own frame clock when recording began; null without rVFC. */
-let startedAtFrameMs = null;
+/** The preview's own frame clock, as last reported. Null without rVFC. */
 let lastFrameMediaMs = null;
+
 let ticker = null;
 let wakeLock = null;
+let recordingStartedAt = 0;
+/**
+ * Whether any bout has been filmed since the page loaded.
+ *
+ * Only used to decide whether losing the camera is worth a message. It
+ * reproduces an oddity of the version this replaced — see `onCameraLost` — and
+ * is kept rather than fixed because fixing it is a different kind of change.
+ */
+let hasFilmed = false;
 
-/** Each mark, timed two ways — see `markAt` for why both. */
-let marks = [];
-
-let blobUrl = null;
-let blobBytes = 0;
-let durationMs = Number.POSITIVE_INFINITY;
+/** The bout being reviewed, once there is one. */
+let bout = null;
 let current = 0;
 let positionMs = 0;
-let window_ = { startMs: 0, endMs: 0, atMs: 0, shortLeadMs: 0, shortTailMs: 0 };
+/** The slice of the bout the current mark is shown through. */
+let span = null;
 
 let leadMs = 1500;
 let tailMs = 1000;
 
 /**
- * Which of the two timings to trust for where a mark falls.
+ * Which clock places the marks: the page's, or the camera's own.
  *
- * The page's clock by default, because it is the one that is always there.
- * The camera's clock is the more accurate of the two where it runs, but it is
- * not offered for a live stream everywhere — and where it is not, it reads zero
- * rather than reading as absent, which put every mark of a bout at the same
- * instant and showed the first one under every tab. `frameClockUsable` is the
- * guard; this is the preference, switchable from the diagnostics panel.
+ * The page's by default, because it is the one that is always there. The
+ * camera's is the more accurate of the two where it runs, but it is not offered
+ * for a live stream everywhere — and where it is not, it reads zero rather than
+ * reading as absent, which put every mark of a bout at the same instant and
+ * showed the first one under every tab. The guard lives in `clock.ts`; this is
+ * just the preference, switchable from the diagnostics panel.
  */
 let markSource = 'wall';
 
 /** The media time of the frame currently on screen. */
 let shownMs = null;
 
+/** How the phone was held when filming began. */
+let heldAtStart = '?';
 /**
- * How the phone was held, and what shape the camera was giving, when the
- * recording began — against what shape the file turned out to be.
+ * The same, for the last bout actually reviewed, against what shape the file
+ * turned out to be. Nothing resets this.
  *
  * A recording that comes back sideways is one of two different faults wearing
  * the same description, and they want opposite fixes: either the file is in a
- * different orientation from the one it was filmed in, or it is the right way
- * up and the page around it is not. These three numbers tell them apart, and
- * cannot be got at from anywhere but the phone it happened on.
+ * different orientation from the one it was filmed in, or it is the right way up
+ * and the page around it is not. These numbers tell them apart, and cannot be
+ * got at from anywhere but the phone it happened on.
  */
-let filmed = { shape: '?', held: '?' };
-/** The same, for the last bout actually reviewed. Nothing resets this. */
 let lastReviewed = null;
 
 function orientationNow() {
@@ -115,7 +130,7 @@ async function openCamera() {
  *
  * It ticks with the camera rather than with the page, so it survives the phone
  * being busy — where it is offered at all. On iOS a live stream's media time
- * sits at zero, which is what `frameClockUsable` is there to notice.
+ * sits at zero, which is what `cameraClockUsable` is there to notice.
  */
 function watchPreviewFrames() {
   if (!preview.requestVideoFrameCallback) return;
@@ -165,68 +180,63 @@ screen.orientation?.addEventListener?.('change', orientationChanged);
 window.addEventListener('orientationchange', orientationChanged);
 
 function onCameraLost() {
-  if (!recorder) return;
+  // Says nothing before the first bout of a session, which is the oddity noted
+  // in docs/BACKLOG.md: the message is right while filming and wrong when idle
+  // after a bout. Carried over unchanged rather than mixed into a refactor.
+  if (!hasFilmed) return;
   el('live-note').textContent = 'The camera stopped — a call, or another app took it. Reload the page.';
-  stopRecorder('discard');
+  stopFilming();
+  void capture.discard();
   screenIs('idle');
 }
 
 // ------------------------------------------------------------------- filming
 
 /**
- * The first container this device will actually record.
+ * Filming a bout, and the clock that places its marks.
  *
- * Safari records MP4 and will not touch WebM; everything else is the other way
- * round. Asking in order and taking the first that answers avoids caring which
- * one we are on — and an empty string means "you choose", which is always
- * better than a mime type the browser has to refuse.
+ * Everything this is given is ours — the camera as a shape and a frame clock,
+ * a recording, a ruler — so none of it is a stand-in for `MediaRecorder` or
+ * `getUserMedia`. The seam is in front of the browser, not around it.
  */
-function pickMimeType() {
-  const wanted = [
-    'video/mp4;codecs=avc1',
-    'video/mp4',
-    'video/webm;codecs=vp9',
-    'video/webm;codecs=vp8',
-    'video/webm',
-  ];
-  for (const type of wanted) {
-    if (window.MediaRecorder?.isTypeSupported?.(type)) return type;
-  }
-  return '';
-}
+const capture = new Capture({
+  now: () => performance.now(),
+  nowIso: () => new Date().toISOString(),
+  newId: () => crypto.randomUUID(),
+  source: 'this phone',
+  camera: {
+    shape: () => {
+      const settings = stream?.getVideoTracks()[0]?.getSettings() ?? {};
+      return { width: settings.width ?? 0, height: settings.height ?? 0 };
+    },
+    frameClockMs: () => lastFrameMediaMs,
+  },
+  startRecording: () => media.record(stream),
+  /**
+   * Loading the footage is how it gets measured, so this does both.
+   *
+   * `clip.load()` is not optional, and is the reason the second bout of a
+   * session came back sideways while the first was fine: handing a media
+   * element a new source does not make it forget the old one. Everything it
+   * worked out about the last clip — its shape, and which way up to draw it —
+   * survives into the next unless it is told to start again.
+   */
+  measureDuration: async (footage) => {
+    clip.src = media.urlOf(footage);
+    clip.load();
+    return media.measureDurationMs(clip, {
+      fallbackMs: Math.max(0, performance.now() - recordingStartedAt),
+    });
+  },
+});
 
-function startRecording() {
-  chunks = [];
-  marks = [];
+function startFilming() {
+  releaseBout();
   shownMs = null;
-
-  const mimeType = pickMimeType();
-  recorder = new MediaRecorder(stream, {
-    ...(mimeType ? { mimeType } : {}),
-    // Eight megabits. Four was half the size and visibly worse — fast motion
-    // at 1080p is where a codec spends everything it is given, and a knife
-    // fight is nothing but fast motion. The saving was against a memory
-    // problem nobody had met, which is the kind of economy worth undoing.
-    videoBitsPerSecond: 8_000_000,
-  });
-  recorder.ondataavailable = (event) => {
-    if (event.data.size) chunks.push(event.data);
-  };
-  recorder.onstop = () => {
-    if (onStopped === 'review') void finish();
-  };
-
-  // A timeslice, so the bytes arrive as the bout runs rather than in one lump
-  // at the end — a long bout then has nothing to do when the fight stops.
-  recorder.start(1000);
-  startedAtWallMs = performance.now();
-  startedAtFrameMs = lastFrameMediaMs;
-
-  const settings = stream.getVideoTracks()[0]?.getSettings() ?? {};
-  filmed = {
-    shape: `${settings.width ?? '?'}×${settings.height ?? '?'}`,
-    held: orientationNow(),
-  };
+  capture.start();
+  recordingStartedAt = performance.now();
+  heldAtStart = orientationNow();
+  hasFilmed = true;
 
   screenIs('recording');
   // A fresh bout has nothing to review and no marks spent, whatever the last
@@ -242,20 +252,12 @@ function startRecording() {
 /**
  * Note the moment and keep filming.
  *
- * The honest problem: there is a lag between asking for a recording and the
- * first frame actually being encoded, and nothing tells us how long it is. So
- * take both readings — the page's own clock and the camera's frame clock — and
- * let the review screen use whichever can be believed.
+ * Timed twice inside Capture, because the lag between asking for a recording
+ * and the first frame actually being encoded is real and nothing reports it.
  */
 function markAt() {
-  if (!recorder || recorder.state !== 'recording') return;
-  marks.push({
-    wallMs: performance.now() - startedAtWallMs,
-    frameMs:
-      lastFrameMediaMs !== null && startedAtFrameMs !== null
-        ? lastFrameMediaMs - startedAtFrameMs
-        : null,
-  });
+  if (!capture.recording) return;
+  capture.mark();
 
   // It was marked without looking at the screen, so say so in ways that do not
   // need looking at: a flash big enough to catch in the corner of an eye, and
@@ -271,11 +273,10 @@ function markAt() {
   el('toReview').disabled = false;
 }
 
-function stopRecorder(then) {
-  onStopped = then;
+/** Stop the trimmings that only run while a bout does. */
+function stopFilming() {
   clearInterval(ticker);
   keepAwake(false);
-  if (recorder && recorder.state !== 'inactive') recorder.stop();
 }
 
 // ------------------------------------------------------- moving between modes
@@ -285,9 +286,25 @@ function screenIs(name) {
 }
 
 /** Stop filming and look at what was marked. */
-function toReview() {
-  if (marks.length === 0) return;
-  stopRecorder('review');
+async function toReview() {
+  if (capture.markCount === 0) return;
+  stopFilming();
+
+  bout = await capture.finish(markSource);
+  const take = bout.takes[0];
+  // Kept where nothing resets it. The question these answer is asked on the
+  // idle screen, which is reached by starting another bout, which would
+  // otherwise have wiped them on the way past.
+  lastReviewed = {
+    shape: `${take.width}×${take.height}`,
+    held: heldAtStart,
+    clip: `${clip.videoWidth}×${clip.videoHeight}`,
+    reviewedIn: orientationNow(),
+  };
+
+  renderTabs();
+  select(0);
+  screenIs('review');
 }
 
 /**
@@ -297,8 +314,7 @@ function toReview() {
  * point of having been in here. No confirmation for that reason.
  */
 function toRecord() {
-  releaseClip();
-  startRecording();
+  startFilming();
 }
 
 /**
@@ -309,8 +325,9 @@ function toRecord() {
  * REVIEW where a thumb could find the wrong one.
  */
 function toIdle() {
-  if (marks.length > 0) {
-    const count = `${marks.length} mark${marks.length === 1 ? '' : 's'}`;
+  const spent = capture.markCount;
+  if (spent > 0) {
+    const count = `${spent} mark${spent === 1 ? '' : 's'}`;
     el('confirm-title').textContent = `Discard ${count}?`;
     el('confirm-text').textContent =
       'You have not looked at them yet. Ending now throws this bout away, and it cannot be got back.';
@@ -322,10 +339,9 @@ function toIdle() {
 
 function endNow() {
   el('confirm').hidden = true;
-  stopRecorder('discard');
-  releaseClip();
-  marks = [];
-  chunks = [];
+  stopFilming();
+  void capture.discard();
+  releaseBout();
   el('toReview').disabled = true;
   el('elapsed').textContent = '0:00';
   el('live-note').textContent = 'Point it at the fight, then press START.';
@@ -334,95 +350,17 @@ function endNow() {
   screenIs('idle');
 }
 
-function releaseClip() {
-  if (blobUrl) URL.revokeObjectURL(blobUrl);
-  blobUrl = null;
+/** Let go of the footage, and of the element holding onto it. */
+function releaseBout() {
+  for (const take of bout?.takes ?? []) media.release(take.media);
+  bout = null;
+  span = null;
   clip.removeAttribute('src');
   // Dropping the attribute does not drop the resource behind it.
   clip.load();
-  durationMs = Number.POSITIVE_INFINITY;
-}
-
-async function finish() {
-  const blob = new Blob(chunks, { type: recorder.mimeType || 'video/mp4' });
-  blobBytes = blob.size;
-  if (blobUrl) URL.revokeObjectURL(blobUrl);
-  blobUrl = URL.createObjectURL(blob);
-  clip.src = blobUrl;
-  // Not optional, and the reason the second bout of a session came back
-  // sideways while the first was fine: handing a media element a new source
-  // does not make it forget the old one. Everything it worked out about the
-  // last clip — its shape, and which way up it should be drawn — survives into
-  // the next unless it is told to start again.
-  clip.load();
-
-  await measureDuration();
-  // Kept where nothing resets it. The question these answer is asked on the
-  // idle screen, which is reached by starting another bout, which would
-  // otherwise have wiped them on the way past.
-  lastReviewed = {
-    shape: filmed.shape,
-    held: filmed.held,
-    clip: `${clip.videoWidth}×${clip.videoHeight}`,
-    reviewedIn: orientationNow(),
-  };
-  renderTabs();
-  select(0);
-  screenIs('review');
-}
-
-/**
- * How long the recording turned out to be.
- *
- * A file a browser is still writing carries no duration, so `duration` is
- * Infinity until the blob has been scanned — and it is only scanned when
- * something asks to seek past the end. Waiting for a duration before seeking
- * deadlocks; asking for an impossible position resolves it in milliseconds.
- */
-function measureDuration() {
-  return new Promise((resolve) => {
-    let settled = false;
-    const done = () => {
-      if (settled || !Number.isFinite(clip.duration) || clip.duration <= 0) return;
-      settled = true;
-      durationMs = clip.duration * 1000;
-      resolve();
-    };
-    const giveUp = () => {
-      if (settled) return;
-      settled = true;
-      // Better a window that ends where the footage does than one that cannot
-      // be computed at all.
-      const seekable = clip.seekable.length ? clip.seekable.end(clip.seekable.length - 1) : 0;
-      durationMs = seekable > 0 ? seekable * 1000 : (marks.at(-1)?.wallMs ?? 0) + tailMs;
-      resolve();
-    };
-
-    // Both come off together once the answer is in, or every bout of an
-    // afternoon would leave another pair behind on the same element.
-    const listening = new AbortController();
-    const settle = (how) => {
-      how();
-      if (settled) listening.abort();
-    };
-    clip.addEventListener('durationchange', () => settle(done), { signal: listening.signal });
-    clip.addEventListener(
-      'loadedmetadata',
-      () => {
-        if (Number.isFinite(clip.duration)) return settle(done);
-        clip.currentTime = 1e6;
-      },
-      { signal: listening.signal }
-    );
-    setTimeout(() => settle(giveUp), 4000);
-  });
 }
 
 // ----------------------------------------------------------------- reviewing
-
-function markMs(mark) {
-  return markSource === 'frame' && frameClockUsable(marks) ? mark.frameMs : mark.wallMs;
-}
 
 /** Built once per bout. Rebuilding on every change would throw away where the
  *  strip is scrolled to, which with a dozen marks means jumping back to the
@@ -430,7 +368,7 @@ function markMs(mark) {
 function renderTabs() {
   const tabs = el('tabs');
   tabs.innerHTML = '';
-  marks.forEach((_mark, index) => {
+  (bout?.marks ?? []).forEach((_mark, index) => {
     const button = document.createElement('button');
     button.textContent = String(index + 1);
     button.addEventListener('click', () => select(index));
@@ -452,16 +390,20 @@ function markActiveTab() {
  * marks is a seek, not a load.
  */
 function select(index) {
+  const chosen = bout?.marks[index];
+  if (!chosen) return;
+
   current = index;
-  window_ = windowFor({ atMs: markMs(marks[index]), leadMs, tailMs, durationMs });
-  el('shortfall').textContent = shortfallLabel(window_) ?? '';
+  span = cut(bout, [chosen.id], { leadMs, tailMs }).spans[0];
+  el('shortfall').textContent = shortfallLabel(span) ?? '';
   markActiveTab();
   // Land on the moment that was marked, not on the start of the run-up.
-  seekTo(window_.atMs);
+  seekTo(span.atMs);
 }
 
 function seekTo(ms) {
-  positionMs = clampWithin(ms, window_);
+  if (!span) return;
+  positionMs = clampWithin(ms, span);
   clip.currentTime = positionMs / 1000;
   renderPosition();
   watchShownFrame();
@@ -469,10 +411,8 @@ function seekTo(ms) {
 
 /** Everything that says where in the window the footage is. */
 function renderPosition() {
-  const relative = (positionMs - window_.atMs) / 1000;
-  el('readout').textContent = `${relative >= 0 ? '+' : ''}${relative.toFixed(2)}s`;
-  const span = window_.endMs - window_.startMs;
-  const through = span > 0 ? (positionMs - window_.startMs) / span : 0;
+  el('readout').textContent = readoutFor(positionMs, span);
+  const through = progressThrough(positionMs, span);
   el('progress').firstElementChild.style.width = `${Math.round(through * 100)}%`;
 }
 
@@ -493,10 +433,6 @@ function watchShownFrame() {
  * at your own hand. The full width spans the full window, which on a phone
  * works out finer than one frame per pixel.
  *
- * Relative to where the footage already was, not to where the thumb landed: an
- * absolute mapping would jump the picture the instant it was touched, and the
- * instant it is touched is the moment somebody is trying to look at it.
- *
  * Nothing plays here. A tap does nothing at all, deliberately — the only thing
  * that moves the footage is a thumb asking it to.
  */
@@ -513,13 +449,13 @@ function onDragStart(event) {
 }
 
 function onDragMove(event) {
-  if (!event.buttons) return;
+  if (!event.buttons || !span) return;
   const width = el('stage').clientWidth || 1;
   seekTo(
     draggedTo({
       fromMs: draggingFromMs,
       acrossFraction: (event.clientX - draggingFromX) / width,
-      window: window_,
+      span,
     })
   );
 }
@@ -530,7 +466,7 @@ function onDragMove(event) {
 function renderDots() {
   const dots = el('dots');
   dots.innerHTML = '';
-  for (const _mark of marks) {
+  for (let taken = 0; taken < capture.markCount; taken++) {
     const dot = document.createElement('i');
     dot.className = 'on';
     dots.append(dot);
@@ -542,7 +478,7 @@ function renderTapHint() {
 }
 
 function tickElapsed() {
-  const seconds = Math.floor((performance.now() - startedAtWallMs) / 1000);
+  const seconds = Math.floor((performance.now() - recordingStartedAt) / 1000);
   el('elapsed').textContent = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 }
 
@@ -561,7 +497,7 @@ async function keepAwake(on) {
 
 document.addEventListener('visibilitychange', () => {
   // A wake lock is dropped whenever the page is hidden, and is not given back.
-  if (document.visibilityState === 'visible' && recorder?.state === 'recording') keepAwake(true);
+  if (document.visibilityState === 'visible' && capture.recording) keepAwake(true);
 });
 
 // --------------------------------------------------------------- diagnostics
@@ -569,7 +505,11 @@ document.addEventListener('visibilitychange', () => {
 function renderDiagnostics() {
   const track = stream?.getVideoTracks()[0];
   const settings = track?.getSettings() ?? {};
-  const usingCameraClock = markSource === 'frame' && frameClockUsable(marks);
+  const readings = capture.lastReadings;
+  const cameraClockRan = cameraClockUsable(readings);
+  const usingCameraClock = markSource === 'camera' && cameraClockRan;
+  const footage = bout?.takes[0]?.media ?? null;
+  const reaches = bout ? durationOf(bout) : null;
 
   el('diag-body').innerHTML =
     `<h2>device</h2>` +
@@ -577,9 +517,10 @@ function renderDiagnostics() {
     `<h2>camera</h2>` +
     `${settings.width ?? '?'}×${settings.height ?? '?'} at ${settings.frameRate ?? '?'} fps\n` +
     `one frame is ${Math.round(frameMs)} ms\n` +
-    `recorded as ${recorder?.mimeType || pickMimeType() || '(browser default)'}\n` +
+    `recorded as ${capture.mimeType || media.mimeTypeHere() || '(browser default)'}\n` +
     `<h2>recording</h2>` +
-    `${(blobBytes / 1e6).toFixed(1)} MB, ${Number.isFinite(durationMs) ? (durationMs / 1000).toFixed(2) + ' s' : 'duration unknown'}\n` +
+    `${footage ? (media.sizeOf(footage) / 1e6).toFixed(1) : '0.0'} MB, ` +
+    `${reaches === null ? 'duration unknown' : (reaches / 1000).toFixed(2) + ' s'}\n` +
     `<h2>which way up — the last bout you reviewed</h2>` +
     (lastReviewed
       ? `camera gave   ${lastReviewed.shape}\n` +
@@ -589,18 +530,18 @@ function renderDiagnostics() {
       : 'nothing reviewed yet this session\n') +
     `showing ${shownMs === null ? '—' : (shownMs / 1000).toFixed(3) + ' s'}\n` +
     `<h2>marks — page clock vs camera clock</h2>` +
-    (marks.length
-      ? marks
+    (readings.length
+      ? readings
           .map(
-            (mark, index) =>
-              `${index + 1}: wall ${(mark.wallMs / 1000).toFixed(3)}s   ` +
-              `frame ${mark.frameMs === null ? '—' : (mark.frameMs / 1000).toFixed(3) + 's'}`
+            (reading, index) =>
+              `${index + 1}: wall ${(reading.wallMs / 1000).toFixed(3)}s   ` +
+              `frame ${reading.frameMs === null ? '—' : (reading.frameMs / 1000).toFixed(3) + 's'}`
           )
           .join('\n')
       : 'none yet') +
     `\nplacing the marks by the <b>${usingCameraClock ? 'camera' : 'page'}</b> clock\n` +
-    (frameClockUsable(marks)
-      ? `<button id="diag-flip">use the ${markSource === 'frame' ? 'page' : 'camera'} clock instead</button>\n`
+    (cameraClockRan
+      ? `<button id="diag-flip">use the ${markSource === 'camera' ? 'page' : 'camera'} clock instead</button>\n`
       : 'the camera clock never ran on this device, so it is ignored\n') +
     `<h2>what this device has</h2>` +
     `MediaRecorder        ${!!window.MediaRecorder}\n` +
@@ -610,7 +551,11 @@ function renderDiagnostics() {
     `ManagedMediaSource   ${!!window.ManagedMediaSource}\n`;
 
   el('diag-flip')?.addEventListener('click', () => {
-    markSource = markSource === 'frame' ? 'wall' : 'frame';
+    markSource = markSource === 'camera' ? 'wall' : 'camera';
+    // The bout on screen is re-placed, not just the next one. Resolving is
+    // cheap; re-filming is not.
+    const replaced = capture.usingClock(markSource);
+    if (replaced) bout = replaced;
     if (document.body.dataset['screen'] === 'review') select(current);
     renderDiagnostics();
   });
@@ -632,8 +577,8 @@ if ('serviceWorker' in navigator) {
 
 // ---------------------------------------------------------------------- wiring
 
-el('start').addEventListener('click', startRecording);
-el('toReview').addEventListener('click', toReview);
+el('start').addEventListener('click', startFilming);
+el('toReview').addEventListener('click', () => void toReview());
 el('end').addEventListener('click', toIdle);
 el('toRecord').addEventListener('click', toRecord);
 el('confirm-cancel').addEventListener('click', () => {
@@ -676,7 +621,7 @@ for (const [input, get, set] of [
   control.addEventListener('input', (event) => {
     set(Number(event.target.value));
     el(`${input}-value`).textContent = `${(get() / 1000).toFixed(1)}s`;
-    if (marks.length && document.body.dataset['screen'] === 'review') select(current);
+    if (bout && document.body.dataset['screen'] === 'review') select(current);
   });
 }
 
