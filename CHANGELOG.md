@@ -8,6 +8,16 @@ One entry per chunk, newest first, marked with the chunk's own letter:
 
 See `.claude/skills/chunks/SKILL.md` for the agreement these letters come from.
 
+## 1.1.8
+
+- **D** — `npm run preview` builds a test copy of the app that cannot be
+  mistaken for the real one: the SBA hawk on blue, "SBA NEXT" on the home
+  screen, its own offline cache, and TEST beside the version inside the app.
+  Generated rather than committed, deliberately — baking test branding into
+  the sources would put a blue icon on every referee's phone the day the
+  branch merged. The code is copied byte for byte; only the branding, the
+  cache name and that one label differ.
+
 ## 1.1.7
 
 - **R** — The rest of the separation, and the wiring. `src/capture/` (filming

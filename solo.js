@@ -27,7 +27,7 @@ import {
   shortfallLabel,
 } from './app/render/playhead.js';
 
-const VERSION = '1.1.7';
+const VERSION = '1.1.8';
 
 const el = (id) => document.getElementById(id);
 const preview = el('preview');
