@@ -70,7 +70,21 @@ edit('manifest.webmanifest', [
 
 // Its own cache, so it cannot collide with the real app's under any
 // circumstances, whatever path it ends up served from.
-edit('sw.js', [["const CACHE = 'vrl-v3';", `const CACHE = 'vrl-next-${version}';`]]);
+//
+// And — this one matters far more than it looks — its cleanup is narrowed to
+// its own caches. Caches are per *origin*, not per scope, so the real app and
+// a test build served from the same github.io host share one cache store. The
+// stock `activate` deletes every cache that is not its own, which means simply
+// opening the test build would delete the real app's offline cache, and the
+// next time a referee opened the real app in a hall with no signal it would
+// not open at all. The one failure this whole app exists to avoid.
+edit('sw.js', [
+  ["const CACHE = 'vrl-v3';", `const CACHE = 'vrl-next-${version}';`],
+  [
+    '.then((names) => Promise.all(names.filter((name) => name !== CACHE).map((name) => caches.delete(name))))',
+    '.then((names) =>\n        Promise.all(\n          names\n            // Only ever this test build\'s own. See tools/make-preview.mjs.\n            .filter((name) => name.startsWith(\'vrl-next-\') && name !== CACHE)\n            .map((name) => caches.delete(name))\n        )\n      )',
+  ],
+]);
 
 // And a marker inside the app, so the version on the idle screen says which
 // build it is without anybody having to remember.

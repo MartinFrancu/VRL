@@ -8,6 +8,15 @@ One entry per chunk, newest first, marked with the chunk's own letter:
 
 See `.claude/skills/chunks/SKILL.md` for the agreement these letters come from.
 
+## 1.1.9
+
+- **B** — The test build's service worker was deleting the real app's offline
+  cache. Caches belong to an origin, not a scope, so a build served from
+  `/VRL/next/` shares a store with the app at `/VRL/`, and the stock cleanup
+  deletes every cache that is not its own — so merely opening the test build
+  would have left a referee's installed app unable to open in a hall with no
+  signal. `npm run preview` now narrows that cleanup to `vrl-next-*`.
+
 ## 1.1.8
 
 - **D** — `npm run preview` builds a test copy of the app that cannot be

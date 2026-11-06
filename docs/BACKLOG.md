@@ -48,6 +48,18 @@ Unordered. Nothing here is a commitment.
   `package.json`, would — at the cost of a build step in an app that currently
   has none, which is most of its charm.
 
+- **Narrow the live service worker's cache cleanup to its own caches.** `sw.js`
+  deletes every cache that is not its own on activate. Caches belong to an
+  origin rather than a scope, so anything else of ours published under
+  `martinfrancu.github.io` shares that store — the test build at `/VRL/next/`
+  did, and had to be patched by `tools/make-preview.mjs` so that opening it
+  would not wipe the real app's offline cache. The patch only protects one
+  direction: opening the real app still clears the test build's cache, which
+  is harmless but will keep being mildly confusing. Filtering on a `vrl-`
+  prefix fixes it properly, and wants doing next time `sw.js` is touched —
+  it is a change to production code, so not slipped in alongside something
+  else.
+
 - **Derive the service-worker cache name from the version.** `sw.js` holds
   `vrl-v2`, bumped by hand. A chunk that renames a file without bumping it
   serves half an old app on the next launch.
