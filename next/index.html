@@ -49,12 +49,42 @@
           env(safe-area-inset-bottom) env(safe-area-inset-left);
       }
 
-      /* Three modes. Idle and recording share the camera, so they share a
-         section and differ only in what is offered underneath it. */
+      /* Four screens. Idle and recording share the camera, so they share a
+         section and differ only in what is offered underneath it. Save is
+         reached from review today, and from wherever else a bout can be
+         chosen later. */
       section { display: none; flex: 1; min-height: 0; flex-direction: column; }
       body[data-screen="idle"] #live,
       body[data-screen="recording"] #live,
-      body[data-screen="review"] #review { display: flex; }
+      body[data-screen="review"] #review,
+      body[data-screen="export"] #export { display: flex; }
+
+      /* ---- the Save screen ----
+         The chosen moment loops behind a dimmed list, so what is being picked
+         can be seen without leaving the list to look at it. */
+      #export { position: relative; overflow: hidden; }
+      #behind { position: absolute; inset: 0; z-index: 0; }
+      #export .sheet {
+        position: relative; z-index: 1; flex: 1; min-height: 0;
+        display: flex; flex-direction: column; gap: 12px; padding: 12px;
+        background: linear-gradient(rgba(11, 15, 18, 0.55), rgba(11, 15, 18, 0.85));
+      }
+      #export nav { display: flex; align-items: center; gap: 10px; }
+      #export h2 { margin: 0; font-size: 18px; flex: 1; }
+      #export-back { font-size: 13px; padding: 12px 10px; border-color: var(--mark); color: var(--mark); }
+      #picks { list-style: none; margin: 0; padding: 0; flex: 1; min-height: 0; overflow-y: auto;
+               display: flex; flex-direction: column; gap: 8px; }
+      #picks label {
+        display: flex; align-items: center; gap: 14px; padding: 12px 14px;
+        border: 1px solid var(--rule); border-radius: 12px; background: rgba(21, 27, 32, 0.8);
+        font-size: 18px;
+      }
+      #picks label.showing { border-color: var(--accent); }
+      #picks input { width: 26px; height: 26px; accent-color: var(--accent); margin: 0; }
+      #picks .at { color: var(--faded); font-size: 14px; margin-left: auto; }
+      #export-length { margin: 0; color: var(--faded); text-align: center; }
+      #export-save { font-size: 18px; padding: 16px; border-color: var(--accent); color: var(--accent); }
+      #export-save[disabled] { opacity: 0.35; }
 
       video {
         display: block;
@@ -452,6 +482,20 @@
       <canvas id="reel" hidden></canvas>
     </section>
 
+    <!-- ---------------- save: choosing what goes into the video ---------------- -->
+    <section id="export">
+      <video id="behind" playsinline muted></video>
+      <div class="sheet">
+        <nav>
+          <button id="export-back">BACK</button>
+          <h2>Save a video</h2>
+        </nav>
+        <ul id="picks"></ul>
+        <p id="export-length"></p>
+        <button id="export-save">SAVE</button>
+      </div>
+    </section>
+
     <!-- ---------------- saving the marked moments ---------------- -->
     <div id="saving" hidden>
       <div class="box">
@@ -486,7 +530,7 @@
           <li><b>Tap the picture</b> whenever you see something worth a second look. It keeps filming, and you can mark as often as you like.</li>
           <li>Press <b>REVIEW</b> when the fight is stopped.</li>
           <li><b>Drag across the picture</b> to move through the moment. The numbers switch between your marks, and <b>BACK</b> returns to filming.</li>
-          <li><b>SAVE</b> makes one short video of just the marked moments, and hands it to your phone to keep or send. It records by playing them through, so it takes as long as they last.</li>
+          <li><b>SAVE</b> opens a list of your marks. Untick any you don't want — the one you last touched plays behind the list, at double speed. <b>SAVE</b> there makes one short video of the ticked moments, with a quick fade between each, and hands it to your phone. It records by playing them through, so it takes as long as they last.</li>
         </ol>
 
         <h2>Turn the phone before you start</h2>

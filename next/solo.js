@@ -16,6 +16,7 @@
 // from the outside and the one least worth rewriting blind.
 
 import { cut, durationOf } from './app/bout/bout.js';
+import { everyMark, isChosen, showing, toggled } from './app/bout/selection.js';
 import { Capture } from './app/capture/capture.js';
 import { cameraClockUsable } from './app/capture/clock.js';
 import * as media from './app/media/media.js';
@@ -29,7 +30,7 @@ import {
 import { canRecordReel, recordReel } from './app/render/record-reel.js';
 import { reelFilename, reelLengthMs } from './app/render/reel.js';
 
-const VERSION = '1.1.11';
+const VERSION = '1.1.13';
 
 const el = (id) => document.getElementById(id);
 const preview = el('preview');
@@ -308,7 +309,7 @@ async function toReview() {
   select(0);
   el('save').disabled = !canRecordReel() || bout.marks.length === 0;
   el('save').title = canRecordReel()
-    ? 'Save the marked moments as one video'
+    ? 'Choose marks and save them as one video'
     : 'This browser cannot record a video from a canvas';
   screenIs('review');
 }
@@ -358,6 +359,8 @@ function endNow() {
 
 /** Let go of the footage, and of the element holding onto it. */
 function releaseBout() {
+  emptyBehind();
+  selection = null;
   for (const take of bout?.takes ?? []) media.release(take.media);
   bout = null;
   span = null;
@@ -466,6 +469,122 @@ function onDragMove(event) {
   );
 }
 
+// ---------------------------------------------------------- the Save screen
+
+/**
+ * Choosing which marks go into the saved video.
+ *
+ * Its own screen, opened with a bout and the name of the screen that opened
+ * it, so it can be reached from anywhere a bout can be — review today, a list
+ * of saved bouts later — and goes back to wherever that was.
+ *
+ * Behind the list, the moment last ticked or unticked loops at double speed,
+ * so the referee can see what they are choosing without leaving the list.
+ */
+const behind = el('behind');
+let selection = null;
+let cameFrom = 'review';
+/** The stretch the background is looping, or null when it is not. */
+let behindSpan = null;
+
+function openSave(from) {
+  if (!bout || bout.marks.length === 0) return;
+  cameFrom = from;
+  selection = everyMark(bout);
+  renderPicks();
+  behind.src = media.urlOf(bout.takes[0].media);
+  screenIs('export');
+  playBehind();
+}
+
+function closeSave() {
+  stopBehind();
+  screenIs(cameFrom);
+  if (cameFrom === 'review') select(current);
+}
+
+/** One checkbox per mark, numbered as the review tabs are. */
+function renderPicks() {
+  const picks = el('picks');
+  picks.innerHTML = '';
+  const marks = bout.marks;
+  const playing = showing(selection, bout);
+
+  marks.forEach((mark, index) => {
+    const item = document.createElement('li');
+    const label = document.createElement('label');
+    label.classList.toggle('showing', mark.id === playing);
+    const box = document.createElement('input');
+    box.type = 'checkbox';
+    box.checked = isChosen(selection, mark.id);
+    box.dataset['mark'] = String(index + 1);
+    box.addEventListener('change', () => {
+      selection = toggled(selection, bout, mark.id);
+      renderPicks();
+      playBehind();
+    });
+    const number = document.createElement('span');
+    number.textContent = `Mark ${index + 1}`;
+    const at = document.createElement('span');
+    at.className = 'at';
+    at.textContent = `${(mark.atMs / 1000).toFixed(1)}s`;
+    label.append(box, number, at);
+    item.append(label);
+    picks.append(item);
+  });
+
+  const chosen = selection.chosen.length;
+  const plan = cut(bout, selection.chosen, { leadMs, tailMs });
+  el('export-length').textContent = chosen
+    ? `${chosen} of ${marks.length} mark${marks.length === 1 ? '' : 's'} · ${(reelLengthMs(plan) / 1000).toFixed(1)}s`
+    : 'Nothing chosen';
+  el('export-save').disabled = chosen === 0 || !canRecordReel();
+}
+
+/**
+ * Loop the moment last touched, at double speed, behind the list.
+ *
+ * Double speed because it is there to be recognised, not studied — a moment
+ * seen whole in a second and a bit is enough to know which one it is.
+ */
+function playBehind() {
+  const id = showing(selection, bout);
+  if (!id) return stopBehind();
+  behindSpan = cut(bout, [id], { leadMs, tailMs }).spans[0];
+  behind.muted = true;
+  behind.defaultPlaybackRate = 2;
+  behind.playbackRate = 2;
+  behind.currentTime = behindSpan.fromMs / 1000;
+  behind.play().catch(() => {});
+  loopBehind();
+}
+
+/** Back to the start of the stretch whenever the end is passed. */
+function loopBehind() {
+  const check = () => {
+    if (!behindSpan) return;
+    if (behind.currentTime * 1000 >= behindSpan.toMs || behind.ended) {
+      behind.currentTime = behindSpan.fromMs / 1000;
+      behind.play().catch(() => {});
+    }
+    if (behind.requestVideoFrameCallback) behind.requestVideoFrameCallback(check);
+    else requestAnimationFrame(check);
+  };
+  check();
+}
+
+function stopBehind() {
+  behindSpan = null;
+  behind.pause();
+}
+
+/** Forget the bout entirely, when the bout itself is let go of. */
+function emptyBehind() {
+  stopBehind();
+  behind.removeAttribute('src');
+  behind.load();
+}
+
 // ------------------------------------------------- saving the marked moments
 
 /**
@@ -494,9 +613,12 @@ function closeSaving() {
 }
 
 async function saveReel() {
-  if (!bout || bout.marks.length === 0 || saving) return;
+  if (!bout || !selection || selection.chosen.length === 0 || saving) return;
 
-  const plan = cut(bout, bout.marks.map((mark) => mark.id), { leadMs, tailMs });
+  const chosen = selection.chosen;
+  const plan = cut(bout, chosen, { leadMs, tailMs });
+  // The background would be decoding alongside the recording for nothing.
+  stopBehind();
   const totalMs = reelLengthMs(plan);
 
   saving = new AbortController();
@@ -516,6 +638,7 @@ async function saveReel() {
     );
   } catch (error) {
     saving = null;
+    playBehind();
     if (stopped.aborted) return closeSaving();
     // Left open, with what went wrong on it. Saving is the one thing here that
     // can fail for reasons the referee cannot see.
@@ -528,7 +651,8 @@ async function saveReel() {
   saving = null;
   el('saving').hidden = true;
   el('saving-stop').textContent = 'Stop';
-  await offerReel(footage);
+  await offerReel(footage, chosen);
+  playBehind();
 }
 
 /**
@@ -538,9 +662,10 @@ async function saveReel() {
  * a camera roll, a chat or a drive. A download link where there is not, which
  * is what a laptop does.
  */
-async function offerReel(footage) {
+async function offerReel(footage, chosen) {
   const bytes = media.bytesOf(footage);
-  const name = reelFilename(bout, bytes.type);
+  // Named for what is in it, not for the whole bout.
+  const name = reelFilename({ ...bout, marks: bout.marks.filter((mark) => chosen.includes(mark.id)) }, bytes.type);
 
   try {
     const file = new File([bytes], name, { type: bytes.type });
@@ -711,7 +836,9 @@ el('help-close').addEventListener('click', () => {
   el('help').hidden = true;
 });
 
-el('save').addEventListener('click', () => void saveReel());
+el('save').addEventListener('click', () => openSave('review'));
+el('export-back').addEventListener('click', closeSave);
+el('export-save').addEventListener('click', () => void saveReel());
 el('saving-stop').addEventListener('click', closeSaving);
 
 el('info').addEventListener('click', showDiagnostics);
