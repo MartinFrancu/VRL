@@ -10,7 +10,7 @@
 //
 // What it changes, and nothing else:
 //
-//   the icons        blue behind the hawk, so the home screen says which it is
+//   the icons        the kite inside the logo in blue, not the SBA's gold
 //   the name         "SBA NEXT", which fits in the ~11 characters iOS shows
 //   the cache name   its own, so it can never collide with the real app's
 //   a marker         TEST next to the version, inside the app
@@ -23,11 +23,13 @@ import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { recolourLogo } from './recolour-logo.mjs';
+
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
 const OUT = join(ROOT, 'preview');
 
-/** A blue that is unmistakably not white at a glance on a home screen. */
-const BLUE = process.env['PREVIEW_BLUE'] ?? '#1457d6';
+/** The hue the logo's gold kite is rotated to. 217 is a plain blue. */
+const BLUE_HUE = Number(process.env['PREVIEW_HUE'] ?? 217);
 
 const version = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')).version;
 
@@ -35,15 +37,20 @@ rmSync(OUT, { recursive: true, force: true });
 mkdirSync(OUT, { recursive: true });
 
 // The app, exactly as it is on the branch.
-for (const file of ['index.html', 'solo.js', 'sw.js', 'manifest.webmanifest', 'qr.svg', 'logo.png']) {
+for (const file of ['index.html', 'solo.js', 'sw.js', 'manifest.webmanifest', 'qr.svg']) {
   cpSync(join(ROOT, file), join(OUT, file));
 }
 cpSync(join(ROOT, 'app'), join(OUT, 'app'), { recursive: true });
 
-// Blue icons, from the same logo, via the same generator.
+// The same hawk with a blue kite instead of the SBA's gold. The bird, the eye
+// and the white ground stay exactly as they are — it is the logo that differs,
+// not a colour put behind it.
+const blueLogo = join(OUT, 'logo.png');
+await recolourLogo(blueLogo, BLUE_HUE);
+
 execFileSync('node', [join(ROOT, 'tools/make-icons.mjs')], {
   cwd: ROOT,
-  env: { ...process.env, ICON_BACKGROUND: BLUE },
+  env: { ...process.env, ICON_LOGO: blueLogo },
   stdio: 'inherit',
 });
 for (const size of [180, 192, 512]) {

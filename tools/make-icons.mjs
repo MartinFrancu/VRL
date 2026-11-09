@@ -21,7 +21,10 @@ const BACKGROUND = process.env['ICON_BACKGROUND'] ?? '#ffffff';
 /** How much of the square the mark fills, leaving room for the corner mask. */
 const FILL = Number(process.env['ICON_FILL'] ?? 0.86);
 
-const logo = `data:image/png;base64,${readFileSync(`${ROOT}logo.png`).toString('base64')}`;
+/** Which logo to draw. The test build points this at a recoloured copy. */
+const SOURCE = process.env['ICON_LOGO'] ?? `${ROOT}logo.png`;
+
+const logo = `data:image/png;base64,${readFileSync(SOURCE).toString('base64')}`;
 
 const page = (size) => `<!doctype html>
 <html><head><meta charset="utf-8"><style>
@@ -34,7 +37,9 @@ const page = (size) => `<!doctype html>
   img { display: block; width: ${Math.round(size * FILL)}px; height: ${Math.round(size * FILL)}px; }
 </style></head><body><img src="${logo}" alt=""></body></html>`;
 
-const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
+const browser = await chromium.launch({
+  executablePath: process.env['VRL_CHROMIUM'] || '/opt/pw-browsers/chromium',
+});
 for (const size of [180, 192, 512]) {
   const tab = await browser.newPage({ viewport: { width: size, height: size } });
   await tab.setContent(page(size));

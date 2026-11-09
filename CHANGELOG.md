@@ -8,6 +8,16 @@ One entry per chunk, newest first, marked with the chunk's own letter:
 
 See `.claude/skills/chunks/SKILL.md` for the agreement these letters come from.
 
+## 1.1.10
+
+- **B** — The test build's blue was in the wrong place. It was painted behind
+  the whole icon; what was wanted was the kite *inside* the logo recoloured,
+  with the hawk and the white ground left alone. `tools/recolour-logo.mjs`
+  rotates the gold's hue rather than swapping one colour for another, so the
+  antialiased edges of the kite come with it instead of leaving a gold fringe.
+  The SBA's real logo is not touched — the recoloured copy exists only in the
+  generated test build.
+
 ## 1.1.9
 
 - **B** — The test build's service worker was deleting the real app's offline
