@@ -12,7 +12,7 @@
 // and the next opening has the new version. A version behind is a fair price
 // for never waiting.
 
-const CACHE = 'vrl-v4';
+const CACHE = 'vrl-v5';
 
 const SHELL = [
   './',
@@ -22,6 +22,7 @@ const SHELL = [
   // entry is an app that works online and breaks in a sports hall — which is
   // the one place it has to work.
   './app/bout/bout.js',
+  './app/bout/selection.js',
   './app/capture/capture.js',
   './app/capture/clock.js',
   './app/media/media.js',

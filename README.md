@@ -42,10 +42,13 @@ whole window, which works out finer than one frame per pixel. Each mark shows
 about a second and a half before it and a second after — adjustable under
 **Settings & diagnostics**. **BACK** returns to filming.
 
-**SAVE** makes one short video of just the marked moments and hands it to the
-phone — the share sheet where there is one, a download where there is not. It
-records by playing the moments through, so it takes as long as they last, and
-a progress bar says how far along it is. Marks whose windows overlap are not
+**SAVE** opens a screen listing the marks, every one ticked. Untick any that
+should be left out; whichever mark was last ticked or unticked loops behind
+the list at double speed, so you can see what you are choosing. **SAVE** there
+makes one short video of the ticked moments and hands it to the phone — the
+share sheet where there is one, a download where there is not. It records by
+playing the moments through, so it takes as long as they last, and a progress
+bar says how far along it is. Marks whose windows overlap are not
 yet merged, so a second covered by two marks appears twice.
 
 ## Things worth knowing before an event

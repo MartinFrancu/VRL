@@ -268,16 +268,54 @@ export async function openApp(browser, { url }) {
       );
     },
 
+    /** Open the Save screen from review. */
+    async openSave() {
+      await page.locator('#save').click();
+      await page.waitForFunction(() => document.body.dataset['screen'] === 'export');
+    },
+
+    /** Back from the Save screen to wherever it was opened from. */
+    async leaveSave() {
+      await page.locator('#export-back').click();
+      await page.waitForFunction(() => document.body.dataset['screen'] !== 'export');
+    },
+
+    /** Which marks are ticked on the Save screen, in order. */
+    ticked: () =>
+      read(() => [...document.querySelectorAll('#picks input')].map((box) => box.checked)),
+
+    /** Tick or untick mark `n`, counting from 1 as the screen does. */
+    async toggleMark(n) {
+      await page.locator(`#picks input[data-mark="${n}"]`).click();
+    },
+
+    exportSaveOffered: () => read(() => !document.getElementById('export-save').disabled),
+
+    /** What the background video is doing. */
+    behind: () =>
+      read(() => {
+        const video = document.getElementById('behind');
+        return { rate: video.playbackRate, paused: video.paused, atMs: video.currentTime * 1000 };
+      }),
+
+    /** Which mark the list is highlighting as the one playing behind it. */
+    showingMark: () =>
+      read(() => {
+        const label = document.querySelector('#picks label.showing input');
+        return label ? Number(label.getAttribute('data-mark')) : null;
+      }),
+
     /**
-     * Save the marked moments, and catch the file that comes out.
+     * Save from the Save screen, and catch the file that comes out.
      *
-     * On a phone this goes to the share sheet; with no share sheet the app
-     * falls back to a download, which is what a desktop browser does and what
-     * can be caught here.
+     * Opens the screen first if it is not already showing. On a phone the file
+     * goes to the share sheet; with no share sheet the app falls back to a
+     * download, which is what a desktop browser does and what can be caught.
      */
     async save() {
+      if ((await screen()) !== 'export') await app.openSave();
       const coming = page.waitForEvent('download', { timeout: 60_000 });
-      await page.locator('#save').click();
+      await page.locator('#export-save').click();
       const download = await coming;
       const path = await download.path();
       return { name: download.suggestedFilename(), path, bytes: statSync(path).size };

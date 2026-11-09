@@ -390,12 +390,112 @@ describe('saving the marked moments', () => {
     const wasAt = await app.positionMs();
 
     await app.save();
-
     expect(await app.savingShowing()).toBe(false);
+    expect(await app.screen()).toBe('export');
+
+    await app.leaveSave();
     expect(await app.screen()).toBe('review');
+    expect(await app.activeTab()).toBe(1);
     expect(await app.positionMs()).toBeCloseTo(wasAt, 1);
     // And it can still be driven afterwards.
     await app.selectTab(2);
     expect(await app.activeTab()).toBe(2);
+  });
+});
+
+/**
+ * Choosing which marks go into the saved video, on a screen of its own — so
+ * it can be opened from anywhere a bout can be, and goes back to wherever
+ * that was.
+ */
+describe('the Save screen', () => {
+  const leadMs = 500;
+  const tailMs = 200;
+
+  async function onSaveScreen(onCleanup) {
+    const app = await freshApp(onCleanup);
+    await filmBout(app, 3, { spacingMs: 700 });
+    await app.review();
+    await app.setWindow('lead', leadMs);
+    await app.setWindow('tail', tailMs);
+    await app.openSave();
+    return app;
+  }
+
+  test('opens from review with one box per mark, every one ticked', async ({ onTestFinished }) => {
+    const app = await onSaveScreen(onTestFinished);
+
+    expect(await app.screen()).toBe('export');
+    expect(await app.ticked()).toEqual([true, true, true]);
+    expect(await app.exportSaveOffered()).toBe(true);
+  });
+
+  /**
+   * The point of the screen. Unticked, a mark is not in the file — the name
+   * says two, and the video is about two marks long rather than three.
+   */
+  test('leaves an unticked mark out of the saved video', async ({ onTestFinished }) => {
+    const app = await onSaveScreen(onTestFinished);
+    await app.toggleMark(2);
+    expect(await app.ticked()).toEqual([true, false, true]);
+
+    const saved = await app.save();
+    const reelMs = await app.lengthOfVideo(saved.path);
+
+    expect(saved.name).toMatch(/ SBA 2 marks\./);
+    const twoMarks = 2 * (leadMs + tailMs);
+    expect(reelMs).toBeGreaterThan(twoMarks * 0.5);
+    expect(reelMs).toBeLessThan(3 * (leadMs + tailMs));
+  });
+
+  test('offers nothing to save when nothing is ticked', async ({ onTestFinished }) => {
+    const app = await onSaveScreen(onTestFinished);
+
+    for (const n of [1, 2, 3]) await app.toggleMark(n);
+
+    expect(await app.ticked()).toEqual([false, false, false]);
+    expect(await app.exportSaveOffered()).toBe(false);
+  });
+
+  /**
+   * Behind the list, the moment last touched loops at double speed. Sampled
+   * for longer than the stretch takes to play, so a loop that ran off the end
+   * of its stretch instead of going back to the start would show up here.
+   */
+  test('loops the last touched moment behind the list, at double speed', async ({ onTestFinished }) => {
+    const app = await onSaveScreen(onTestFinished);
+    await app.leaveSave();
+    await app.selectTab(2);
+    const markAt = await app.positionMs();
+    await app.openSave();
+
+    await app.toggleMark(3);
+    expect(await app.showingMark()).toBe(3);
+
+    const samples = [];
+    for (let i = 0; i < 12; i++) {
+      samples.push(await app.behind());
+      await app.film(120);
+    }
+
+    expect(samples.every((sample) => sample.rate === 2)).toBe(true);
+    expect(samples.some((sample) => !sample.paused)).toBe(true);
+    for (const { atMs } of samples) {
+      expect(atMs).toBeGreaterThanOrEqual(markAt - leadMs - 60);
+      expect(atMs).toBeLessThanOrEqual(markAt + tailMs + 250);
+    }
+  });
+
+  test('goes back to review, on the mark that was being looked at', async ({ onTestFinished }) => {
+    const app = await onSaveScreen(onTestFinished);
+    await app.leaveSave();
+    await app.selectTab(2);
+    await app.openSave();
+
+    await app.leaveSave();
+
+    expect(await app.screen()).toBe('review');
+    expect(await app.activeTab()).toBe(2);
+    expect(await app.readout()).toBe('+0.00s');
   });
 });

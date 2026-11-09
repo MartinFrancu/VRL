@@ -8,6 +8,16 @@ One entry per chunk, newest first, marked with the chunk's own letter:
 
 See `.claude/skills/chunks/SKILL.md` for the agreement these letters come from.
 
+## 1.1.12
+
+- **D** — A **Save** screen of its own. SAVE on review now opens it rather
+  than saving straight away: one checkbox per mark, every one ticked, and
+  behind the list the moment last ticked or unticked loops at double speed so
+  the choice can be seen as it is made. SAVE there records only the ticked
+  marks, in the order they happened whatever order they were ticked in. The
+  screen is opened with a bout and the name of the screen that opened it, so
+  it can be reached from elsewhere later and goes back to wherever that was.
+
 ## 1.1.11
 
 - **D** — **SAVE**: the marked moments of a bout, saved as one short video and
