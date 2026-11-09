@@ -316,3 +316,86 @@ describe('getting onto a phone and staying there', () => {
     expect(await app.version()).toBe(versionInManifest());
   });
 });
+
+/**
+ * Saving the marked moments as one short video — the thing the whole app is
+ * for once the fight is over and somebody wants to show what happened.
+ *
+ * It is recorded by playing it, so these tests take as long as the footage
+ * they produce. Both use short windows, which keeps them quick and also makes
+ * the point: the saved file is a fraction of the bout it came from.
+ */
+describe('saving the marked moments', () => {
+  /** A short run-up and tail, so a few seconds of bout gives a small reel. */
+  const leadMs = 500;
+  const tailMs = 200;
+
+  async function filmedAndReviewed(onCleanup, marks = 3) {
+    const app = await freshApp(onCleanup);
+    await filmBout(app, marks, { spacingMs: 700 });
+    await app.review();
+    await app.setWindow('lead', leadMs);
+    await app.setWindow('tail', tailMs);
+    return app;
+  }
+
+  /** Off until there is a reviewed bout to save, the same as REVIEW is. */
+  test('is not offered before a bout has been reviewed', async ({ onTestFinished }) => {
+    const app = await freshApp(onTestFinished);
+    expect(await app.saveOffered()).toBe(false);
+
+    await app.start();
+    await app.film(400);
+    await app.mark();
+    expect(await app.saveOffered()).toBe(false);
+  });
+
+  test('is offered once a bout has been marked and reviewed', async ({ onTestFinished }) => {
+    const app = await filmedAndReviewed(onTestFinished);
+
+    expect(await app.saveOffered()).toBe(true);
+  });
+
+  test('produces a video file named for the bout', async ({ onTestFinished }) => {
+    const app = await filmedAndReviewed(onTestFinished);
+
+    const saved = await app.save();
+
+    expect(saved.name).toMatch(/^\d{4}-\d{2}-\d{2} SBA 3 marks\.(mp4|webm)$/);
+    expect(saved.bytes).toBeGreaterThan(1000);
+    expect(app.faults).toEqual([]);
+  });
+
+  /**
+   * The point of the feature. Three marked moments of half a second's run-up
+   * and a fifth of a second after are a couple of seconds; the bout they came
+   * out of is several times that, and a real one is minutes.
+   */
+  test('saves only the marked moments, not the whole bout', async ({ onTestFinished }) => {
+    const app = await filmedAndReviewed(onTestFinished);
+    const boutMs = await app.durationMs();
+
+    const saved = await app.save();
+    const reelMs = await app.lengthOfVideo(saved.path);
+
+    const wanted = 3 * (leadMs + tailMs);
+    expect(reelMs).toBeGreaterThan(wanted * 0.5);
+    expect(reelMs).toBeLessThan(wanted * 2);
+    expect(reelMs).toBeLessThan(boutMs);
+  });
+
+  test('leaves the bout where it was, and the app usable', async ({ onTestFinished }) => {
+    const app = await filmedAndReviewed(onTestFinished);
+    await app.selectTab(1);
+    const wasAt = await app.positionMs();
+
+    await app.save();
+
+    expect(await app.savingShowing()).toBe(false);
+    expect(await app.screen()).toBe('review');
+    expect(await app.positionMs()).toBeCloseTo(wasAt, 1);
+    // And it can still be driven afterwards.
+    await app.selectTab(2);
+    expect(await app.activeTab()).toBe(2);
+  });
+});

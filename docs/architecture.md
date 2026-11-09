@@ -216,7 +216,13 @@ ones can merge them.
 4. ~~**Render**~~ — `src/render/playhead.ts`. The pure half only; the screen
    sink is still the shell seeking a `<video>` element. Done enough.
 5. ~~**Media**~~ — `src/media/media.ts`, the thinnest wrapper that works. Done.
-6. **Store**, then the highlight video. Not started.
+6. **Store** — not started.
+7. ~~**The highlight video**~~ — `src/render/reel.ts` and `record-reel.ts`. Done,
+   in its first form: the marked stretches saved as one file and handed to the
+   phone's share sheet. It is the same `Cut` the screen gets, sent to a
+   recorder instead, which is what the layering predicted and the only reason
+   it took one small module rather than a feature's worth of work. Overlapping
+   stretches are not yet merged.
 
 Layer 4, the shell, is still `solo.js` in plain JavaScript, and that is
 deliberate. It is the layer the browser tests cover from the outside, the layer

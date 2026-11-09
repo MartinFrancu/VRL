@@ -8,6 +8,18 @@ One entry per chunk, newest first, marked with the chunk's own letter:
 
 See `.claude/skills/chunks/SKILL.md` for the agreement these letters come from.
 
+## 1.1.11
+
+- **D** — **SAVE**: the marked moments of a bout, saved as one short video and
+  handed to the phone's share sheet. It is the same `Cut` the review screen
+  gets, sent to a recorder instead of a picture — which is what made this one
+  small module rather than a feature's worth of work. Recorded by drawing the
+  clip into a canvas and recording that stream, so it needs no encoder, no
+  muxer and no dependency; the price is that it runs in real time and
+  re-encodes. Overlapping stretches are not merged yet, so a second covered by
+  two marks appears twice. The diagnostics panel now says whether a device can
+  do any of it.
+
 ## 1.1.10
 
 - **B** — The test build's blue was in the wrong place. It was painted behind

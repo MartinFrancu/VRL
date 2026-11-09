@@ -26,8 +26,10 @@ import {
   readoutFor,
   shortfallLabel,
 } from './app/render/playhead.js';
+import { canRecordReel, recordReel } from './app/render/record-reel.js';
+import { reelFilename, reelLengthMs } from './app/render/reel.js';
 
-const VERSION = '1.1.10';
+const VERSION = '1.1.11';
 
 const el = (id) => document.getElementById(id);
 const preview = el('preview');
@@ -304,6 +306,10 @@ async function toReview() {
 
   renderTabs();
   select(0);
+  el('save').disabled = !canRecordReel() || bout.marks.length === 0;
+  el('save').title = canRecordReel()
+    ? 'Save the marked moments as one video'
+    : 'This browser cannot record a video from a canvas';
   screenIs('review');
 }
 
@@ -460,6 +466,102 @@ function onDragMove(event) {
   );
 }
 
+// ------------------------------------------------- saving the marked moments
+
+/**
+ * Saving a bout's marked moments as one short video.
+ *
+ * It is recorded by playing it, so it takes exactly as long as the result
+ * lasts — a few seconds for a handful of marks. That is why there is a
+ * progress bar and a way to stop.
+ *
+ * Nothing merges overlapping stretches yet, so two marks a second apart put
+ * that second in the file twice. Next chunk.
+ */
+let saving = null;
+
+function showSavingProgress(doneMs, totalMs) {
+  const through = totalMs > 0 ? Math.min(1, doneMs / totalMs) : 0;
+  el('saving-bar').firstElementChild.style.width = `${Math.round(through * 100)}%`;
+  el('saving-title').textContent = `Saving ${(totalMs / 1000).toFixed(1)}s of marked moments`;
+}
+
+function closeSaving() {
+  saving?.abort();
+  saving = null;
+  el('saving').hidden = true;
+  el('saving-stop').textContent = 'Stop';
+}
+
+async function saveReel() {
+  if (!bout || bout.marks.length === 0 || saving) return;
+
+  const plan = cut(bout, bout.marks.map((mark) => mark.id), { leadMs, tailMs });
+  const totalMs = reelLengthMs(plan);
+
+  saving = new AbortController();
+  const stopped = saving.signal;
+  el('saving-text').textContent =
+    'It plays them through to record them, so it takes as long as they last.';
+  el('saving-stop').textContent = 'Stop';
+  el('saving').hidden = false;
+  showSavingProgress(0, totalMs);
+
+  let footage = null;
+  try {
+    footage = await recordReel(
+      plan,
+      { video: clip, canvas: el('reel') },
+      { onProgress: showSavingProgress, signal: stopped }
+    );
+  } catch (error) {
+    saving = null;
+    if (stopped.aborted) return closeSaving();
+    // Left open, with what went wrong on it. Saving is the one thing here that
+    // can fail for reasons the referee cannot see.
+    el('saving-title').textContent = 'Could not save it';
+    el('saving-text').textContent = error?.message ?? String(error);
+    el('saving-stop').textContent = 'Close';
+    return;
+  }
+
+  saving = null;
+  el('saving').hidden = true;
+  el('saving-stop').textContent = 'Stop';
+  await offerReel(footage);
+}
+
+/**
+ * Hand the finished video to the phone.
+ *
+ * The share sheet where there is one — on a phone that is how a video reaches
+ * a camera roll, a chat or a drive. A download link where there is not, which
+ * is what a laptop does.
+ */
+async function offerReel(footage) {
+  const bytes = media.bytesOf(footage);
+  const name = reelFilename(bout, bytes.type);
+
+  try {
+    const file = new File([bytes], name, { type: bytes.type });
+    if (navigator.canShare?.({ files: [file] })) {
+      await navigator.share({ files: [file], title: name });
+      media.release(footage);
+      return;
+    }
+  } catch (error) {
+    // Cancelling the share sheet throws, and is not a failure.
+    if (error?.name === 'AbortError') return media.release(footage);
+  }
+
+  const link = document.createElement('a');
+  link.href = media.urlOf(footage);
+  link.download = name;
+  link.click();
+  // The link needs the URL to outlive the click, so this one waits.
+  setTimeout(() => media.release(footage), 60_000);
+}
+
 // ---------------------------------------------------------------- the trimmings
 
 /** One dot per mark taken, so the count is read rather than counted. */
@@ -548,6 +650,9 @@ function renderDiagnostics() {
     `frame callbacks      ${!!preview.requestVideoFrameCallback}\n` +
     `wake lock            ${!!navigator.wakeLock}\n` +
     `WebCodecs encoder    ${!!window.VideoEncoder}\n` +
+    `canvas capture       ${typeof HTMLCanvasElement.prototype.captureStream === 'function'}\n` +
+    `can save a video     ${canRecordReel()}\n` +
+    `can share a file     ${!!navigator.canShare}\n` +
     `ManagedMediaSource   ${!!window.ManagedMediaSource}\n`;
 
   el('diag-flip')?.addEventListener('click', () => {
@@ -605,6 +710,9 @@ el('help-open').addEventListener('click', () => {
 el('help-close').addEventListener('click', () => {
   el('help').hidden = true;
 });
+
+el('save').addEventListener('click', () => void saveReel());
+el('saving-stop').addEventListener('click', closeSaving);
 
 el('info').addEventListener('click', showDiagnostics);
 el('diag-close').addEventListener('click', () => {

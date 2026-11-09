@@ -17,7 +17,7 @@
 
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:net';
-import { readFileSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 
@@ -250,6 +250,60 @@ export async function openApp(browser, { url }) {
       await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
       await page.mouse.down();
       await page.mouse.up();
+    },
+
+    saveOffered: () => read(() => !document.getElementById('save').disabled),
+    savingShowing: () => read(() => !document.getElementById('saving').hidden),
+    savingTitle: () => read(() => document.getElementById('saving-title').textContent),
+
+    /** Set the run-up or the tail, as the sliders in diagnostics do. */
+    async setWindow(which, ms) {
+      await page.evaluate(
+        ({ which, ms }) => {
+          const control = document.getElementById(which);
+          control.value = String(ms);
+          control.dispatchEvent(new Event('input', { bubbles: true }));
+        },
+        { which, ms }
+      );
+    },
+
+    /**
+     * Save the marked moments, and catch the file that comes out.
+     *
+     * On a phone this goes to the share sheet; with no share sheet the app
+     * falls back to a download, which is what a desktop browser does and what
+     * can be caught here.
+     */
+    async save() {
+      const coming = page.waitForEvent('download', { timeout: 60_000 });
+      await page.locator('#save').click();
+      const download = await coming;
+      const path = await download.path();
+      return { name: download.suggestedFilename(), path, bytes: statSync(path).size };
+    },
+
+    /** How long a video file on disk actually runs, in ms. */
+    async lengthOfVideo(path) {
+      const base64 = readFileSync(path).toString('base64');
+      return page.evaluate(async (data) => {
+        const bytes = Uint8Array.from(atob(data), (c) => c.charCodeAt(0));
+        const url = URL.createObjectURL(new Blob([bytes], { type: 'video/mp4' }));
+        const probe = document.createElement('video');
+        probe.preload = 'metadata';
+        probe.src = url;
+        const seconds = await new Promise((resolve) => {
+          const done = () => Number.isFinite(probe.duration) && probe.duration > 0 && resolve(probe.duration);
+          probe.addEventListener('durationchange', done);
+          probe.addEventListener('loadedmetadata', () => {
+            if (Number.isFinite(probe.duration)) return done();
+            probe.currentTime = 1e6;
+          });
+          setTimeout(() => resolve(0), 8000);
+        });
+        URL.revokeObjectURL(url);
+        return seconds * 1000;
+      }, base64);
     },
 
     serviceWorkers: () => read(() => navigator.serviceWorker.getRegistrations().then((all) => all.length)),
