@@ -8,6 +8,15 @@ One entry per chunk, newest first, marked with the chunk's own letter:
 
 See `.claude/skills/chunks/SKILL.md` for the agreement these letters come from.
 
+## 1.1.13
+
+- **D** — The saved video dips briefly to black at every join instead of
+  cutting hard from one moment to the next. Each moment fades in and out over
+  200 ms inside its own time, so the video is no longer for it; while the next
+  moment is being found the frame is plain black rather than a flash of
+  wherever the clip landed. Checked in the saved file itself, by reading the
+  brightness of its frames: a recorder with the fades removed fails that test.
+
 ## 1.1.12
 
 - **D** — A **Save** screen of its own. SAVE on review now opens it rather

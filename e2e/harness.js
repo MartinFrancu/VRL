@@ -321,6 +321,59 @@ export async function openApp(browser, { url }) {
       return { name: download.suggestedFilename(), path, bytes: statSync(path).size };
     },
 
+    /**
+     * How bright a saved video is along its length — the mean brightness of a
+     * frame every `stepMs`, from 0 (black) to 255. The only honest way to show
+     * a fade made it into the file rather than just into the code.
+     */
+    async brightnessAlong(path, stepMs = 50) {
+      const base64 = readFileSync(path).toString('base64');
+      return page.evaluate(
+        async ({ data, stepMs }) => {
+          const bytes = Uint8Array.from(atob(data), (c) => c.charCodeAt(0));
+          const url = URL.createObjectURL(new Blob([bytes]));
+          const probe = document.createElement('video');
+          probe.muted = true;
+          probe.preload = 'auto';
+          probe.src = url;
+          await new Promise((resolve) => probe.addEventListener('loadedmetadata', resolve, { once: true }));
+          if (!Number.isFinite(probe.duration)) {
+            // A recorder's file carries no duration until something asks to
+            // seek past its end; the same trick the app itself uses.
+            await new Promise((resolve) => {
+              probe.addEventListener('durationchange', () => Number.isFinite(probe.duration) && resolve(), { once: false });
+              probe.currentTime = 1e6;
+            });
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = 32;
+          canvas.height = 18;
+          const paper = canvas.getContext('2d', { willReadFrequently: true });
+          const seek = (seconds) =>
+            new Promise((resolve) => {
+              probe.addEventListener('seeked', resolve, { once: true });
+              probe.currentTime = seconds;
+            });
+
+          const samples = [];
+          const lengthMs = probe.duration * 1000;
+          for (let atMs = 0; atMs < lengthMs; atMs += stepMs) {
+            await seek(atMs / 1000);
+            paper.drawImage(probe, 0, 0, canvas.width, canvas.height);
+            const pixels = paper.getImageData(0, 0, canvas.width, canvas.height).data;
+            let sum = 0;
+            for (let i = 0; i < pixels.length; i += 4) {
+              sum += 0.299 * pixels[i] + 0.587 * pixels[i + 1] + 0.114 * pixels[i + 2];
+            }
+            samples.push({ atMs, luma: sum / (pixels.length / 4) });
+          }
+          URL.revokeObjectURL(url);
+          return { lengthMs, samples };
+        },
+        { data: base64, stepMs }
+      );
+    },
+
     /** How long a video file on disk actually runs, in ms. */
     async lengthOfVideo(path) {
       const base64 = readFileSync(path).toString('base64');

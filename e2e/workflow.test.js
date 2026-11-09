@@ -486,6 +486,26 @@ describe('the Save screen', () => {
     }
   });
 
+  /**
+   * The fades, in the file. Brightness is read off the saved video itself, not
+   * off the code: somewhere around each join there has to be a frame close to
+   * black, while the middle of a moment is as bright as it was filmed. Without
+   * the fades, nothing in the middle of the file would be dark at all.
+   */
+  test('dips to black between the moments in the saved video', async ({ onTestFinished }) => {
+    const app = await onSaveScreen(onTestFinished);
+
+    const saved = await app.save();
+    const { lengthMs, samples } = await app.brightnessAlong(saved.path, 40);
+
+    const brightest = Math.max(...samples.map((sample) => sample.luma));
+    const middle = samples.filter((sample) => sample.atMs > lengthMs * 0.2 && sample.atMs < lengthMs * 0.8);
+    const darkest = Math.min(...middle.map((sample) => sample.luma));
+
+    expect(brightest).toBeGreaterThan(40);
+    expect(darkest).toBeLessThan(brightest * 0.25);
+  });
+
   test('goes back to review, on the mark that was being looked at', async ({ onTestFinished }) => {
     const app = await onSaveScreen(onTestFinished);
     await app.leaveSave();

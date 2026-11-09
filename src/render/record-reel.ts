@@ -15,9 +15,9 @@
 // real time, and by a distance the heaviest thing in the plan. Worth reaching
 // for only if this disappoints.
 
-import type { Cut, MediaHandle } from '../contracts.js';
+import type { Cut, MediaHandle, Span } from '../contracts.js';
 import { record, release } from '../media/media.js';
-import { reelLengthMs } from './reel.js';
+import { FADE_MS, fadeAt, reelLengthMs } from './reel.js';
 
 export interface ReelSources {
   /** The bout, already loaded. Played through, and left paused afterwards. */
@@ -32,6 +32,8 @@ export interface ReelOptions {
   /** How often the canvas is sampled. 30 is plenty for a replay. */
   readonly fps?: number;
   readonly signal?: AbortSignal;
+  /** How long each dip to black at a join takes. Zero for hard cuts. */
+  readonly fadeMs?: number;
 }
 
 /**
@@ -67,7 +69,7 @@ function seekTo(video: HTMLVideoElement, seconds: number): Promise<void> {
 export async function recordReel(
   cut: Cut,
   { video, canvas }: ReelSources,
-  { onProgress, fps = 30, signal }: ReelOptions = {}
+  { onProgress, fps = 30, signal, fadeMs = FADE_MS }: ReelOptions = {}
 ): Promise<MediaHandle> {
   if (cut.spans.length === 0) throw new Error('nothing was marked, so there is nothing to save');
   if (!canRecordReel()) throw new Error('this device cannot record video from a canvas');
@@ -81,10 +83,23 @@ export async function recordReel(
 
   // Paint continuously for the whole export rather than per stretch, so the
   // stream never goes quiet between them — a gap would land in the file.
+  //
+  // Each frame goes down over black at the brightness `fadeAt` says, which is
+  // what makes the dip at every join. Between stretches, while the next one is
+  // being sought, there is no stretch at all and the frame is plain black —
+  // otherwise the seek would show up as a flash of wherever the clip landed.
   let painting = true;
+  let playing: Span | null = null;
   const paint = () => {
     if (!painting) return;
-    paper.drawImage(video, 0, 0, canvas.width, canvas.height);
+    paper.globalAlpha = 1;
+    paper.fillStyle = '#000';
+    paper.fillRect(0, 0, canvas.width, canvas.height);
+    if (playing) {
+      paper.globalAlpha = fadeAt(video.currentTime * 1000, playing, fadeMs);
+      paper.drawImage(video, 0, 0, canvas.width, canvas.height);
+      paper.globalAlpha = 1;
+    }
     requestAnimationFrame(paint);
   };
 
@@ -102,7 +117,9 @@ export async function recordReel(
     for (const span of cut.spans) {
       if (signal?.aborted) throw new Error('saving was stopped');
 
+      playing = null;
       await seekTo(video, span.fromMs / 1000);
+      playing = span;
       await video.play();
 
       const until = span.toMs / 1000;
@@ -113,6 +130,7 @@ export async function recordReel(
       }
 
       video.pause();
+      playing = null;
       doneMs += Math.max(0, span.toMs - span.fromMs);
       onProgress?.(doneMs, totalMs);
 

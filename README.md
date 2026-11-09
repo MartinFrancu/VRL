@@ -45,7 +45,8 @@ about a second and a half before it and a second after — adjustable under
 **SAVE** opens a screen listing the marks, every one ticked. Untick any that
 should be left out; whichever mark was last ticked or unticked loops behind
 the list at double speed, so you can see what you are choosing. **SAVE** there
-makes one short video of the ticked moments and hands it to the phone — the
+makes one short video of the ticked moments, dipping briefly to black between
+each, and hands it to the phone — the
 share sheet where there is one, a download where there is not. It records by
 playing the moments through, so it takes as long as they last, and a progress
 bar says how far along it is. Marks whose windows overlap are not

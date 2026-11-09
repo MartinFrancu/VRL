@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 
 import type { BoutId, Cut, MarkId, Span, TakeId } from '../contracts.js';
-import { reelFilename, reelLengthMs } from './reel.js';
+import { fadeAt, reelFilename, reelLengthMs } from './reel.js';
 
 const span = (fromMs: number, toMs: number): Span => ({
   fromMs,
@@ -78,5 +78,53 @@ describe('what the saved video is called', () => {
 
   test('copes with a bout whose date was never recorded', () => {
     expect(reelFilename(bout('', 2))).toMatch(/^[\w \-.]+\.mp4$/);
+  });
+});
+
+/**
+ * A quick dip to black at every join, so one moment does not cut hard into
+ * the next. Each stretch fades in from black and out to black inside its own
+ * time, which is why the fades make the video no longer.
+ */
+describe('fading between the moments', () => {
+  const stretch = span(10_000, 12_000);
+
+  test('is fully bright in the middle of a stretch', () => {
+    expect(fadeAt(11_000, stretch, 200)).toBe(1);
+  });
+
+  test('starts and ends every stretch at black', () => {
+    expect(fadeAt(10_000, stretch, 200)).toBe(0);
+    expect(fadeAt(12_000, stretch, 200)).toBe(0);
+  });
+
+  test('comes up evenly over the fade', () => {
+    expect(fadeAt(10_100, stretch, 200)).toBeCloseTo(0.5, 5);
+    expect(fadeAt(11_900, stretch, 200)).toBeCloseTo(0.5, 5);
+  });
+
+  /**
+   * A stretch shorter than two fades still fades both ways, and simply never
+   * gets all the way up. The alternative — a fade cut short — would be a hard
+   * cut wearing a fade's name.
+   */
+  test('squeezes both fades into a short stretch, never reaching full brightness', () => {
+    const short = span(0, 300);
+    const peak = fadeAt(150, short, 200);
+
+    expect(peak).toBeGreaterThan(0.5);
+    expect(peak).toBeLessThan(1);
+    expect(fadeAt(0, short, 200)).toBe(0);
+    expect(fadeAt(300, short, 200)).toBe(0);
+  });
+
+  /** Outside its stretch is black, not a negative or an overshoot. */
+  test('is black outside the stretch', () => {
+    expect(fadeAt(9_000, stretch, 200)).toBe(0);
+    expect(fadeAt(13_000, stretch, 200)).toBe(0);
+  });
+
+  test('is no fade at all when the fade is set to nothing', () => {
+    expect(fadeAt(10_000, stretch, 0)).toBe(1);
   });
 });

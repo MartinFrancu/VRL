@@ -42,4 +42,27 @@ export function reelFilename(bout, mimeType = 'video/mp4') {
     const count = bout.marks.length;
     return `${when} SBA ${count} mark${count === 1 ? '' : 's'}.${extensionFor(mimeType)}`;
 }
+/** How long each fade takes. Quick: a dip, not a scene change. */
+export const FADE_MS = 200;
+/**
+ * How bright a frame should be drawn, from 0 (black) to 1 (as filmed).
+ *
+ * Every stretch fades in from black and out to black inside its own time, so
+ * the joins dip to black and the video gets no longer for it. A true
+ * crossfade would need two moments on screen at once — two decoders, two
+ * seeks in flight — which is a different order of work for a small gain.
+ *
+ * A stretch shorter than two fades still fades both ways and just never gets
+ * all the way up. Cutting the fades short instead would leave a hard cut
+ * wearing a fade's name.
+ */
+export function fadeAt(positionMs, span, fadeMs = FADE_MS) {
+    if (positionMs <= span.fromMs || positionMs >= span.toMs)
+        return fadeMs > 0 ? 0 : 1;
+    if (fadeMs <= 0)
+        return 1;
+    const sinceStart = positionMs - span.fromMs;
+    const untilEnd = span.toMs - positionMs;
+    return Math.min(1, sinceStart / fadeMs, untilEnd / fadeMs);
+}
 //# sourceMappingURL=reel.js.map
