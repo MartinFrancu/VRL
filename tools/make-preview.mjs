@@ -59,12 +59,24 @@ for (const size of [180, 192, 512]) {
 // Put the real icons back, so a test build never leaves the branch changed.
 execFileSync('node', [join(ROOT, 'tools/make-icons.mjs')], { cwd: ROOT, stdio: 'inherit' });
 
+/**
+ * Replace text in a copied file, refusing rather than guessing.
+ *
+ * A pattern that no longer matches means the app moved and this generator did
+ * not. Throwing is the whole point: a test build that quietly failed to be
+ * marked as one would be worse than no test build, since the thing it exists
+ * to prevent is somebody not knowing which app they are looking at.
+ *
+ * Patterns may be strings or regular expressions; prefer a regular expression
+ * where the surrounding text carries a version, or this breaks on every bump.
+ */
 const edit = (file, changes) => {
   const path = join(OUT, file);
   let text = readFileSync(path, 'utf8');
   for (const [from, to] of changes) {
-    if (!text.includes(from)) throw new Error(`${file}: could not find ${JSON.stringify(from)}`);
-    text = text.replaceAll(from, to);
+    const found = from instanceof RegExp ? from.test(text) : text.includes(from);
+    if (!found) throw new Error(`${file}: could not find ${from}`);
+    text = from instanceof RegExp ? text.replace(from, to) : text.replaceAll(from, to);
   }
   writeFileSync(path, text);
 };
@@ -86,7 +98,7 @@ edit('manifest.webmanifest', [
 // next time a referee opened the real app in a hall with no signal it would
 // not open at all. The one failure this whole app exists to avoid.
 edit('sw.js', [
-  ["const CACHE = 'vrl-v3';", `const CACHE = 'vrl-next-${version}';`],
+  [/const CACHE = '[^']+';/, `const CACHE = 'vrl-next-${version}';`],
   [
     '.then((names) => Promise.all(names.filter((name) => name !== CACHE).map((name) => caches.delete(name))))',
     '.then((names) =>\n        Promise.all(\n          names\n            // Only ever this test build\'s own. See tools/make-preview.mjs.\n            .filter((name) => name.startsWith(\'vrl-next-\') && name !== CACHE)\n            .map((name) => caches.delete(name))\n        )\n      )',
