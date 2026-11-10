@@ -1,19 +1,22 @@
-// Layer 2 — a bout: the footage, and what was noticed in it.
+// Layer 2 — an exchange: one recording, and what was noticed in it.
+//
+// A bout is made of several exchanges: film until the fight is stopped, look
+// at the marks, carry on. Each one is an exchange.
 //
 // No pixels, no codecs, no DOM. Milliseconds and identity, which is what makes
 // it cheap to test and is where a wrong answer is invisible on a screen: the
 // footage would look perfectly real, just of the wrong moment.
 //
-// Functions over the record rather than a class, because `Bout` is already
+// Functions over the record rather than a class, because `Exchange` is already
 // defined in the contracts as an immutable value and a class would mean a
 // second representation of the same thing, kept in step by hand. The layers
 // that own a lifecycle — Capture, with a camera and a recorder — will be
 // classes. The rule: classes where there is something to keep alive, functions
 // where there is a value.
 
-import type { Bout, Cut, MarkId, Span } from '../contracts.js';
+import type { Exchange, Cut, MarkId, Span } from '../contracts.js';
 
-/** How much of a bout to show around a mark. The referee's own settings. */
+/** How much of an exchange to show around a mark. The referee's own settings. */
 export interface CutSpec {
   /** How long before the mark to start. */
   readonly leadMs: number;
@@ -22,7 +25,7 @@ export interface CutSpec {
 }
 
 /**
- * A bout, in order and checked.
+ * An exchange, in order and checked.
  *
  * Marks are offsets into a recording and a recording runs one way, so whatever
  * order they arrive in, what comes back is the order they happened — everything
@@ -33,7 +36,7 @@ export interface CutSpec {
  * — so a duplicate is a bug upstream, and carrying on would show the wrong
  * footage under the right number.
  */
-export function boutOf(draft: Bout): Bout {
+export function exchangeOf(draft: Exchange): Exchange {
   const seen = new Set<string>();
   for (const mark of draft.marks) {
     if (seen.has(mark.id)) throw new Error(`two marks claim the id ${mark.id}`);
@@ -47,15 +50,15 @@ export function boutOf(draft: Bout): Bout {
 }
 
 /**
- * How far the bout reaches, in milliseconds on its own clock.
+ * How far the exchange reaches, in milliseconds on its own clock.
  *
  * Derived rather than stored, because a kept copy of a derivable number is a
  * copy that can disagree. With several angles it is the furthest any of them
- * reaches: a phone whose battery died early must not shorten a bout the others
+ * reaches: a phone whose battery died early must not shorten an exchange the others
  * are still filming.
  */
-export function durationOf(bout: Bout): number {
-  return Math.max(0, ...bout.takes.map((take) => take.startedAtMs + take.durationMs));
+export function durationOf(exchange: Exchange): number {
+  return Math.max(0, ...exchange.takes.map((take) => take.startedAtMs + take.durationMs));
 }
 
 /**
@@ -68,25 +71,25 @@ export function durationOf(bout: Bout): number {
  *
  * Spans come back in the order the marks happened, whatever order they were
  * asked for in, because a highlight that jumped about in time would be a
- * different thing from the bout it was cut from.
+ * different thing from the exchange it was cut from.
  *
  * Both ends are clamped to footage that exists, and both shortfalls are
  * reported rather than silently absorbed. A window that quietly ends early
  * looks like a fault; one that says the fight was stopped does not.
  */
-export function cut(bout: Bout, markIds: readonly MarkId[], spec: CutSpec): Cut {
-  const reaches = durationOf(bout);
-  const angles = bout.takes.map((take) => take.id);
+export function cut(exchange: Exchange, markIds: readonly MarkId[], spec: CutSpec): Cut {
+  const reaches = durationOf(exchange);
+  const angles = exchange.takes.map((take) => take.id);
   const wanted = new Set<string>(markIds);
 
-  const have = new Set<string>(bout.marks.map((mark) => mark.id));
+  const have = new Set<string>(exchange.marks.map((mark) => mark.id));
   for (const id of wanted) {
-    if (!have.has(id)) throw new Error(`this bout has no mark ${id}`);
+    if (!have.has(id)) throw new Error(`this exchange has no mark ${id}`);
   }
 
-  // Driven by the bout's own marks rather than by the ids as given, so the
-  // result is in bout order for free.
-  const spans: Span[] = bout.marks
+  // Driven by the exchange's own marks rather than by the ids as given, so the
+  // result is in exchange order for free.
+  const spans: Span[] = exchange.marks
     .filter((mark) => wanted.has(mark.id))
     .map((mark) => {
       const fromMs = Math.max(0, mark.atMs - spec.leadMs);

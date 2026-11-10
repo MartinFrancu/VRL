@@ -105,12 +105,18 @@ interface Mark {              // one noted instant, on the bout's clock
   atMs: number;
 }
 
-interface Bout {
-  id: BoutId;
+interface Exchange {          // one recording and its marks: film until
+  id: ExchangeId;             // the fight is stopped, then review
   filmedAt: string;           // ISO, for a human
   clock: Clock;               // how takes are placed against each other
   takes: Take[];
   marks: Mark[];
+}
+
+interface Bout {              // the whole fight: several exchanges
+  id: BoutId;
+  startedAt: string;
+  exchanges: Exchange[];      // in the order they were filmed
 }
 
 interface Span {              // a stretch worth showing, from some takes

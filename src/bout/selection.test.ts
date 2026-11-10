@@ -1,12 +1,12 @@
 import { describe, expect, test } from 'vitest';
 
-import type { Bout, BoutId, MarkId, TakeId } from '../contracts.js';
+import type { Exchange, ExchangeId, MarkId, TakeId } from '../contracts.js';
 import { everyMark, isChosen, showing, toggled } from './selection.js';
 
 const id = (value: string) => value as MarkId;
 
-const bout: Bout = {
-  id: 'b1' as BoutId,
+const exchange: Exchange = {
+  id: 'b1' as ExchangeId,
   filmedAt: '2026-11-09T14:00:00.000Z',
   clock: { kind: 'take', take: 't1' as TakeId },
   takes: [],
@@ -19,11 +19,11 @@ const bout: Bout = {
 
 describe('choosing which marks go into the saved video', () => {
   test('starts with every mark chosen', () => {
-    expect(everyMark(bout).chosen).toEqual(['a', 'b', 'c']);
+    expect(everyMark(exchange).chosen).toEqual(['a', 'b', 'c']);
   });
 
   test('leaves a mark out when it is unticked', () => {
-    const without = toggled(everyMark(bout), bout, id('b'));
+    const without = toggled(everyMark(exchange), exchange, id('b'));
 
     expect(without.chosen).toEqual(['a', 'c']);
     expect(isChosen(without, id('b'))).toBe(false);
@@ -35,24 +35,24 @@ describe('choosing which marks go into the saved video', () => {
    * taps on a checklist.
    */
   test('puts a mark back in the order it happened when it is ticked again', () => {
-    let choice = everyMark(bout);
-    choice = toggled(choice, bout, id('a'));
-    choice = toggled(choice, bout, id('c'));
-    choice = toggled(choice, bout, id('a'));
+    let choice = everyMark(exchange);
+    choice = toggled(choice, exchange, id('a'));
+    choice = toggled(choice, exchange, id('c'));
+    choice = toggled(choice, exchange, id('a'));
 
     expect(choice.chosen).toEqual(['a', 'b']);
   });
 
   test('can end up with nothing chosen', () => {
-    let choice = everyMark(bout);
-    for (const each of ['a', 'b', 'c']) choice = toggled(choice, bout, id(each));
+    let choice = everyMark(exchange);
+    for (const each of ['a', 'b', 'c']) choice = toggled(choice, exchange, id(each));
 
     expect(choice.chosen).toEqual([]);
   });
 
   /** A mark the bout does not have is a bug upstream, as everywhere else. */
   test('refuses a mark the bout does not have', () => {
-    expect(() => toggled(everyMark(bout), bout, id('nope'))).toThrow(/nope/);
+    expect(() => toggled(everyMark(exchange), exchange, id('nope'))).toThrow(/nope/);
   });
 });
 
@@ -63,21 +63,21 @@ describe('choosing which marks go into the saved video', () => {
  */
 describe('which moment plays behind the list', () => {
   test('is the first mark before anything has been touched', () => {
-    expect(showing(everyMark(bout), bout)).toBe('a');
+    expect(showing(everyMark(exchange), exchange)).toBe('a');
   });
 
   test('is the mark last ticked', () => {
-    let choice = toggled(everyMark(bout), bout, id('c'));
-    choice = toggled(choice, bout, id('c'));
+    let choice = toggled(everyMark(exchange), exchange, id('c'));
+    choice = toggled(choice, exchange, id('c'));
 
-    expect(showing(choice, bout)).toBe('c');
+    expect(showing(choice, exchange)).toBe('c');
   });
 
   test('is the mark last unticked, too', () => {
-    expect(showing(toggled(everyMark(bout), bout, id('b')), bout)).toBe('b');
+    expect(showing(toggled(everyMark(exchange), exchange, id('b')), exchange)).toBe('b');
   });
 
   test('is nothing for a bout with no marks', () => {
-    expect(showing(everyMark({ ...bout, marks: [] }), { ...bout, marks: [] })).toBeNull();
+    expect(showing(everyMark({ ...exchange, marks: [] }), { ...exchange, marks: [] })).toBeNull();
   });
 });

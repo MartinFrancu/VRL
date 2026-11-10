@@ -15,7 +15,7 @@
 // deliberately still plain JavaScript: it is the layer the browser tests cover
 // from the outside and the one least worth rewriting blind.
 
-import { cut, durationOf } from './app/bout/bout.js';
+import { cut, durationOf } from './app/bout/exchange.js';
 import { everyMark, isChosen, showing, toggled } from './app/bout/selection.js';
 import { Capture } from './app/capture/capture.js';
 import { cameraClockUsable } from './app/capture/clock.js';
@@ -30,7 +30,7 @@ import {
 import { canRecordReel, recordReel } from './app/render/record-reel.js';
 import { reelFilename, reelLengthMs } from './app/render/reel.js';
 
-const VERSION = '1.1.14';
+const VERSION = '1.1.15';
 
 const el = (id) => document.getElementById(id);
 const preview = el('preview');
@@ -55,7 +55,7 @@ let recordingStartedAt = 0;
 let hasFilmed = false;
 
 /** The bout being reviewed, once there is one. */
-let bout = null;
+let exchange = null;
 let current = 0;
 let positionMs = 0;
 /** The slice of the bout the current mark is shown through. */
@@ -234,7 +234,7 @@ const capture = new Capture({
 });
 
 function startFilming() {
-  releaseBout();
+  releaseExchange();
   shownMs = null;
   capture.start();
   recordingStartedAt = performance.now();
@@ -293,8 +293,8 @@ async function toReview() {
   if (capture.markCount === 0) return;
   stopFilming();
 
-  bout = await capture.finish(markSource);
-  const take = bout.takes[0];
+  exchange = await capture.finish(markSource);
+  const take = exchange.takes[0];
   // Kept where nothing resets it. The question these answer is asked on the
   // idle screen, which is reached by starting another bout, which would
   // otherwise have wiped them on the way past.
@@ -307,7 +307,7 @@ async function toReview() {
 
   renderTabs();
   select(0);
-  el('save').disabled = !canRecordReel() || bout.marks.length === 0;
+  el('save').disabled = !canRecordReel() || exchange.marks.length === 0;
   el('save').title = canRecordReel()
     ? 'Choose marks and save them as one video'
     : 'This browser cannot record a video from a canvas';
@@ -348,7 +348,7 @@ function endNow() {
   el('confirm').hidden = true;
   stopFilming();
   void capture.discard();
-  releaseBout();
+  releaseExchange();
   el('toReview').disabled = true;
   el('elapsed').textContent = '0:00';
   el('live-note').textContent = 'Point it at the fight, then press START.';
@@ -358,11 +358,11 @@ function endNow() {
 }
 
 /** Let go of the footage, and of the element holding onto it. */
-function releaseBout() {
+function releaseExchange() {
   emptyBehind();
   selection = null;
-  for (const take of bout?.takes ?? []) media.release(take.media);
-  bout = null;
+  for (const take of exchange?.takes ?? []) media.release(take.media);
+  exchange = null;
   span = null;
   clip.removeAttribute('src');
   // Dropping the attribute does not drop the resource behind it.
@@ -377,7 +377,7 @@ function releaseBout() {
 function renderTabs() {
   const tabs = el('tabs');
   tabs.innerHTML = '';
-  (bout?.marks ?? []).forEach((_mark, index) => {
+  (exchange?.marks ?? []).forEach((_mark, index) => {
     const button = document.createElement('button');
     button.textContent = String(index + 1);
     button.addEventListener('click', () => select(index));
@@ -399,11 +399,11 @@ function markActiveTab() {
  * marks is a seek, not a load.
  */
 function select(index) {
-  const chosen = bout?.marks[index];
+  const chosen = exchange?.marks[index];
   if (!chosen) return;
 
   current = index;
-  span = cut(bout, [chosen.id], { leadMs, tailMs }).spans[0];
+  span = cut(exchange, [chosen.id], { leadMs, tailMs }).spans[0];
   el('shortfall').textContent = shortfallLabel(span) ?? '';
   markActiveTab();
   // Land on the moment that was marked, not on the start of the run-up.
@@ -488,11 +488,11 @@ let cameFrom = 'review';
 let behindSpan = null;
 
 function openSave(from) {
-  if (!bout || bout.marks.length === 0) return;
+  if (!exchange || exchange.marks.length === 0) return;
   cameFrom = from;
-  selection = everyMark(bout);
+  selection = everyMark(exchange);
   renderPicks();
-  behind.src = media.urlOf(bout.takes[0].media);
+  behind.src = media.urlOf(exchange.takes[0].media);
   screenIs('export');
   playBehind();
 }
@@ -507,8 +507,8 @@ function closeSave() {
 function renderPicks() {
   const picks = el('picks');
   picks.innerHTML = '';
-  const marks = bout.marks;
-  const playing = showing(selection, bout);
+  const marks = exchange.marks;
+  const playing = showing(selection, exchange);
 
   marks.forEach((mark, index) => {
     const item = document.createElement('li');
@@ -519,7 +519,7 @@ function renderPicks() {
     box.checked = isChosen(selection, mark.id);
     box.dataset['mark'] = String(index + 1);
     box.addEventListener('change', () => {
-      selection = toggled(selection, bout, mark.id);
+      selection = toggled(selection, exchange, mark.id);
       renderPicks();
       playBehind();
     });
@@ -534,7 +534,7 @@ function renderPicks() {
   });
 
   const chosen = selection.chosen.length;
-  const plan = cut(bout, selection.chosen, { leadMs, tailMs });
+  const plan = cut(exchange, selection.chosen, { leadMs, tailMs });
   el('export-length').textContent = chosen
     ? `${chosen} of ${marks.length} mark${marks.length === 1 ? '' : 's'} · ${(reelLengthMs(plan) / 1000).toFixed(1)}s`
     : 'Nothing chosen';
@@ -548,9 +548,9 @@ function renderPicks() {
  * seen whole in a second and a bit is enough to know which one it is.
  */
 function playBehind() {
-  const id = showing(selection, bout);
+  const id = showing(selection, exchange);
   if (!id) return stopBehind();
-  behindSpan = cut(bout, [id], { leadMs, tailMs }).spans[0];
+  behindSpan = cut(exchange, [id], { leadMs, tailMs }).spans[0];
   behind.muted = true;
   behind.defaultPlaybackRate = 2;
   behind.playbackRate = 2;
@@ -633,10 +633,10 @@ function closeSaving() {
 }
 
 async function saveReel() {
-  if (!bout || !selection || selection.chosen.length === 0 || saving) return;
+  if (!exchange || !selection || selection.chosen.length === 0 || saving) return;
 
   const chosen = selection.chosen;
-  const plan = cut(bout, chosen, { leadMs, tailMs });
+  const plan = cut(exchange, chosen, { leadMs, tailMs });
   // The background would be decoding alongside the recording for nothing.
   stopBehind();
   const totalMs = reelLengthMs(plan);
@@ -682,7 +682,7 @@ async function saveReel() {
 function offerReel(footage, chosen) {
   const bytes = media.bytesOf(footage);
   // Named for what is in it, not for the whole bout.
-  const kept = { ...bout, marks: bout.marks.filter((mark) => chosen.includes(mark.id)) };
+  const kept = { ...exchange, marks: exchange.marks.filter((mark) => chosen.includes(mark.id)) };
   const name = reelFilename(kept, bytes.type);
   const file = new File([bytes], name, { type: bytes.type });
   ready = { footage, file, name };
@@ -765,8 +765,8 @@ function renderDiagnostics() {
   const readings = capture.lastReadings;
   const cameraClockRan = cameraClockUsable(readings);
   const usingCameraClock = markSource === 'camera' && cameraClockRan;
-  const footage = bout?.takes[0]?.media ?? null;
-  const reaches = bout ? durationOf(bout) : null;
+  const footage = exchange?.takes[0]?.media ?? null;
+  const reaches = exchange ? durationOf(exchange) : null;
 
   el('diag-body').innerHTML =
     `<h2>device</h2>` +
@@ -815,7 +815,7 @@ function renderDiagnostics() {
     // The bout on screen is re-placed, not just the next one. Resolving is
     // cheap; re-filming is not.
     const replaced = capture.usingClock(markSource);
-    if (replaced) bout = replaced;
+    if (replaced) exchange = replaced;
     if (document.body.dataset['screen'] === 'review') select(current);
     renderDiagnostics();
   });
@@ -887,7 +887,7 @@ for (const [input, get, set] of [
   control.addEventListener('input', (event) => {
     set(Number(event.target.value));
     el(`${input}-value`).textContent = `${(get() / 1000).toFixed(1)}s`;
-    if (bout && document.body.dataset['screen'] === 'review') select(current);
+    if (exchange && document.body.dataset['screen'] === 'review') select(current);
   });
 }
 

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 
-import type { BoutId, Cut, MarkId, Span, TakeId } from '../contracts.js';
+import type { ExchangeId, Cut, MarkId, Span, TakeId } from '../contracts.js';
 import { fadeAt, reelFilename, reelLengthMs } from './reel.js';
 
 const span = (fromMs: number, toMs: number): Span => ({
@@ -34,8 +34,8 @@ describe('how long the saved video will be', () => {
 });
 
 describe('what the saved video is called', () => {
-  const bout = (filmedAt: string, marks: number) => ({
-    id: 'b1' as BoutId,
+  const exchange = (filmedAt: string, marks: number) => ({
+    id: 'b1' as ExchangeId,
     filmedAt,
     clock: { kind: 'take', take: 't1' as TakeId } as const,
     takes: [],
@@ -50,7 +50,7 @@ describe('what the saved video is called', () => {
    * bouts happened in.
    */
   test('leads with the date it was filmed', () => {
-    expect(reelFilename(bout('2026-11-09T14:32:05.000Z', 3))).toMatch(/^2026-11-09/);
+    expect(reelFilename(exchange('2026-11-09T14:32:05.000Z', 3))).toMatch(/^2026-11-09/);
   });
 
   /**
@@ -58,13 +58,13 @@ describe('what the saved video is called', () => {
    * contains "1 mark" and a substring check waves the wrong one through.
    */
   test('says how many moments are in it', () => {
-    expect(reelFilename(bout('2026-11-09T14:32:05.000Z', 3))).toBe('2026-11-09 SBA 3 marks.mp4');
-    expect(reelFilename(bout('2026-11-09T14:32:05.000Z', 1))).toBe('2026-11-09 SBA 1 mark.mp4');
+    expect(reelFilename(exchange('2026-11-09T14:32:05.000Z', 3))).toBe('2026-11-09 SBA 3 marks.mp4');
+    expect(reelFilename(exchange('2026-11-09T14:32:05.000Z', 1))).toBe('2026-11-09 SBA 1 mark.mp4');
   });
 
   test('ends in something a phone will recognise as a video', () => {
-    expect(reelFilename(bout('2026-11-09T14:32:05.000Z', 2), 'video/mp4')).toMatch(/\.mp4$/);
-    expect(reelFilename(bout('2026-11-09T14:32:05.000Z', 2), 'video/webm;codecs=vp9')).toMatch(/\.webm$/);
+    expect(reelFilename(exchange('2026-11-09T14:32:05.000Z', 2), 'video/mp4')).toMatch(/\.mp4$/);
+    expect(reelFilename(exchange('2026-11-09T14:32:05.000Z', 2), 'video/webm;codecs=vp9')).toMatch(/\.webm$/);
   });
 
   /**
@@ -73,11 +73,11 @@ describe('what the saved video is called', () => {
    * flinch.
    */
   test('has nothing in it that a filesystem would object to', () => {
-    expect(reelFilename(bout('2026-11-09T14:32:05.000Z', 2))).toMatch(/^[\w \-.]+$/);
+    expect(reelFilename(exchange('2026-11-09T14:32:05.000Z', 2))).toMatch(/^[\w \-.]+$/);
   });
 
   test('copes with a bout whose date was never recorded', () => {
-    expect(reelFilename(bout('', 2))).toMatch(/^[\w \-.]+\.mp4$/);
+    expect(reelFilename(exchange('', 2))).toMatch(/^[\w \-.]+\.mp4$/);
   });
 });
 

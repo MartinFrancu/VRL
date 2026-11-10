@@ -14,7 +14,7 @@
 //   Mark         inside Bout only
 //   Span, Cut    Bout     -> Render
 //   Frameset     Render   -> a sink
-//   BoutRecord   Bout     -> Store
+//   ExchangeRecord Bout   -> Store
 //
 // Where two of these look nearly identical — Take and StoredTake especially —
 // that duplication is deliberate. See the note on StoredTake.
@@ -28,6 +28,7 @@ type Branded<T, B extends string> = T & { readonly [brand]: B };
 // are all strings at runtime; this costs nothing and catches the mix-up that
 // is otherwise invisible until something shows the wrong footage.
 export type BoutId = Branded<string, 'BoutId'>;
+export type ExchangeId = Branded<string, 'ExchangeId'>;
 export type TakeId = Branded<string, 'TakeId'>;
 export type MarkId = Branded<string, 'MarkId'>;
 
@@ -70,7 +71,7 @@ export interface Picture {
 /**
  * One continuous recording from one source.
  *
- * `startedAtMs` is on the *bout's* clock, not on any device's. For a single
+ * `startedAtMs` is on the *exchange's* clock, not on any device's. For a single
  * phone that is zero. For several, it is the offset that lines this angle up
  * against the others, and working it out is Bout's job — see Clock.
  *
@@ -93,7 +94,7 @@ export interface Take {
 // ------------------------------------------------------------- inside Bout
 
 /**
- * One noted instant, on the bout's clock.
+ * One noted instant, on the exchange's clock.
  *
  * An instant and nothing else, deliberately. Scoring — which fighter, what was
  * hit, whether it counted — will eventually land here, and there will be more
@@ -106,12 +107,12 @@ export interface Mark {
 }
 
 /**
- * What the bout's milliseconds are counted from.
+ * What the exchange's milliseconds are counted from.
  *
  * The seam for several angles, and the only place the hard part lives.
  *
- * - `take` — the bout's clock *is* one recording's own clock. One phone, which
- *   is every bout today, and nothing needs aligning.
+ * - `take` — the exchange's clock *is* one recording's own clock. One phone, which
+ *   is every exchange today, and nothing needs aligning.
  * - `shared` — every take carries an offset against a common epoch. Several
  *   phones, where lining them up is the whole problem.
  */
@@ -120,13 +121,13 @@ export type Clock =
   | { readonly kind: 'shared'; readonly epochMs: number };
 
 /**
- * A bout: the footage, and what was noticed in it.
+ * An exchange: the footage, and what was noticed in it.
  *
  * No duration field — it is the furthest any take reaches, and a stored copy of
  * a derivable number is a copy that can disagree.
  */
-export interface Bout {
-  readonly id: BoutId;
+export interface Exchange {
+  readonly id: ExchangeId;
   /** ISO 8601, for sorting a library and showing a human when this was. */
   readonly filmedAt: string;
   readonly clock: Clock;
@@ -167,7 +168,7 @@ export interface Span {
  * One span is instant replay — the window around the mark being looked at.
  * Several spans in a row is the highlight video. **They are the same thing**,
  * which is why both use cases are one mechanism with different sinks, and why
- * trimming a bout for storage is also this.
+ * trimming an exchange for storage is also this.
  */
 export interface Cut {
   readonly spans: readonly Span[];
@@ -233,15 +234,15 @@ export interface StoredTake {
 }
 
 /**
- * A bout, serialised.
+ * An exchange, serialised.
  *
  * `v` from the first version, before there is anything to migrate. Once other
  * referees' phones hold saved bouts, the format is on devices nobody controls,
  * and a version field added later cannot tell you what it is looking at.
  */
-export interface BoutRecord {
+export interface ExchangeRecord {
   readonly v: 1;
-  readonly id: BoutId;
+  readonly id: ExchangeId;
   readonly filmedAt: string;
   readonly clock: Clock;
   readonly takes: readonly StoredTake[];

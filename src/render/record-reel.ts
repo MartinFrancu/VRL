@@ -20,7 +20,7 @@ import { record, release } from '../media/media.js';
 import { FADE_MS, fadeAt, reelLengthMs } from './reel.js';
 
 export interface ReelSources {
-  /** The bout, already loaded. Played through, and left paused afterwards. */
+  /** The exchange's footage, already loaded. Played through, and left paused afterwards. */
   readonly video: HTMLVideoElement;
   /** Where frames are drawn. Resized to the footage; nothing else uses it. */
   readonly canvas: HTMLCanvasElement;

@@ -12,7 +12,7 @@
 // and the next opening has the new version. A version behind is a fair price
 // for never waiting.
 
-const CACHE = 'vrl-v5';
+const CACHE = 'vrl-v6';
 
 const SHELL = [
   './',
@@ -21,7 +21,7 @@ const SHELL = [
   // The compiled layers. Every one of these is imported at load, so a missing
   // entry is an app that works online and breaks in a sports hall — which is
   // the one place it has to work.
-  './app/bout/bout.js',
+  './app/bout/exchange.js',
   './app/bout/selection.js',
   './app/capture/capture.js',
   './app/capture/clock.js',

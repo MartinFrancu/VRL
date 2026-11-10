@@ -8,6 +8,14 @@ One entry per chunk, newest first, marked with the chunk's own letter:
 
 See `.claude/skills/chunks/SKILL.md` for the agreement these letters come from.
 
+## 1.1.15
+
+- **R** — What the code called a bout — one recording and its marks — is now
+  an **exchange**, the word the screen will use for it. A bout is about to mean
+  the whole fight, made of several exchanges, and one word for two things would
+  have been a standing source of confusion. Names and their comments only; the
+  browser tests did not change and all pass.
+
 ## 1.1.14
 
 - **B** — Saving a video left an iPhone on a black screen. A phone opens its

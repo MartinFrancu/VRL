@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 
-import type { BoutId, MarkId, MediaHandle, Take, TakeId } from '../contracts.js';
-import { boutOf, cut, durationOf } from './bout.js';
+import type { ExchangeId, MarkId, MediaHandle, Take, TakeId } from '../contracts.js';
+import { exchangeOf, cut, durationOf } from './exchange.js';
 
 const footage = {} as MediaHandle;
 
@@ -17,9 +17,9 @@ const take = (id: string, startedAtMs: number, durationMs: number): Take => ({
 
 const mark = (id: string, atMs: number) => ({ id: id as MarkId, atMs });
 
-const bout = (marks: { id: MarkId; atMs: number }[], takes: Take[] = [take('t1', 0, 60_000)]) =>
-  boutOf({
-    id: 'b1' as BoutId,
+const exchange = (marks: { id: MarkId; atMs: number }[], takes: Take[] = [take('t1', 0, 60_000)]) =>
+  exchangeOf({
+    id: 'b1' as ExchangeId,
     filmedAt: '2026-11-04T09:00:00.000Z',
     clock: { kind: 'take', take: 't1' as TakeId },
     takes,
@@ -28,7 +28,7 @@ const bout = (marks: { id: MarkId; atMs: number }[], takes: Take[] = [take('t1',
 
 describe('a bout and what was noticed in it', () => {
   test('keeps a mark at the instant it was taken', () => {
-    expect(bout([mark('m1', 30_000)]).marks).toEqual([{ id: 'm1', atMs: 30_000 }]);
+    expect(exchange([mark('m1', 30_000)]).marks).toEqual([{ id: 'm1', atMs: 30_000 }]);
   });
 
   /**
@@ -38,14 +38,14 @@ describe('a bout and what was noticed in it', () => {
    * happened in, because everything downstream numbers them for the referee.
    */
   test('gives the marks back in the order they happened, however they went in', () => {
-    const ordered = bout([mark('c', 9_000), mark('a', 1_000), mark('b', 5_000)]);
+    const ordered = exchange([mark('c', 9_000), mark('a', 1_000), mark('b', 5_000)]);
 
     expect(ordered.marks.map((each) => each.id)).toEqual(['a', 'b', 'c']);
   });
 
   /** A referee who taps twice for one exchange meant both. Nothing is merged. */
   test('keeps two marks taken at the same instant', () => {
-    expect(bout([mark('m1', 4_000), mark('m2', 4_000)]).marks).toHaveLength(2);
+    expect(exchange([mark('m1', 4_000), mark('m2', 4_000)]).marks).toHaveLength(2);
   });
 
   /**
@@ -55,13 +55,13 @@ describe('a bout and what was noticed in it', () => {
    * right number.
    */
   test('refuses two marks that claim the same id', () => {
-    expect(() => bout([mark('m1', 1_000), mark('m1', 7_000)])).toThrow(/m1/);
+    expect(() => exchange([mark('m1', 1_000), mark('m1', 7_000)])).toThrow(/m1/);
   });
 });
 
 describe('how far a bout reaches', () => {
   test('is as far as its footage goes', () => {
-    expect(durationOf(bout([], [take('t1', 0, 60_000)]))).toBe(60_000);
+    expect(durationOf(exchange([], [take('t1', 0, 60_000)]))).toBe(60_000);
   });
 
   /**
@@ -72,12 +72,12 @@ describe('how far a bout reaches', () => {
   test('is as far as the furthest angle reaches, with several', () => {
     const angles = [take('t1', 0, 60_000), take('t2', 2_000, 61_000), take('t3', 500, 1_000)];
 
-    expect(durationOf(bout([], angles))).toBe(63_000);
+    expect(durationOf(exchange([], angles))).toBe(63_000);
   });
 
   /** Nothing filmed yet is a length of nothing, not a crash. */
   test('reaches nowhere when nothing was filmed', () => {
-    expect(durationOf(bout([], []))).toBe(0);
+    expect(durationOf(exchange([], []))).toBe(0);
   });
 });
 
@@ -91,7 +91,7 @@ describe('cutting a bout down to what is worth watching', () => {
   const spec = { leadMs: 1500, tailMs: 1000 };
 
   test('runs from before a mark to after it, anchored on the mark itself', () => {
-    const { spans } = cut(bout([mark('m1', 30_000)]), ['m1' as MarkId], spec);
+    const { spans } = cut(exchange([mark('m1', 30_000)]), ['m1' as MarkId], spec);
 
     expect(spans).toHaveLength(1);
     expect(spans[0]).toMatchObject({
@@ -109,7 +109,7 @@ describe('cutting a bout down to what is worth watching', () => {
    */
   test('says which angles to show it from', () => {
     const angles = [take('t1', 0, 60_000), take('t2', 0, 60_000)];
-    const { spans } = cut(bout([mark('m1', 30_000)], angles), ['m1' as MarkId], spec);
+    const { spans } = cut(exchange([mark('m1', 30_000)], angles), ['m1' as MarkId], spec);
 
     expect(spans[0]?.takes).toEqual(['t1', 't2']);
   });
@@ -119,7 +119,7 @@ describe('cutting a bout down to what is worth watching', () => {
    * because it does not exist, not because anything went wrong.
    */
   test('gives a mark near the beginning what run-up there is', () => {
-    const { spans } = cut(bout([mark('m1', 400)]), ['m1' as MarkId], spec);
+    const { spans } = cut(exchange([mark('m1', 400)]), ['m1' as MarkId], spec);
 
     expect(spans[0]).toMatchObject({ fromMs: 0, toMs: 1_400, shortLeadMs: 1_100 });
   });
@@ -131,13 +131,13 @@ describe('cutting a bout down to what is worth watching', () => {
    * because a window that silently ends early looks like a fault.
    */
   test('gives a mark near the end what tail there is, and says how much is missing', () => {
-    const { spans } = cut(bout([mark('m1', 59_800)]), ['m1' as MarkId], spec);
+    const { spans } = cut(exchange([mark('m1', 59_800)]), ['m1' as MarkId], spec);
 
     expect(spans[0]).toMatchObject({ fromMs: 58_300, toMs: 60_000, shortTailMs: 800 });
   });
 
   test('is one span per mark, in the order they happened', () => {
-    const three = bout([mark('a', 5_000), mark('b', 20_000), mark('c', 40_000)]);
+    const three = exchange([mark('a', 5_000), mark('b', 20_000), mark('c', 40_000)]);
 
     const { spans } = cut(three, ['c' as MarkId, 'a' as MarkId, 'b' as MarkId], spec);
 
@@ -146,7 +146,7 @@ describe('cutting a bout down to what is worth watching', () => {
 
   /** Asking for nothing is a legitimate nothing — an empty highlight. */
   test('is empty when nothing was asked for', () => {
-    expect(cut(bout([mark('m1', 5_000)]), [], spec).spans).toEqual([]);
+    expect(cut(exchange([mark('m1', 5_000)]), [], spec).spans).toEqual([]);
   });
 
   /**
@@ -155,6 +155,6 @@ describe('cutting a bout down to what is worth watching', () => {
    * where footage should be with nothing to say why.
    */
   test('refuses a mark the bout does not have', () => {
-    expect(() => cut(bout([mark('m1', 5_000)]), ['nope' as MarkId], spec)).toThrow(/nope/);
+    expect(() => cut(exchange([mark('m1', 5_000)]), ['nope' as MarkId], spec)).toThrow(/nope/);
   });
 });

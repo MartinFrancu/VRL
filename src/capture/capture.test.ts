@@ -91,9 +91,9 @@ describe('the bout that comes out', () => {
     tick(3000);
     capture.mark();
 
-    const bout = await capture.finish('wall');
+    const exchange = await capture.finish('wall');
 
-    expect(bout.marks.map((mark) => mark.atMs)).toEqual([1000, 4000]);
+    expect(exchange.marks.map((mark) => mark.atMs)).toEqual([1000, 4000]);
   });
 
   test('places the marks by the camera clock when it ran', async () => {
@@ -104,10 +104,10 @@ describe('the bout that comes out', () => {
     tick(3000);
     capture.mark();
 
-    const bout = await capture.finish('camera');
+    const exchange = await capture.finish('camera');
 
     // Offsets from the frame clock's reading at the moment filming began.
-    expect(bout.marks.map((mark) => mark.atMs)).toEqual([1100, 4200]);
+    expect(exchange.marks.map((mark) => mark.atMs)).toEqual([1100, 4200]);
   });
 
   /**
@@ -124,9 +124,9 @@ describe('the bout that comes out', () => {
     tick(3000);
     capture.mark();
 
-    const bout = await capture.finish('camera');
+    const exchange = await capture.finish('camera');
 
-    expect(bout.marks.map((mark) => mark.atMs)).toEqual([1000, 4000]);
+    expect(exchange.marks.map((mark) => mark.atMs)).toEqual([1000, 4000]);
   });
 
   test('has one take, and a clock that names it', async () => {
@@ -134,10 +134,10 @@ describe('the bout that comes out', () => {
     capture.start();
     capture.mark();
 
-    const bout = await capture.finish('wall');
+    const exchange = await capture.finish('wall');
 
-    expect(bout.takes).toHaveLength(1);
-    expect(bout.clock).toEqual({ kind: 'take', take: bout.takes[0]?.id });
+    expect(exchange.takes).toHaveLength(1);
+    expect(exchange.clock).toEqual({ kind: 'take', take: exchange.takes[0]?.id });
   });
 
   test('carries the length the file turned out to be', async () => {
@@ -145,9 +145,9 @@ describe('the bout that comes out', () => {
     capture.start();
     capture.mark();
 
-    const bout = await capture.finish('wall');
+    const exchange = await capture.finish('wall');
 
-    expect(bout.takes[0]?.durationMs).toBe(61_000);
+    expect(exchange.takes[0]?.durationMs).toBe(61_000);
   });
 
   /**
@@ -162,9 +162,9 @@ describe('the bout that comes out', () => {
     capture.mark();
     turnPhone({ width: 1080, height: 1920 });
 
-    const bout = await capture.finish('wall');
+    const exchange = await capture.finish('wall');
 
-    expect(bout.takes[0]).toMatchObject({ width: 1920, height: 1080 });
+    expect(exchange.takes[0]).toMatchObject({ width: 1920, height: 1080 });
   });
 });
 

@@ -7,7 +7,7 @@
 // The recording itself — a canvas, a stream, an encoder — is the browser's
 // half and lives in `record-reel.ts`.
 
-import type { Bout, Cut, Span } from '../contracts.js';
+import type { Exchange, Cut, Span } from '../contracts.js';
 
 /**
  * How long the saved video will run.
@@ -41,10 +41,10 @@ function extensionFor(mimeType: string): string {
  * and from there to who knows what — a filesystem, a chat app, a cloud drive —
  * and none of them should have to flinch at it.
  */
-export function reelFilename(bout: Bout, mimeType = 'video/mp4'): string {
-  const day = bout.filmedAt.slice(0, 10);
+export function reelFilename(exchange: Exchange, mimeType = 'video/mp4'): string {
+  const day = exchange.filmedAt.slice(0, 10);
   const when = /^\d{4}-\d{2}-\d{2}$/.test(day) ? day : 'undated';
-  const count = bout.marks.length;
+  const count = exchange.marks.length;
 
   return `${when} SBA ${count} mark${count === 1 ? '' : 's'}.${extensionFor(mimeType)}`;
 }

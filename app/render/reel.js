@@ -36,10 +36,10 @@ function extensionFor(mimeType) {
  * and from there to who knows what — a filesystem, a chat app, a cloud drive —
  * and none of them should have to flinch at it.
  */
-export function reelFilename(bout, mimeType = 'video/mp4') {
-    const day = bout.filmedAt.slice(0, 10);
+export function reelFilename(exchange, mimeType = 'video/mp4') {
+    const day = exchange.filmedAt.slice(0, 10);
     const when = /^\d{4}-\d{2}-\d{2}$/.test(day) ? day : 'undated';
-    const count = bout.marks.length;
+    const count = exchange.marks.length;
     return `${when} SBA ${count} mark${count === 1 ? '' : 's'}.${extensionFor(mimeType)}`;
 }
 /** How long each fade takes. Quick: a dip, not a scene change. */
