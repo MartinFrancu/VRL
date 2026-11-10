@@ -535,6 +535,53 @@ export async function openApp(browser, { url, shareSheet = false }) {
       );
     },
 
+    /**
+     * The colour of a saved video at one spot of its frame — `fx`, `fy` as
+     * fractions of it — every `stepMs` along its length.
+     */
+    async colourAlong(path, fx, fy, stepMs = 40) {
+      const base64 = readFileSync(path).toString('base64');
+      return page.evaluate(
+        async ({ data, fx, fy, stepMs }) => {
+          const bytes = Uint8Array.from(atob(data), (c) => c.charCodeAt(0));
+          const url = URL.createObjectURL(new Blob([bytes]));
+          const probe = document.createElement('video');
+          probe.muted = true;
+          probe.preload = 'auto';
+          probe.src = url;
+          await new Promise((resolve) => probe.addEventListener('loadedmetadata', resolve, { once: true }));
+          if (!Number.isFinite(probe.duration)) {
+            await new Promise((resolve) => {
+              probe.addEventListener('durationchange', () => Number.isFinite(probe.duration) && resolve());
+              probe.currentTime = 1e6;
+            });
+          }
+          // Big enough that the dot at the centre of a hit is several pixels
+          // across, so the one read is the dot and not its edge.
+          const canvas = document.createElement('canvas');
+          canvas.width = 480;
+          canvas.height = Math.round((480 * probe.videoHeight) / probe.videoWidth);
+          const paper = canvas.getContext('2d', { willReadFrequently: true });
+          const seek = (seconds) =>
+            new Promise((resolve) => {
+              probe.addEventListener('seeked', resolve, { once: true });
+              probe.currentTime = seconds;
+            });
+          const samples = [];
+          const lengthMs = probe.duration * 1000;
+          for (let atMs = 0; atMs < lengthMs; atMs += stepMs) {
+            await seek(atMs / 1000);
+            paper.drawImage(probe, 0, 0, canvas.width, canvas.height);
+            const [r, g, b] = paper.getImageData(Math.round(fx * canvas.width), Math.round(fy * canvas.height), 1, 1).data;
+            samples.push({ atMs, r, g, b });
+          }
+          URL.revokeObjectURL(url);
+          return { lengthMs, samples };
+        },
+        { data: base64, fx, fy, stepMs }
+      );
+    },
+
     /** How long a video file on disk actually runs, in ms. */
     async lengthOfVideo(path) {
       const base64 = readFileSync(path).toString('base64');

@@ -48,7 +48,8 @@ each hit, Undo for the last one, and Done. Drag to find the frame first; the
 hit goes in at the moment on screen, and shows over the picture as a ring in
 the fighter's colour that comes up just before the moment and fades over the
 half-second after. Any number of hits per mark, whoever got the point — a
-double where nobody scores is two hits and no point.
+double where nobody scores is two hits and no point. The saved video shows
+every hit the same way, at the spot and the moment it was placed.
 **BACK** keeps this exchange and goes straight back to filming the next.
 
 **Summary** — reached by END. Every exchange of the bout, each with its marks

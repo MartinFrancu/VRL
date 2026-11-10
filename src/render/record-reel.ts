@@ -17,6 +17,7 @@
 
 import type { Cut, MediaHandle, Span, TakeId } from '../contracts.js';
 import { measureDurationMs, record, release } from '../media/media.js';
+import { drawHits } from './hits.js';
 import { FADE_MS, fadeAt, reelLengthMs } from './reel.js';
 
 export interface ReelSources {
@@ -117,9 +118,17 @@ export async function recordReel(
     paper.fillStyle = '#000';
     paper.fillRect(0, 0, canvas.width, canvas.height);
     if (playing) {
-      paper.globalAlpha = fadeAt(video.currentTime * 1000, playing, fadeMs);
+      const nowMs = video.currentTime * 1000;
+      const strength = fadeAt(nowMs, playing, fadeMs);
+      paper.globalAlpha = strength;
       paper.drawImage(video, 0, 0, canvas.width, canvas.height);
       paper.globalAlpha = 1;
+      // The hits in this stretch, by the same drawHits the review screen uses,
+      // over the whole frame — and as faded as the stretch is, so a hit near a
+      // join dips to black with everything else.
+      if (playing.hits?.length) {
+        drawHits(paper, playing.hits, nowMs, { left: 0, top: 0, width: canvas.width, height: canvas.height }, strength);
+      }
     }
     requestAnimationFrame(paint);
   };

@@ -558,6 +558,45 @@ describe('placing hits', () => {
     expect(isBlue(await app.hitLayerAt(0.6, 0.5))).toBe(true);
   });
 
+  /**
+   * The point of the whole thing: the hit is in the saved video, where it was
+   * tapped and when. Read off the file itself, at that spot of the frame. The
+   * test camera's picture is green all over, so red there can only be the
+   * hit — and it must not be there at the start, a good while before the
+   * moment it was placed at.
+   */
+  test('draws the hit into the saved video, where and when it was placed', async ({ onTestFinished }) => {
+    const app = await freshApp(onTestFinished);
+    await filmBout(app, 1, { spacingMs: 1500 });
+    await app.review();
+    await app.givePoint('red');
+    await app.tapPictureAt(0.3, 0.4);
+    await app.doneHits();
+
+    const saved = await app.save();
+    const { lengthMs, samples } = await app.colourAlong(saved.path, 0.3, 0.4);
+
+    const red = samples.filter(({ r, g, b }) => r > 120 && r > g + 50 && r > b + 50);
+    expect(red.length).toBeGreaterThan(0);
+    const firstRed = Math.min(...red.map((sample) => sample.atMs));
+    expect(firstRed).toBeGreaterThan(lengthMs * 0.25);
+  });
+
+  /** Where nothing was tapped, nothing is drawn. */
+  test('draws nothing into the saved video where no hit was placed', async ({ onTestFinished }) => {
+    const app = await freshApp(onTestFinished);
+    await filmBout(app, 1, { spacingMs: 1500 });
+    await app.review();
+    await app.givePoint('red');
+    await app.tapPictureAt(0.3, 0.4);
+    await app.doneHits();
+
+    const saved = await app.save();
+    const { samples } = await app.colourAlong(saved.path, 0.8, 0.8);
+
+    expect(samples.some(({ r, g, b }) => r > 120 && r > g + 50 && r > b + 50)).toBe(false);
+  });
+
   /** Outside placing, a tap on the picture is still nothing at all. */
   test('places nothing once placing is done', async ({ onTestFinished }) => {
     const app = await reviewing(onTestFinished);

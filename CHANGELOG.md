@@ -8,6 +8,13 @@ One entry per chunk, newest first, marked with the chunk's own letter:
 
 See `.claude/skills/chunks/SKILL.md` for the agreement these letters come from.
 
+## 1.1.19
+
+- **D** — Hits are in the saved video: a ring in the fighter's colour at the
+  spot each was tapped, coming up just before its moment and fading over the
+  half-second after, exactly as on the review screen — the same drawHits()
+  draws both. A hit near a join dips to black with the rest of the frame.
+
 ## 1.1.18
 
 - **D** — Hits. After a point is given on review, tapping the picture places
