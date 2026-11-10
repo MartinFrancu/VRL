@@ -8,6 +8,15 @@ One entry per chunk, newest first, marked with the chunk's own letter:
 
 See `.claude/skills/chunks/SKILL.md` for the agreement these letters come from.
 
+## 1.1.17
+
+- **D** — Points. On review, **POINT** gives the mark on screen to red or
+  blue, or takes its point away; its tab fills with the fighter's colour. The
+  summary shows whose each point is, and opens with only the pointed marks
+  ticked — the moments the bout turned on — so saving straight away makes the
+  video of those. A mark's point is the first of scoring in the data, and the
+  least of it: which fighter, not what was hit or under which rules.
+
 ## 1.1.16
 
 - **D** — A bout is now the whole fight, filmed in exchanges. BACK from review

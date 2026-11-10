@@ -16,8 +16,8 @@
 // from the outside and the one least worth rewriting blind.
 
 import { cutBout, exchangeHolding, newBout, withExchange, withExchangeReplaced } from './app/bout/bout.js';
-import { cut, durationOf } from './app/bout/exchange.js';
-import { everyMark, isChosen, showing, toggled } from './app/bout/selection.js';
+import { cut, durationOf, withPoint } from './app/bout/exchange.js';
+import { isChosen, pointsOnly, showing, toggled } from './app/bout/selection.js';
 import { Capture } from './app/capture/capture.js';
 import { cameraClockUsable } from './app/capture/clock.js';
 import * as media from './app/media/media.js';
@@ -31,7 +31,7 @@ import {
 import { canRecordReel, recordReel } from './app/render/record-reel.js';
 import { reelFilename, reelLengthMs } from './app/render/reel.js';
 
-const VERSION = '1.1.16';
+const VERSION = '1.1.17';
 
 const el = (id) => document.getElementById(id);
 const preview = el('preview');
@@ -422,6 +422,7 @@ function renderTabs() {
 function markActiveTab() {
   const tabs = [...el('tabs').children];
   tabs.forEach((button, index) => button.classList.toggle('on', index === current));
+  paintPoints();
   // 'nearest' on both axes: enough to bring it into the strip, not enough to
   // scroll the screen underneath it.
   tabs[current]?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
@@ -502,6 +503,46 @@ function onDragMove(event) {
   );
 }
 
+// --------------------------------------------------------- giving points
+
+/**
+ * Each mark's point shown where it was given: the tab filled with the
+ * fighter's colour, and the POINT button saying who has the mark on screen.
+ */
+function paintPoints() {
+  const marks = exchange?.marks ?? [];
+  [...el('tabs').children].forEach((button, index) => {
+    const point = marks[index]?.point;
+    button.classList.toggle('red', point === 'red');
+    button.classList.toggle('blue', point === 'blue');
+  });
+  const point = marks[current]?.point ?? null;
+  el('point').textContent = point ? point.toUpperCase() : 'POINT';
+  el('point').classList.toggle('red', point === 'red');
+  el('point').classList.toggle('blue', point === 'blue');
+}
+
+function askForPoint() {
+  if (!exchange?.marks[current]) return;
+  el('pick-title').textContent = `Point for mark ${current + 1}`;
+  el('pick-point').hidden = false;
+}
+
+/**
+ * Give the mark on screen to red or blue, or take its point away.
+ *
+ * The exchange on screen and the bout holding it are both updated: the
+ * summary reads the bout, and that is where the points have to have landed.
+ */
+function givePoint(side) {
+  const mark = exchange?.marks[current];
+  el('pick-point').hidden = true;
+  if (!mark) return;
+  exchange = withPoint(exchange, mark.id, side);
+  bout = withExchangeReplaced(bout, exchange);
+  paintPoints();
+}
+
 // -------------------------------------------------------------- the summary
 
 /**
@@ -523,7 +564,8 @@ let behindTake = null;
 const folded = new Set();
 
 function openSummary() {
-  selection = everyMark(bout);
+  // The marks given a point are what the bout turned on, so they start ticked.
+  selection = pointsOnly(bout);
   folded.clear();
   renderPicks();
   screenIs('export');
@@ -596,7 +638,14 @@ function renderPicks() {
       const at = document.createElement('span');
       at.className = 'at';
       at.textContent = `${(mark.atMs / 1000).toFixed(1)}s`;
-      label.append(box, number, at);
+      label.append(box, number);
+      if (mark.point) {
+        const side = document.createElement('span');
+        side.className = `side ${mark.point}`;
+        side.textContent = mark.point === 'red' ? 'Red' : 'Blue';
+        label.append(side);
+      }
+      label.append(at);
       row.append(label);
       marks.append(row);
     });
@@ -904,6 +953,10 @@ function renderDiagnostics() {
     markSource = markSource === 'camera' ? 'wall' : 'camera';
     // The bout on screen is re-placed, not just the next one. Resolving is
     // cheap; re-filming is not.
+    // Re-placing builds the exchange afresh from Capture's readings, which know
+    // nothing of points. That is safe only because this panel is reached from
+    // idle, between bouts; were it ever reachable mid-bout, points would need
+    // carrying across here.
     const replaced = capture.usingClock(markSource);
     if (replaced && bout) bout = withExchangeReplaced(bout, replaced);
     if (replaced && exchange?.id === replaced.id) exchange = replaced;
@@ -958,6 +1011,13 @@ el('help-close').addEventListener('click', () => {
 });
 
 el('export-back').addEventListener('click', carryOn);
+el('point').addEventListener('click', askForPoint);
+el('give-red').addEventListener('click', () => givePoint('red'));
+el('give-blue').addEventListener('click', () => givePoint('blue'));
+el('give-none').addEventListener('click', () => givePoint(null));
+el('pick-cancel').addEventListener('click', () => {
+  el('pick-point').hidden = true;
+});
 el('export-end').addEventListener('click', askToEndBout);
 el('export-save').addEventListener('click', () => void saveReel());
 el('saving-stop').addEventListener('click', closeSaving);

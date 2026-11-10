@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 
 import type { ExchangeId, MarkId, MediaHandle, Take, TakeId } from '../contracts.js';
-import { exchangeOf, cut, durationOf } from './exchange.js';
+import { cut, durationOf, exchangeOf, withPoint } from './exchange.js';
 
 const footage = {} as MediaHandle;
 
@@ -156,5 +156,46 @@ describe('cutting a bout down to what is worth watching', () => {
    */
   test('refuses a mark the bout does not have', () => {
     expect(() => cut(exchange([mark('m1', 5_000)]), ['nope' as MarkId], spec)).toThrow(/nope/);
+  });
+});
+
+/**
+ * A point is given to a mark, from review: red, blue, or none. Only the marks
+ * with a point start ticked on the summary, so it is how the referee says
+ * which moments the saved video is about.
+ */
+describe('giving a mark its point', () => {
+  const three = () => exchange([mark('a', 1_000), mark('b', 5_000), mark('c', 9_000)]);
+
+  test('starts every mark with no point', () => {
+    expect(three().marks.every((each) => each.point === undefined)).toBe(true);
+  });
+
+  test('gives a mark to red, then changes it to blue', () => {
+    const red = withPoint(three(), 'b' as MarkId, 'red');
+    expect(red.marks[1]?.point).toBe('red');
+
+    const blue = withPoint(red, 'b' as MarkId, 'blue');
+    expect(blue.marks[1]?.point).toBe('blue');
+  });
+
+  /** No point is the absence of one, not a third side. */
+  test('takes a point away again', () => {
+    const given = withPoint(three(), 'b' as MarkId, 'red');
+
+    const taken = withPoint(given, 'b' as MarkId, null);
+
+    // Strict, because toEqual would count a point set to undefined as none.
+    expect(taken.marks[1]).toStrictEqual({ id: 'b', atMs: 5_000 });
+  });
+
+  test('leaves the other marks as they were', () => {
+    const given = withPoint(withPoint(three(), 'a' as MarkId, 'blue'), 'c' as MarkId, 'red');
+
+    expect(given.marks.map((each) => each.point)).toEqual(['blue', undefined, 'red']);
+  });
+
+  test('refuses a mark the exchange does not have', () => {
+    expect(() => withPoint(three(), 'nope' as MarkId, 'red')).toThrow(/nope/);
   });
 });

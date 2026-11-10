@@ -26,6 +26,9 @@
         --accent: #37c8d8;
         --mark: #e05252;
         --warm: #e0a020;
+        /* The two fighters. Red is the same red as a mark's flash. */
+        --red: #e05252;
+        --blue: #3b82f6;
       }
 
       * { box-sizing: border-box; }
@@ -238,6 +241,32 @@
         scroll-snap-align: start;
       }
       #tabs button.on { border-color: var(--accent); color: var(--accent); }
+      /* A mark's point, on its tab: filled with the fighter's colour. */
+      #tabs button.red { background: var(--red); border-color: var(--red); color: #fff; }
+      #tabs button.blue { background: var(--blue); border-color: var(--blue); color: #fff; }
+      #tabs button.red.on, #tabs button.blue.on { box-shadow: 0 0 0 2px var(--accent); }
+      #point { font-size: 13px; padding: 12px 10px; flex: none; }
+      #point.red { background: var(--red); border-color: var(--red); color: #fff; }
+      #point.blue { background: var(--blue); border-color: var(--blue); color: #fff; }
+
+      /* Choosing who gets the point: two big targets and a way out. */
+      #pick-point { position: fixed; inset: 0; z-index: 25; display: grid; place-content: center;
+                    background: rgba(0, 0, 0, 0.72); padding: 24px; }
+      #pick-point[hidden] { display: none; }
+      #pick-point .box { background: var(--panel); border: 1px solid var(--rule); border-radius: 14px;
+                         padding: 22px; width: min(360px, 86vw); }
+      #pick-point h3 { margin: 0 0 14px; font-size: 18px; }
+      #pick-point .sides { display: flex; gap: 10px; margin-bottom: 10px; }
+      #pick-point .sides button { flex: 1; padding: 22px 0; font-size: 20px; font-weight: 700; color: #fff; }
+      #give-red { background: var(--red); border-color: var(--red); }
+      #give-blue { background: var(--blue); border-color: var(--blue); }
+      #pick-point .row { display: flex; gap: 10px; }
+      #pick-point .row button { flex: 1; }
+
+      /* A point on the summary, beside its mark. */
+      #picks .side { font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 999px; color: #fff; }
+      #picks .side.red { background: var(--red); }
+      #picks .side.blue { background: var(--blue); }
       #toRecord { font-size: 13px; padding: 12px 10px; flex: none; border-color: var(--mark); color: var(--mark); }
 
       /* The saving overlay: the same box as the discard question. */
@@ -479,6 +508,7 @@
     <section id="review">
       <nav id="topbar">
         <div id="tabs"></div>
+        <button id="point" title="Give this mark's point to red or blue">POINT</button>
         <button id="toRecord">BACK</button>
       </nav>
 
@@ -494,6 +524,21 @@
            the recording surface, not a picture for anybody to look at. -->
       <canvas id="reel" hidden></canvas>
     </section>
+
+    <!-- ---------------- giving a mark its point ---------------- -->
+    <div id="pick-point" hidden>
+      <div class="box">
+        <h3 id="pick-title">Point for mark 1</h3>
+        <div class="sides">
+          <button id="give-red">Red</button>
+          <button id="give-blue">Blue</button>
+        </div>
+        <div class="row">
+          <button id="give-none">No point</button>
+          <button id="pick-cancel">Cancel</button>
+        </div>
+      </div>
+    </div>
 
     <!-- ---------------- save: choosing what goes into the video ---------------- -->
     <section id="export">
@@ -549,8 +594,8 @@
           <li>Point it at the fight and press <b>START</b>. Hold the phone the way you want to film <b>before</b> you press it.</li>
           <li><b>Tap the picture</b> whenever you see something worth a second look. It keeps filming, and you can mark as often as you like.</li>
           <li>Press <b>REVIEW</b> when the fight is stopped.</li>
-          <li><b>Drag across the picture</b> to move through the moment. The numbers switch between your marks. <b>BACK</b> keeps this exchange and goes straight back to filming the next.</li>
-          <li>When the bout is over, press <b>END</b>. Every exchange is listed with its marks. Untick any you don't want — the one you last touched plays behind the list, at double speed — and <b>SAVE</b> makes one short video of the whole bout, with a quick fade between each moment, and hands it to your phone. It records by playing them through, so it takes as long as they last.</li>
+          <li><b>Drag across the picture</b> to move through the moment. The numbers switch between your marks. <b>POINT</b> gives the mark on screen to red or blue, and its number takes the colour. <b>BACK</b> keeps this exchange and goes straight back to filming the next.</li>
+          <li>When the bout is over, press <b>END</b>. Every exchange is listed with its marks, and the ones you gave a point are already ticked. Tick or untick any you like — the one you last touched plays behind the list, at double speed — and <b>SAVE</b> makes one short video of the whole bout, with a quick fade between each moment, and hands it to your phone. It records by playing them through, so it takes as long as they last.</li>
         </ol>
 
         <h2>Turn the phone before you start</h2>

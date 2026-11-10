@@ -41,11 +41,13 @@ the top count them. Mark as often as you like; it keeps filming throughout.
 thumb across the picture** to move through the moment; the full width is the
 whole window, which works out finer than one frame per pixel. Each mark shows
 about a second and a half before it and a second after — adjustable under
-**Settings & diagnostics**. **BACK** keeps this exchange and goes straight back
-to filming the next.
+**Settings & diagnostics**. **POINT** gives the mark on screen to red or blue,
+or takes its point away, and its number fills with the fighter's colour.
+**BACK** keeps this exchange and goes straight back to filming the next.
 
-**Summary** — reached by END. Every exchange of the bout, each with its marks,
-every one ticked. Untick any that should be left out; whichever mark was last
+**Summary** — reached by END. Every exchange of the bout, each with its marks
+and who got the point for them. The marks given a point start ticked, since
+they are what the bout turned on; tick or untick any others; whichever mark was last
 ticked or unticked loops behind the list at double speed, so you can see what
 you are choosing. **SAVE** makes one short video of the whole bout — the ticked
 moments, exchange by exchange, dipping briefly to black between each — and

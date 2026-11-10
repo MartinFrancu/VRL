@@ -336,6 +336,33 @@ export async function openApp(browser, { url, shareSheet = false }) {
       await page.waitForFunction(() => document.body.dataset['screen'] === 'idle');
     },
 
+    /** Give the mark on screen its point: 'red', 'blue', or null for none. */
+    async givePoint(side) {
+      await page.locator('#point').click();
+      await page.locator(side === 'red' ? '#give-red' : side === 'blue' ? '#give-blue' : '#give-none').click();
+    },
+
+    /** Each review tab's point, in order: 'red', 'blue' or null. */
+    tabPoints: () =>
+      read(() =>
+        [...document.getElementById('tabs').children].map((tab) =>
+          tab.classList.contains('red') ? 'red' : tab.classList.contains('blue') ? 'blue' : null
+        )
+      ),
+
+    pointButton: () => read(() => document.getElementById('point').textContent),
+    pickingPoint: () => read(() => !document.getElementById('pick-point').hidden),
+
+    /** On the summary, each mark's point as shown beside it, in order. */
+    summaryPoints: () =>
+      read(() => [...document.querySelectorAll('#picks label')].map((label) => label.querySelector('.side')?.textContent ?? null)),
+
+    /** Tick every mark on the summary that is not already ticked. */
+    async tickAll() {
+      const boxes = page.locator('#picks input:not(:checked)');
+      while ((await boxes.count()) > 0) await boxes.first().click();
+    },
+
     /** How many marks each exchange on the summary lists, in order. */
     sections: () =>
       read(() => [...document.querySelectorAll('#picks details')].map((section) => section.querySelectorAll('input').length)),

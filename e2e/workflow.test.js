@@ -358,6 +358,107 @@ describe('getting onto a phone and staying there', () => {
 });
 
 /**
+ * Giving a mark its point, from review: red, blue, or none. The tab takes the
+ * colour, and the summary starts with only the pointed marks ticked.
+ */
+describe('giving points', () => {
+  async function reviewing(onCleanup, marks = 3) {
+    const app = await freshApp(onCleanup);
+    await filmBout(app, marks, { spacingMs: 700 });
+    await app.review();
+    return app;
+  }
+
+  test('gives the mark on screen to red, and its tab takes the colour', async ({ onTestFinished }) => {
+    const app = await reviewing(onTestFinished);
+    await app.selectTab(1);
+    expect(await app.pointButton()).toBe('POINT');
+
+    await app.givePoint('red');
+
+    expect(await app.pickingPoint()).toBe(false);
+    expect(await app.tabPoints()).toEqual([null, 'red', null]);
+    expect(await app.pointButton()).toBe('RED');
+  });
+
+  test('changes a point, and takes it away again', async ({ onTestFinished }) => {
+    const app = await reviewing(onTestFinished);
+
+    await app.givePoint('red');
+    await app.givePoint('blue');
+    expect(await app.tabPoints()).toEqual(['blue', null, null]);
+
+    await app.givePoint(null);
+    expect(await app.tabPoints()).toEqual([null, null, null]);
+    expect(await app.pointButton()).toBe('POINT');
+  });
+
+  test('keeps each point on its own mark when moving between them', async ({ onTestFinished }) => {
+    const app = await reviewing(onTestFinished);
+
+    await app.givePoint('red');
+    await app.selectTab(2);
+    expect(await app.pointButton()).toBe('POINT');
+    await app.givePoint('blue');
+    await app.selectTab(0);
+
+    expect(await app.pointButton()).toBe('RED');
+    expect(await app.tabPoints()).toEqual(['red', null, 'blue']);
+  });
+
+  test('can be called off, changing nothing', async ({ onTestFinished }) => {
+    const app = await reviewing(onTestFinished);
+    await app.givePoint('red');
+
+    await app.page.locator('#point').click();
+    expect(await app.pickingPoint()).toBe(true);
+    await app.page.locator('#pick-cancel').click();
+
+    expect(await app.pickingPoint()).toBe(false);
+    expect(await app.tabPoints()).toEqual(['red', null, null]);
+  });
+
+  /**
+   * Across two exchanges: the points given in each review are on the summary,
+   * beside their marks, and they are what starts ticked.
+   */
+  test('starts the summary with only the pointed marks ticked, and says whose they are', async ({
+    onTestFinished,
+  }) => {
+    const app = await reviewing(onTestFinished);
+    await app.selectTab(1);
+    await app.givePoint('red');
+    await app.back();
+    for (let i = 0; i < 2; i++) {
+      await app.film(700);
+      await app.mark();
+    }
+    await app.film(800);
+    await app.review();
+    await app.givePoint('blue');
+
+    await app.openSummary();
+
+    expect(await app.sections()).toEqual([3, 2]);
+    expect(await app.ticked()).toEqual([false, true, false, true, false]);
+    expect(await app.summaryPoints()).toEqual([null, 'Red', null, 'Blue', null]);
+    expect(await app.exportSaveOffered()).toBe(true);
+  });
+
+  test('saves a video of the pointed moments alone', async ({ onTestFinished }) => {
+    const app = await reviewing(onTestFinished);
+    await app.setWindow('lead', 500);
+    await app.setWindow('tail', 200);
+    await app.selectTab(2);
+    await app.givePoint('blue');
+
+    const saved = await app.save();
+
+    expect(saved.name).toMatch(/ SBA 1 mark\./);
+  });
+});
+
+/**
  * The summary: every exchange of the bout, a checkbox per mark, and behind the
  * list the moment last touched, looping at double speed.
  */
@@ -365,8 +466,11 @@ describe('the summary', () => {
   const leadMs = 500;
   const tailMs = 200;
 
-  /** Two exchanges — three marks reviewed, then two more — with short windows. */
-  async function summedUp(onCleanup) {
+  /**
+   * Two exchanges — three marks reviewed, then two more — with short windows.
+   * No points are given, so nothing starts ticked; `tick` ticks everything.
+   */
+  async function summedUp(onCleanup, { tick = true } = {}) {
     const app = await freshApp(onCleanup);
     await filmBout(app, 3, { spacingMs: 700 });
     await app.review();
@@ -379,15 +483,19 @@ describe('the summary', () => {
     }
     await app.film(800);
     await app.openSummary();
+    if (tick) await app.tickAll();
     return app;
   }
 
-  test('opens with one section per exchange, every mark ticked', async ({ onTestFinished }) => {
-    const app = await summedUp(onTestFinished);
+  /** Only marks given a point start ticked, and here none was. */
+  test('opens with one section per exchange, nothing ticked when no point was given', async ({
+    onTestFinished,
+  }) => {
+    const app = await summedUp(onTestFinished, { tick: false });
 
     expect(await app.sections()).toEqual([3, 2]);
-    expect(await app.ticked()).toEqual([true, true, true, true, true]);
-    expect(await app.exportSaveOffered()).toBe(true);
+    expect(await app.ticked()).toEqual([false, false, false, false, false]);
+    expect(await app.exportSaveOffered()).toBe(false);
   });
 
   test('offers nothing to save when nothing is ticked', async ({ onTestFinished }) => {
@@ -453,6 +561,7 @@ describe('saving the bout', () => {
     }
     await app.film(800);
     await app.openSummary();
+    await app.tickAll();
     return app;
   }
 
@@ -580,6 +689,7 @@ describe('handing a saved video to a phone', () => {
     onCleanup(() => app.close());
     await filmBout(app, 3, { spacingMs: 1000 });
     await app.openSummary();
+    await app.tickAll();
     await app.page.locator('#export-save').click();
     // However long it takes, and then whatever the screen offers next.
     await app.page.waitForFunction(

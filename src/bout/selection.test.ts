@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 
 import type { Bout, BoutId, Exchange, ExchangeId, MarkId, TakeId } from '../contracts.js';
-import { everyMark, isChosen, showing, toggled } from './selection.js';
+import { everyMark, isChosen, pointsOnly, showing, toggled } from './selection.js';
 
 const id = (value: string) => value as MarkId;
 
@@ -90,5 +90,40 @@ describe('which moment plays behind the list', () => {
   test('is nothing for a bout with no marks', () => {
     const empty = { ...bout, exchanges: [] };
     expect(showing(everyMark(empty), empty)).toBeNull();
+  });
+});
+
+/**
+ * The summary opens with only the marks that were given a point ticked: those
+ * are the moments the bout turned on, and the saved video is their story. The
+ * rest are there to tick if wanted.
+ */
+describe('starting the summary from the points given', () => {
+  const pointed: Bout = {
+    ...bout,
+    exchanges: [
+      exchange(1, [
+        ['a', 1_000],
+        ['b', 5_000],
+      ]),
+      exchange(2, [['c', 2_000]]),
+    ].map((each, index) =>
+      index === 0
+        ? { ...each, marks: each.marks.map((m) => (m.id === 'b' ? { ...m, point: 'red' as const } : m)) }
+        : { ...each, marks: each.marks.map((m) => ({ ...m, point: 'blue' as const })) }
+    ),
+  };
+
+  test('ticks only the marks that were given a point', () => {
+    expect(pointsOnly(pointed).chosen).toEqual(['b', 'c']);
+  });
+
+  test('ticks nothing when no point was given', () => {
+    expect(pointsOnly(bout).chosen).toEqual([]);
+  });
+
+  /** What plays first is what is going into the video. */
+  test('plays the first pointed moment behind the list before anything is touched', () => {
+    expect(showing(pointsOnly(pointed), pointed)).toBe('b');
   });
 });

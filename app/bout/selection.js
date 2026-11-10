@@ -15,6 +15,16 @@ function inOrder(bout) {
 export function everyMark(bout) {
     return { chosen: inOrder(bout), lastTouched: null };
 }
+/**
+ * Only the marks that were given a point — how the summary opens.
+ *
+ * Those are the moments the bout turned on, and the saved video is their
+ * story. The rest are listed, unticked, to be added if wanted.
+ */
+export function pointsOnly(bout) {
+    const pointed = new Set(bout.exchanges.flatMap((exchange) => exchange.marks.filter((mark) => mark.point).map((mark) => mark.id)));
+    return { chosen: inOrder(bout).filter((id) => pointed.has(id)), lastTouched: null };
+}
 export function isChosen(selection, id) {
     return selection.chosen.includes(id);
 }
@@ -40,9 +50,10 @@ export function toggled(selection, bout, id) {
  * Which mark's moment plays behind the list.
  *
  * Whichever was last touched — unticking counts, because it is a decision made
- * by looking too. Before anything has been touched, the first mark of the bout.
+ * by looking too. Before anything has been touched, the first moment going
+ * into the video, or the first mark of the bout if nothing is.
  */
 export function showing(selection, bout) {
-    return selection.lastTouched ?? inOrder(bout)[0] ?? null;
+    return selection.lastTouched ?? selection.chosen[0] ?? inOrder(bout)[0] ?? null;
 }
 //# sourceMappingURL=selection.js.map

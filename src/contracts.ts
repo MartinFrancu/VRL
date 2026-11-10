@@ -96,15 +96,21 @@ export interface Take {
 /**
  * One noted instant, on the exchange's clock.
  *
- * An instant and nothing else, deliberately. Scoring — which fighter, what was
- * hit, whether it counted — will eventually land here, and there will be more
- * than one rule set wanting different fields. This type never leaves Bout, so
- * when that happens nothing outside Bout can break.
+ * An instant, and who got the point for it if anyone. That is the first of
+ * scoring to land here, and deliberately the least of it: which fighter, not
+ * what was hit or under which rules, because there will be more than one rule
+ * set wanting different fields. This type never leaves Bout, so when they come
+ * nothing outside Bout can break — giving a point touched nothing else.
  */
 export interface Mark {
   readonly id: MarkId;
   readonly atMs: number;
+  /** Who the referee gave the point to, if anyone. Absent means no point. */
+  readonly point?: Side;
 }
+
+/** The two fighters, by the colour each wears. */
+export type Side = 'red' | 'blue';
 
 /**
  * What the exchange's milliseconds are counted from.
