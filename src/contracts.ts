@@ -107,6 +107,29 @@ export interface Mark {
   readonly atMs: number;
   /** Who the referee gave the point to, if anyone. Absent means no point. */
   readonly point?: Side;
+  /**
+   * Where each hit landed, in the order they were placed. Separate from the
+   * point: a double where nobody scores still has two hits to show.
+   */
+  readonly hits?: readonly Hit[];
+}
+
+/**
+ * A hit, placed by tapping the picture at the moment it landed.
+ *
+ * Where is a fraction of the video frame, not of the screen: the picture sits
+ * inside black bars wherever its shape differs from its box, and the saved
+ * video is a different size again. When is on the exchange's clock, like a
+ * mark — the moment on screen when it was tapped.
+ */
+export interface Hit {
+  readonly atMs: number;
+  /** 0 at the left edge of the frame, 1 at the right. */
+  readonly x: number;
+  /** 0 at the top edge of the frame, 1 at the bottom. */
+  readonly y: number;
+  /** Whose hit it was — and so the colour it is drawn in. */
+  readonly side: Side;
 }
 
 /** The two fighters, by the colour each wears. */
@@ -182,6 +205,12 @@ export interface Span {
   readonly shortTailMs: number;
   /** For a highlight's caption. Absent when nothing is written over it. */
   readonly label?: string;
+  /**
+   * The hits that land inside this stretch, from any mark of the exchange —
+   * a hit is something in the footage, so it shows wherever that footage is
+   * shown. On the exchange's clock, the same as the span itself.
+   */
+  readonly hits?: readonly Hit[];
 }
 
 /**

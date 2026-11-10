@@ -459,6 +459,118 @@ describe('giving points', () => {
 });
 
 /**
+ * Placing hits: after a point is given, tapping the picture puts a hit where it
+ * landed, at the moment on screen — any number of them, each in the colour
+ * chosen on the bar. The hit is drawn over the picture by the same code that
+ * draws it into the saved video.
+ */
+describe('placing hits', () => {
+  async function reviewing(onCleanup) {
+    const app = await freshApp(onCleanup);
+    await filmBout(app, 2, { spacingMs: 700 });
+    await app.review();
+    return app;
+  }
+
+  const isRed = ({ r, g, b, a }) => a > 200 && r > 180 && g < 130 && b < 130;
+  const isBlue = ({ r, g, b, a }) => a > 200 && b > 180 && r < 120;
+
+  test('starts once a point is given, in that fighter\'s colour', async ({ onTestFinished }) => {
+    const app = await reviewing(onTestFinished);
+    expect(await app.placing()).toBe(false);
+
+    await app.givePoint('blue');
+
+    expect(await app.placing()).toBe(true);
+    expect(await app.placingSide()).toBe('blue');
+    expect(await app.hitCount()).toBe(0);
+  });
+
+  /** A double where nobody scores still has hits to place. */
+  test('starts after no point, too', async ({ onTestFinished }) => {
+    const app = await reviewing(onTestFinished);
+
+    await app.givePoint(null);
+
+    expect(await app.placing()).toBe(true);
+  });
+
+  test('does not start when the point is called off', async ({ onTestFinished }) => {
+    const app = await reviewing(onTestFinished);
+
+    await app.page.locator('#point').click();
+    await app.page.locator('#pick-cancel').click();
+
+    expect(await app.placing()).toBe(false);
+  });
+
+  test('places a hit for every tap, takes back the last on Undo, and ends on Done', async ({
+    onTestFinished,
+  }) => {
+    const app = await reviewing(onTestFinished);
+    await app.givePoint('red');
+
+    await app.tapPictureAt(0.3, 0.4);
+    expect(await app.hitCount()).toBe(1);
+    await app.tapPictureAt(0.7, 0.6);
+    expect(await app.hitCount()).toBe(2);
+
+    await app.undoHit();
+    expect(await app.hitCount()).toBe(1);
+
+    await app.doneHits();
+    expect(await app.placing()).toBe(false);
+  });
+
+  /** The bars beside the picture are not the picture. */
+  test('places nothing for a tap on the black bar beside the picture', async ({ onTestFinished }) => {
+    const app = await reviewing(onTestFinished);
+    await app.givePoint('red');
+
+    await app.tapBar();
+
+    expect(await app.hitCount()).toBe(0);
+  });
+
+  /**
+   * Drawn where it was tapped, at the moment it was placed — and gone again a
+   * second later, since a hit shows for half a second after its moment.
+   */
+  test('shows the hit over the picture at its moment, and not a second later', async ({ onTestFinished }) => {
+    const app = await reviewing(onTestFinished);
+    await app.givePoint('red');
+    await app.tapPictureAt(0.3, 0.4);
+
+    expect(isRed(await app.hitLayerAt(0.3, 0.4))).toBe(true);
+    expect((await app.hitLayerAt(0.8, 0.8)).a).toBe(0);
+
+    await app.dragAcross(0.6);
+    expect((await app.hitLayerAt(0.3, 0.4)).a).toBe(0);
+  });
+
+  test('places each hit in the colour chosen for it', async ({ onTestFinished }) => {
+    const app = await reviewing(onTestFinished);
+    await app.givePoint('red');
+
+    await app.chooseHitSide('blue');
+    await app.tapPictureAt(0.6, 0.5);
+
+    expect(isBlue(await app.hitLayerAt(0.6, 0.5))).toBe(true);
+  });
+
+  /** Outside placing, a tap on the picture is still nothing at all. */
+  test('places nothing once placing is done', async ({ onTestFinished }) => {
+    const app = await reviewing(onTestFinished);
+    await app.givePoint('red');
+    await app.doneHits();
+
+    await app.tapPictureAt(0.3, 0.4);
+
+    expect((await app.hitLayerAt(0.3, 0.4)).a).toBe(0);
+  });
+});
+
+/**
  * The summary: every exchange of the bout, a checkbox per mark, and behind the
  * list the moment last touched, looping at double speed.
  */

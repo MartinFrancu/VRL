@@ -8,6 +8,18 @@ One entry per chunk, newest first, marked with the chunk's own letter:
 
 See `.claude/skills/chunks/SKILL.md` for the agreement these letters come from.
 
+## 1.1.18
+
+- **D** — Hits. After a point is given on review, tapping the picture places
+  a hit where it landed, at the moment on screen: any number per mark, each in
+  the colour chosen on a bar that also has Undo and Done. Dragging still moves
+  through the moment, so a hit goes in at the frame it landed on. Each shows
+  over the picture as a ring in the fighter's colour, coming up 0.2 s before
+  its moment and widening as it fades over the 0.5 s after. A tap on the black
+  bars beside the picture is not a hit, and outside placing a tap on the
+  picture still does nothing. Hits are separate from the point, so a double
+  where nobody scores still has two to show. Not yet in the saved video.
+
 ## 1.1.17
 
 - **D** — Points. On review, **POINT** gives the mark on screen to red or

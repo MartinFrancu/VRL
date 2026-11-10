@@ -363,6 +363,75 @@ export async function openApp(browser, { url, shareSheet = false }) {
       while ((await boxes.count()) > 0) await boxes.first().click();
     },
 
+    /** Whether the bar for placing hits is showing. */
+    placing: () => read(() => !document.getElementById('placing').hidden),
+    placingSide: () =>
+      read(() => (document.getElementById('hit-red').classList.contains('on') ? 'red' : document.getElementById('hit-blue').classList.contains('on') ? 'blue' : null)),
+
+    /** How many hits the mark on screen has, as the bar says. */
+    hitCount: () =>
+      read(() => {
+        const said = document.getElementById('placing-text').textContent;
+        const count = /^(\d+) hits? /.exec(said);
+        return count ? Number(count[1]) : 0;
+      }),
+
+    /**
+     * Where on the screen a point of the picture is — `fx`, `fy` as fractions
+     * of the video frame, allowing for the bars the picture sits between.
+     */
+    pictureSpot: (fx, fy) =>
+      page.evaluate(
+        ({ fx, fy }) => {
+          const stage = document.getElementById('stage').getBoundingClientRect();
+          const clip = document.getElementById('clip');
+          const scale = Math.min(stage.width / clip.videoWidth, stage.height / clip.videoHeight);
+          const width = clip.videoWidth * scale;
+          const height = clip.videoHeight * scale;
+          const left = stage.left + (stage.width - width) / 2;
+          const top = stage.top + (stage.height - height) / 2;
+          return { x: left + fx * width, y: top + fy * height, barY: top / 2 + stage.top / 2 };
+        },
+        { fx, fy }
+      ),
+
+    /** Tap the picture at a spot without moving — a tap, not a drag. */
+    async tapPictureAt(fx, fy) {
+      const at = await app.pictureSpot(fx, fy);
+      await page.mouse.move(at.x, at.y);
+      await page.mouse.down();
+      await page.mouse.up();
+    },
+
+    /** Tap the black bar above the picture. */
+    async tapBar() {
+      const at = await app.pictureSpot(0.5, 0.5);
+      await page.mouse.move(at.x, at.barY);
+      await page.mouse.down();
+      await page.mouse.up();
+    },
+
+    chooseHitSide: (side) => page.locator(side === 'red' ? '#hit-red' : '#hit-blue').click(),
+    undoHit: () => page.locator('#hit-undo').click(),
+    doneHits: () => page.locator('#hit-done').click(),
+
+    /** The colour drawn over the picture at a spot of it, from the hit layer. */
+    hitLayerAt: (fx, fy) =>
+      page.evaluate(
+        ({ fx, fy }) => {
+          const layer = document.getElementById('hit-layer');
+          const clip = document.getElementById('clip');
+          const scale = Math.min(layer.width / clip.videoWidth, layer.height / clip.videoHeight);
+          const width = clip.videoWidth * scale;
+          const height = clip.videoHeight * scale;
+          const x = Math.round((layer.width - width) / 2 + fx * width);
+          const y = Math.round((layer.height - height) / 2 + fy * height);
+          const [r, g, b, a] = layer.getContext('2d').getImageData(x, y, 1, 1).data;
+          return { r, g, b, a };
+        },
+        { fx, fy }
+      ),
+
     /** How many marks each exchange on the summary lists, in order. */
     sections: () =>
       read(() => [...document.querySelectorAll('#picks details')].map((section) => section.querySelectorAll('input').length)),

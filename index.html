@@ -317,6 +317,21 @@
         -webkit-user-select: none;
         user-select: none;
       }
+      #hit-layer { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+
+      /* Placing hits: a bar along the bottom of the picture, over the hint. */
+      #placing {
+        position: absolute; left: 8px; right: 8px; bottom: 10px; z-index: 3;
+        background: rgba(11, 15, 18, 0.88); border: 1px solid var(--rule); border-radius: 12px; padding: 10px;
+      }
+      #placing[hidden] { display: none; }
+      #placing p { margin: 0 0 8px; text-align: center; font-size: 14px; }
+      #placing .row { display: flex; gap: 8px; }
+      #placing .row button { flex: 1; padding: 10px 0; font-size: 14px; }
+      #hit-red.on { background: var(--red); border-color: var(--red); color: #fff; }
+      #hit-blue.on { background: var(--blue); border-color: var(--blue); color: #fff; }
+      #hit-done { border-color: var(--accent); color: var(--accent); }
+      body.placing .dragHint { display: none; }
       .dragHint {
         position: absolute;
         left: 0;
@@ -514,10 +529,23 @@
 
       <div class="stage" id="stage">
         <video id="clip" playsinline></video>
+        <!-- Hits drawn over the picture, by the same code that draws them into
+             the saved video. Touches pass straight through it to the stage. -->
+        <canvas id="hit-layer"></canvas>
         <span id="readout">+0.00s</span>
         <p class="dragHint">drag anywhere to move through it</p>
         <div id="shortfall"></div>
         <div id="progress"><i></i></div>
+        <!-- Placing hits: shown after a point is given, until Done. -->
+        <div id="placing" hidden>
+          <p id="placing-text">Tap where each hit landed</p>
+          <div class="row">
+            <button id="hit-red" class="side-pick">Red</button>
+            <button id="hit-blue" class="side-pick">Blue</button>
+            <button id="hit-undo">Undo</button>
+            <button id="hit-done">Done</button>
+          </div>
+        </div>
       </div>
 
       <!-- Where the saved video is drawn while it records. Never shown: it is
@@ -594,7 +622,7 @@
           <li>Point it at the fight and press <b>START</b>. Hold the phone the way you want to film <b>before</b> you press it.</li>
           <li><b>Tap the picture</b> whenever you see something worth a second look. It keeps filming, and you can mark as often as you like.</li>
           <li>Press <b>REVIEW</b> when the fight is stopped.</li>
-          <li><b>Drag across the picture</b> to move through the moment. The numbers switch between your marks. <b>POINT</b> gives the mark on screen to red or blue, and its number takes the colour. <b>BACK</b> keeps this exchange and goes straight back to filming the next.</li>
+          <li><b>Drag across the picture</b> to move through the moment. The numbers switch between your marks. <b>POINT</b> gives the mark on screen to red or blue, and its number takes the colour. Then <b>tap the picture</b> where each hit landed — choose Red or Blue for each, drag to find the moment, <b>Undo</b> takes the last one back, and <b>Done</b> when you have them all. The saved video shows each hit as a ring. <b>BACK</b> keeps this exchange and goes straight back to filming the next.</li>
           <li>When the bout is over, press <b>END</b>. Every exchange is listed with its marks, and the ones you gave a point are already ticked. Tick or untick any you like — the one you last touched plays behind the list, at double speed — and <b>SAVE</b> makes one short video of the whole bout, with a quick fade between each moment, and hands it to your phone. It records by playing them through, so it takes as long as they last.</li>
         </ol>
 

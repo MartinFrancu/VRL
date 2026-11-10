@@ -16,7 +16,8 @@
 // from the outside and the one least worth rewriting blind.
 
 import { cutBout, exchangeHolding, newBout, withExchange, withExchangeReplaced } from './app/bout/bout.js';
-import { cut, durationOf, withPoint } from './app/bout/exchange.js';
+import { cut, durationOf, withHit, withoutLastHit, withPoint } from './app/bout/exchange.js';
+import { drawHits, pictureIn, toFrame } from './app/render/hits.js';
 import { isChosen, pointsOnly, showing, toggled } from './app/bout/selection.js';
 import { Capture } from './app/capture/capture.js';
 import { cameraClockUsable } from './app/capture/clock.js';
@@ -31,7 +32,7 @@ import {
 import { canRecordReel, recordReel } from './app/render/record-reel.js';
 import { reelFilename, reelLengthMs } from './app/render/reel.js';
 
-const VERSION = '1.1.17';
+const VERSION = '1.1.18';
 
 const el = (id) => document.getElementById(id);
 const preview = el('preview');
@@ -395,6 +396,7 @@ function endBout() {
  * footage, which belongs to the bout.
  */
 function leaveExchange() {
+  stopPlacing();
   exchange = null;
   span = null;
   clip.removeAttribute('src');
@@ -440,6 +442,8 @@ function select(index) {
   span = cut(exchange, [chosen.id], { leadMs, tailMs }).spans[0];
   el('shortfall').textContent = shortfallLabel(span) ?? '';
   markActiveTab();
+  // Hits go to whichever mark is on screen, so the bar follows the switch.
+  if (placing) showPlacingCount();
   // Land on the moment that was marked, not on the start of the run-up.
   seekTo(span.atMs);
 }
@@ -457,6 +461,35 @@ function renderPosition() {
   el('readout').textContent = readoutFor(positionMs, span);
   const through = progressThrough(positionMs, span);
   el('progress').firstElementChild.style.width = `${Math.round(through * 100)}%`;
+  renderHits();
+}
+
+/**
+ * Draw the hits over the picture, at the moment on screen.
+ *
+ * The same `drawHits` the recorder uses, over the part of the stage the
+ * picture actually occupies — so what is seen while placing a hit is what goes
+ * into the saved video.
+ */
+function renderHits() {
+  const layer = el('hit-layer');
+  const stage = el('stage');
+  const ratio = window.devicePixelRatio || 1;
+  const width = Math.round(stage.clientWidth * ratio);
+  const height = Math.round(stage.clientHeight * ratio);
+  if (layer.width !== width || layer.height !== height) {
+    layer.width = width;
+    layer.height = height;
+  }
+  const paper = layer.getContext('2d');
+  paper.clearRect(0, 0, width, height);
+  if (!span?.hits?.length) return;
+
+  const picture = pictureIn(
+    { left: 0, top: 0, width, height },
+    { width: clip.videoWidth, height: clip.videoHeight }
+  );
+  if (picture) drawHits(paper, span.hits, positionMs, picture);
 }
 
 /** Which frame actually came up, for the diagnostics panel to report. */
@@ -481,6 +514,8 @@ function watchShownFrame() {
  */
 let draggingFromMs = 0;
 let draggingFromX = 0;
+/** Where the thumb went down, to tell a tap from a drag when it comes up. */
+let pressedAt = null;
 
 function onDragStart(event) {
   // Or the browser claims the gesture as a drag of its own — a selection, an
@@ -488,7 +523,21 @@ function onDragStart(event) {
   event.preventDefault();
   draggingFromMs = positionMs;
   draggingFromX = event.clientX;
+  pressedAt = { x: event.clientX, y: event.clientY };
   el('stage').setPointerCapture?.(event.pointerId);
+}
+
+/**
+ * A thumb lifted. Outside placing hits this does nothing, deliberately, as a
+ * tap on the review picture always has. While placing, a tap that barely
+ * moved puts a hit where it landed.
+ */
+function onDragEnd(event) {
+  const from = pressedAt;
+  pressedAt = null;
+  if (!placing || !from) return;
+  if (Math.hypot(event.clientX - from.x, event.clientY - from.y) > 8) return;
+  placeHit(event.clientX, event.clientY);
 }
 
 function onDragMove(event) {
@@ -541,6 +590,81 @@ function givePoint(side) {
   exchange = withPoint(exchange, mark.id, side);
   bout = withExchangeReplaced(bout, exchange);
   paintPoints();
+  startPlacing(side ?? 'red');
+}
+
+// --------------------------------------------------------- placing hits
+
+/**
+ * Placing hits on the mark on screen, after its point is given.
+ *
+ * Any number, each in the colour chosen on the bar — a double where both
+ * fighters land is two hits, whoever got the point. Dragging still moves
+ * through the moment, so the hit goes in at the frame it landed on. Undo takes
+ * back the last one; Done ends it.
+ */
+let placing = false;
+let placingSide = 'red';
+
+function startPlacing(side) {
+  placing = true;
+  document.body.classList.add('placing');
+  choosePlacingSide(side);
+  el('placing').hidden = false;
+  showPlacingCount();
+}
+
+function stopPlacing() {
+  placing = false;
+  document.body.classList.remove('placing');
+  el('placing').hidden = true;
+}
+
+function choosePlacingSide(side) {
+  placingSide = side;
+  el('hit-red').classList.toggle('on', side === 'red');
+  el('hit-blue').classList.toggle('on', side === 'blue');
+}
+
+function showPlacingCount() {
+  const count = exchange?.marks[current]?.hits?.length ?? 0;
+  el('placing-text').textContent = count
+    ? `${count} hit${count === 1 ? '' : 's'} on mark ${current + 1} — tap for another`
+    : 'Tap where each hit landed';
+  el('hit-undo').disabled = count === 0;
+}
+
+/** Put a hit where the picture was tapped, at the moment on screen. */
+function placeHit(clientX, clientY) {
+  const mark = exchange?.marks[current];
+  if (!mark) return;
+  const box = el('stage').getBoundingClientRect();
+  const at = toFrame(
+    { x: clientX, y: clientY },
+    { left: box.left, top: box.top, width: box.width, height: box.height },
+    { width: clip.videoWidth, height: clip.videoHeight }
+  );
+  // On a bar beside the picture: not a hit.
+  if (!at) return;
+
+  exchange = withHit(exchange, mark.id, { atMs: positionMs, x: at.x, y: at.y, side: placingSide });
+  afterHitsChanged();
+}
+
+function undoHit() {
+  const mark = exchange?.marks[current];
+  if (!mark) return;
+  exchange = withoutLastHit(exchange, mark.id);
+  afterHitsChanged();
+}
+
+/** The bout, the stretch on screen and the bar all follow a change of hits. */
+function afterHitsChanged() {
+  bout = withExchangeReplaced(bout, exchange);
+  const mark = exchange.marks[current];
+  span = cut(exchange, [mark.id], { leadMs, tailMs }).spans[0];
+  renderPosition();
+  showPlacingCount();
 }
 
 // -------------------------------------------------------------- the summary
@@ -1001,6 +1125,15 @@ el('camera').addEventListener('pointerdown', (event) => {
 // On the review screen the picture is the scrubber instead.
 el('stage').addEventListener('pointerdown', onDragStart);
 el('stage').addEventListener('pointermove', onDragMove);
+el('stage').addEventListener('pointerup', onDragEnd);
+el('hit-red').addEventListener('click', () => choosePlacingSide('red'));
+el('hit-blue').addEventListener('click', () => choosePlacingSide('blue'));
+el('hit-undo').addEventListener('click', undoHit);
+el('hit-done').addEventListener('click', stopPlacing);
+// The bar's own buttons sit on the picture; a press on them is not a drag.
+for (const id of ['hit-red', 'hit-blue', 'hit-undo', 'hit-done']) {
+  el(id).addEventListener('pointerdown', (event) => event.stopPropagation());
+}
 
 el('help-open').addEventListener('click', () => {
   el('help').hidden = false;

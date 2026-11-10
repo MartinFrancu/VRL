@@ -68,6 +68,7 @@ export function cut(exchange, markIds, spec) {
     const reaches = durationOf(exchange);
     const angles = exchange.takes.map((take) => take.id);
     const wanted = new Set(markIds);
+    const everyHit = exchange.marks.flatMap((mark) => mark.hits ?? []);
     const have = new Set(exchange.marks.map((mark) => mark.id));
     for (const id of wanted) {
         if (!have.has(id))
@@ -88,6 +89,10 @@ export function cut(exchange, markIds, spec) {
             takes: angles,
             shortLeadMs: Math.max(0, spec.leadMs - (atMs - fromMs)),
             shortTailMs: Math.max(0, spec.tailMs - (toMs - atMs)),
+            // Every hit in this stretch of footage, whichever mark it was placed
+            // on — a hit is something that happened, so it shows wherever that
+            // moment is shown.
+            hits: everyHit.filter((hit) => hit.atMs >= fromMs && hit.atMs <= toMs),
         };
     });
     return { spans };
@@ -109,6 +114,44 @@ export function withPoint(exchange, markId, side) {
                 return mark;
             const { point: _was, ...unpointed } = mark;
             return side ? { ...unpointed, point: side } : unpointed;
+        }),
+    };
+}
+/**
+ * The exchange with one more hit on a mark.
+ *
+ * A hit off the picture throws: the screen only ever places hits on it, so one
+ * outside is a bug upstream rather than a hit worth keeping.
+ */
+export function withHit(exchange, markId, hit) {
+    if (!exchange.marks.some((mark) => mark.id === markId)) {
+        throw new Error(`this exchange has no mark ${markId}`);
+    }
+    if (!(hit.x >= 0 && hit.x <= 1 && hit.y >= 0 && hit.y <= 1)) {
+        throw new Error(`a hit has to be on the picture, not at ${hit.x}, ${hit.y}`);
+    }
+    return {
+        ...exchange,
+        marks: exchange.marks.map((mark) => (mark.id === markId ? { ...mark, hits: [...(mark.hits ?? []), hit] } : mark)),
+    };
+}
+/**
+ * The exchange with a mark's most recent hit taken back.
+ *
+ * Undone to nothing, the mark is left exactly as it was before it had any.
+ */
+export function withoutLastHit(exchange, markId) {
+    const target = exchange.marks.find((mark) => mark.id === markId);
+    if (!target?.hits?.length)
+        return exchange;
+    return {
+        ...exchange,
+        marks: exchange.marks.map((mark) => {
+            if (mark.id !== markId)
+                return mark;
+            const { hits: _all, ...bare } = mark;
+            const kept = (mark.hits ?? []).slice(0, -1);
+            return kept.length ? { ...bare, hits: kept } : bare;
         }),
     };
 }

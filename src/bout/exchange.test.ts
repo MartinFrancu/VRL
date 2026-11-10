@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 
 import type { ExchangeId, MarkId, MediaHandle, Take, TakeId } from '../contracts.js';
-import { cut, durationOf, exchangeOf, withPoint } from './exchange.js';
+import { cut, durationOf, exchangeOf, withHit, withoutLastHit, withPoint } from './exchange.js';
 
 const footage = {} as MediaHandle;
 
@@ -197,5 +197,85 @@ describe('giving a mark its point', () => {
 
   test('refuses a mark the exchange does not have', () => {
     expect(() => withPoint(three(), 'nope' as MarkId, 'red')).toThrow(/nope/);
+  });
+});
+
+/**
+ * Hits: any number per mark, each in the colour of whoever landed it, kept in
+ * the order they were placed so the last can be undone.
+ */
+describe('placing hits on a mark', () => {
+  const three = () => exchange([mark('a', 1_000), mark('b', 5_000), mark('c', 9_000)]);
+  const hit = (atMs: number, side: 'red' | 'blue' = 'red', x = 0.3, y = 0.4) => ({ atMs, x, y, side });
+
+  test('starts every mark with none', () => {
+    expect(three().marks.every((each) => each.hits === undefined)).toBe(true);
+  });
+
+  test('keeps as many as are placed, in the order they were placed', () => {
+    let placed = withHit(three(), 'b' as MarkId, hit(5_100, 'red'));
+    placed = withHit(placed, 'b' as MarkId, hit(5_050, 'blue'));
+
+    expect(placed.marks[1]?.hits).toEqual([hit(5_100, 'red'), hit(5_050, 'blue')]);
+  });
+
+  test('undoes the last one placed, and only that', () => {
+    let placed = withHit(three(), 'b' as MarkId, hit(5_100, 'red'));
+    placed = withHit(placed, 'b' as MarkId, hit(5_050, 'blue'));
+
+    expect(withoutLastHit(placed, 'b' as MarkId).marks[1]?.hits).toEqual([hit(5_100, 'red')]);
+  });
+
+  /** Undone back to nothing, the mark is as it was before it had any. */
+  test('leaves the mark as it was once the last is undone', () => {
+    const placed = withHit(three(), 'b' as MarkId, hit(5_100));
+
+    expect(withoutLastHit(placed, 'b' as MarkId).marks[1]).toStrictEqual({ id: 'b', atMs: 5_000 });
+  });
+
+  test('changes nothing when there is nothing to undo', () => {
+    expect(withoutLastHit(three(), 'b' as MarkId)).toStrictEqual(three());
+  });
+
+  /** A double where nobody scores still has two hits to show. */
+  test('keeps the hits when the point is taken away', () => {
+    let placed = withPoint(three(), 'b' as MarkId, 'red');
+    placed = withHit(placed, 'b' as MarkId, hit(5_100));
+
+    expect(withPoint(placed, 'b' as MarkId, null).marks[1]?.hits).toEqual([hit(5_100)]);
+  });
+
+  test('refuses a mark the exchange does not have', () => {
+    expect(() => withHit(three(), 'nope' as MarkId, hit(1_000))).toThrow(/nope/);
+  });
+
+  /** Off the picture is a bug upstream: the screen only places hits on it. */
+  test('refuses a hit off the picture', () => {
+    expect(() => withHit(three(), 'b' as MarkId, hit(5_000, 'red', 1.2, 0.5))).toThrow(/picture/);
+    expect(() => withHit(three(), 'b' as MarkId, hit(5_000, 'red', 0.5, -0.1))).toThrow(/picture/);
+  });
+});
+
+/**
+ * A hit is something in the footage, so a stretch carries every hit that
+ * lands inside it — the hits of its own mark, and of any other mark whose
+ * hits happen to fall within it.
+ */
+describe('the hits a stretch carries', () => {
+  const spec = { leadMs: 1500, tailMs: 1000 };
+
+  test('carries the hits that land inside it, from any mark', () => {
+    let placed = exchange([mark('a', 5_000), mark('b', 6_000), mark('c', 30_000)]);
+    placed = withHit(placed, 'a' as MarkId, { atMs: 5_100, x: 0.2, y: 0.2, side: 'red' });
+    placed = withHit(placed, 'b' as MarkId, { atMs: 5_900, x: 0.8, y: 0.8, side: 'blue' });
+    placed = withHit(placed, 'c' as MarkId, { atMs: 30_000, x: 0.5, y: 0.5, side: 'red' });
+
+    const { spans } = cut(placed, ['a' as MarkId], spec);
+
+    expect(spans[0]?.hits?.map((each) => each.atMs)).toEqual([5_100, 5_900]);
+  });
+
+  test('carries none when no hit lands inside it', () => {
+    expect(cut(exchange([mark('a', 5_000)]), ['a' as MarkId], spec).spans[0]?.hits).toEqual([]);
   });
 });
