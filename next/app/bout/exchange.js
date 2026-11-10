@@ -98,26 +98,6 @@ export function cut(exchange, markIds, spec) {
     return { spans };
 }
 /**
- * The exchange with one mark's point given, changed, or taken away.
- *
- * `null` takes it away, and leaves the mark exactly as it was before it had
- * one: no point is the absence of a point, not a third side.
- */
-export function withPoint(exchange, markId, side) {
-    if (!exchange.marks.some((mark) => mark.id === markId)) {
-        throw new Error(`this exchange has no mark ${markId}`);
-    }
-    return {
-        ...exchange,
-        marks: exchange.marks.map((mark) => {
-            if (mark.id !== markId)
-                return mark;
-            const { point: _was, ...unpointed } = mark;
-            return side ? { ...unpointed, point: side } : unpointed;
-        }),
-    };
-}
-/**
  * The exchange with one more hit on a mark.
  *
  * A hit off the picture throws: the screen only ever places hits on it, so one

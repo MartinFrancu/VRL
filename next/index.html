@@ -78,13 +78,15 @@
       #picks { list-style: none; margin: 0; padding: 0; flex: 1; min-height: 0; overflow-y: auto;
                display: flex; flex-direction: column; gap: 10px; }
       #picks ul { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+      #picks ul li { display: flex; gap: 8px; align-items: stretch; }
+      #picks ul li label { flex: 1; }
+      #picks .edit { flex: none; font-size: 20px; padding: 0 16px; border-radius: 12px; }
       /* One folding section per exchange. */
       #picks summary {
         display: flex; align-items: center; gap: 10px; padding: 6px 4px; font-size: 15px;
         font-weight: 600; color: var(--ink); cursor: pointer; list-style-position: inside;
       }
       #picks summary .at { margin-left: auto; font-weight: 400; }
-      #export-end { font-size: 13px; padding: 12px 10px; }
       #picks label {
         display: flex; align-items: center; gap: 14px; padding: 12px 14px;
         border: 1px solid var(--rule); border-radius: 12px; background: rgba(21, 27, 32, 0.8);
@@ -94,7 +96,9 @@
       #picks input { width: 26px; height: 26px; accent-color: var(--accent); margin: 0; }
       #picks .at { color: var(--faded); font-size: 14px; margin-left: auto; }
       #export-length { margin: 0; color: var(--faded); text-align: center; }
-      #export-save { font-size: 18px; padding: 16px; border-color: var(--accent); color: var(--accent); }
+      #export .actions-row { display: flex; gap: 10px; }
+      #export-save { flex: 2; font-size: 18px; padding: 16px; border-color: var(--accent); color: var(--accent); }
+      #export-discard { flex: 1; font-size: 16px; padding: 16px; border-color: var(--mark); color: var(--mark); }
       #export-save[disabled] { opacity: 0.35; }
 
       video {
@@ -241,32 +245,21 @@
         scroll-snap-align: start;
       }
       #tabs button.on { border-color: var(--accent); color: var(--accent); }
-      /* A mark's point, on its tab: filled with the fighter's colour. */
-      #tabs button.red { background: var(--red); border-color: var(--red); color: #fff; }
-      #tabs button.blue { background: var(--blue); border-color: var(--blue); color: #fff; }
-      #tabs button.red.on, #tabs button.blue.on { box-shadow: 0 0 0 2px var(--accent); }
-      #point { font-size: 13px; padding: 12px 10px; flex: none; }
-      #point.red { background: var(--red); border-color: var(--red); color: #fff; }
-      #point.blue { background: var(--blue); border-color: var(--blue); color: #fff; }
+      /* A mark with hits: a dot in the corner of its tab. */
+      #tabs button { position: relative; }
+      #tabs button.annotated::after {
+        content: ''; position: absolute; top: 6px; right: 6px; width: 7px; height: 7px;
+        border-radius: 50%; background: var(--warm);
+      }
+      /* The pencil. Lit while the annotating bar is open. */
+      #annotate { font-size: 20px; padding: 8px 12px; flex: none; line-height: 1; }
+      #annotate.on { border-color: var(--accent); color: var(--accent); }
 
-      /* Choosing who gets the point: two big targets and a way out. */
-      #pick-point { position: fixed; inset: 0; z-index: 25; display: grid; place-content: center;
-                    background: rgba(0, 0, 0, 0.72); padding: 24px; }
-      #pick-point[hidden] { display: none; }
-      #pick-point .box { background: var(--panel); border: 1px solid var(--rule); border-radius: 14px;
-                         padding: 22px; width: min(360px, 86vw); }
-      #pick-point h3 { margin: 0 0 14px; font-size: 18px; }
-      #pick-point .sides { display: flex; gap: 10px; margin-bottom: 10px; }
-      #pick-point .sides button { flex: 1; padding: 22px 0; font-size: 20px; font-weight: 700; color: #fff; }
-      #give-red { background: var(--red); border-color: var(--red); }
-      #give-blue { background: var(--blue); border-color: var(--blue); }
-      #pick-point .row { display: flex; gap: 10px; }
-      #pick-point .row button { flex: 1; }
-
-      /* A point on the summary, beside its mark. */
-      #picks .side { font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 999px; color: #fff; }
-      #picks .side.red { background: var(--red); }
-      #picks .side.blue { background: var(--blue); }
+      /* A mark's hits on the summary: one dot each, in the fighter's colour. */
+      #picks .hits { display: inline-flex; gap: 4px; }
+      #picks .hits i { width: 10px; height: 10px; border-radius: 50%; }
+      #picks .hits i.red { background: var(--red); }
+      #picks .hits i.blue { background: var(--blue); }
       #toRecord { font-size: 13px; padding: 12px 10px; flex: none; border-color: var(--mark); color: var(--mark); }
 
       /* The saving overlay: the same box as the discard question. */
@@ -377,7 +370,10 @@
       #saving .row > * { flex: 1; }
       #saving-share, #saving-download { background: var(--accent); border-color: var(--accent); color: #031417; font-weight: 600; }
       #saving-download { display: block; text-align: center; text-decoration: none; padding: 12px 16px; border: 1px solid; border-radius: 10px; }
-      #saving-download[hidden], #saving-share[hidden] { display: none; }
+      #saving-download[hidden], #saving-share[hidden], #saving-new[hidden] { display: none; }
+      #saving-new { background: var(--accent); border-color: var(--accent); color: #031417; font-weight: 600; }
+      /* Saved: the title in green, so it reads as done at a glance. */
+      #saving.saved h3 { color: #5ad18a; }
       #confirm .danger { background: var(--mark); border-color: var(--mark); color: #fff; }
 
       /* ---------- the panel behind the ⓘ ---------- */
@@ -523,7 +519,7 @@
     <section id="review">
       <nav id="topbar">
         <div id="tabs"></div>
-        <button id="point" title="Give this mark's point to red or blue">POINT</button>
+        <button id="annotate" title="Annotate this mark: tap where the hits landed" aria-label="Annotate">✎</button>
         <button id="toRecord">BACK</button>
       </nav>
 
@@ -536,7 +532,7 @@
         <p class="dragHint">drag anywhere to move through it</p>
         <div id="shortfall"></div>
         <div id="progress"><i></i></div>
-        <!-- Placing hits: shown after a point is given, until Done. -->
+        <!-- Annotating: shown from the pencil until Done. -->
         <div id="placing" hidden>
           <p id="placing-text">Tap where each hit landed</p>
           <div class="row">
@@ -553,21 +549,6 @@
       <canvas id="reel" hidden></canvas>
     </section>
 
-    <!-- ---------------- giving a mark its point ---------------- -->
-    <div id="pick-point" hidden>
-      <div class="box">
-        <h3 id="pick-title">Point for mark 1</h3>
-        <div class="sides">
-          <button id="give-red">Red</button>
-          <button id="give-blue">Blue</button>
-        </div>
-        <div class="row">
-          <button id="give-none">No point</button>
-          <button id="pick-cancel">Cancel</button>
-        </div>
-      </div>
-    </div>
-
     <!-- ---------------- save: choosing what goes into the video ---------------- -->
     <section id="export">
       <video id="behind" playsinline muted></video>
@@ -575,11 +556,13 @@
         <nav>
           <button id="export-back">BACK</button>
           <h2>The bout</h2>
-          <button id="export-end">End bout</button>
         </nav>
         <ul id="picks"></ul>
         <p id="export-length"></p>
-        <button id="export-save" disabled>SAVE</button>
+        <div class="actions-row">
+          <button id="export-discard">Discard</button>
+          <button id="export-save" disabled>SAVE</button>
+        </div>
       </div>
     </section>
 
@@ -596,6 +579,8 @@
                finishes. -->
           <button id="saving-share" hidden>Share</button>
           <a id="saving-download" hidden>Download</a>
+          <!-- Once it has been handed over: start again, or back to this one. -->
+          <button id="saving-new" hidden>New bout</button>
           <button id="saving-stop">Stop</button>
         </div>
       </div>
@@ -608,7 +593,7 @@
         <p id="confirm-text"></p>
         <div class="row">
           <button id="confirm-cancel">Keep it</button>
-          <button class="danger" id="confirm-end">End bout</button>
+          <button class="danger" id="confirm-end">Discard</button>
         </div>
       </div>
     </div>
@@ -622,8 +607,8 @@
           <li>Point it at the fight and press <b>START</b>. Hold the phone the way you want to film <b>before</b> you press it.</li>
           <li><b>Tap the picture</b> whenever you see something worth a second look. It keeps filming, and you can mark as often as you like.</li>
           <li>Press <b>REVIEW</b> when the fight is stopped.</li>
-          <li><b>Drag across the picture</b> to move through the moment. The numbers switch between your marks. <b>POINT</b> gives the mark on screen to red or blue, and its number takes the colour. Then <b>tap the picture</b> where each hit landed — choose Red or Blue for each, drag to find the moment, <b>Undo</b> takes the last one back, and <b>Done</b> when you have them all. The saved video shows each hit as a ring. <b>BACK</b> keeps this exchange and goes straight back to filming the next.</li>
-          <li>When the bout is over, press <b>END</b>. Every exchange is listed with its marks, and the ones you gave a point are already ticked. Tick or untick any you like — the one you last touched plays behind the list, at double speed — and <b>SAVE</b> makes one short video of the whole bout, with a quick fade between each moment, and hands it to your phone. It records by playing them through, so it takes as long as they last.</li>
+          <li><b>Drag across the picture</b> to move through the moment. The numbers switch between your marks. <b>✎</b> annotates the mark on screen: <b>tap the picture</b> where each hit landed — choose Red or Blue for each, drag to find the moment, <b>Undo</b> takes the last one back, and <b>Done</b> when you have them all. A dot on a number means that mark has hits, and the saved video shows each hit as a ring. <b>BACK</b> keeps this exchange and goes straight back to filming the next.</li>
+          <li>When the bout is over, press <b>END</b>. Every exchange is listed with its marks, and the ones you annotated are already ticked (all of them, if you annotated none). Tick or untick any you like — the one you last touched plays behind the list, at double speed — <b>✎</b> beside a mark annotates it from there; and <b>SAVE</b> makes one short video of the whole bout, with a quick fade between each moment, and hands it to your phone. It records by playing them through, so it takes as long as they last.</li>
         </ol>
 
         <h2>Turn the phone before you start</h2>
@@ -636,8 +621,8 @@
         <h2>Ending a bout loses it</h2>
         <p>
           Nothing is kept once a bout ends. On the summary, <b>BACK</b> carries on
-          the same bout; <b>End bout</b> throws all of it away, asking first. Save
-          the video before you end it if you want one.
+          the same bout, and <b>Discard</b> throws all of it away, asking first.
+          Once a video has been saved, <b>New bout</b> starts the next one.
         </p>
 
         <h2>Put it on another phone</h2>
