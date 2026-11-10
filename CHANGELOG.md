@@ -8,6 +8,14 @@ One entry per chunk, newest first, marked with the chunk's own letter:
 
 See `.claude/skills/chunks/SKILL.md` for the agreement these letters come from.
 
+## 1.1.20
+
+- **D** — Points are gone. On review a pencil (✎) takes POINT's place and
+  opens the annotating bar straight away, on whichever colour was used last.
+  A mark with hits shows a dot on its tab, and on the summary its hits as dots
+  in their colours. The summary now opens with the annotated marks ticked, or
+  every mark when nothing was annotated.
+
 ## 1.1.19
 
 - **D** — Hits are in the saved video: a ring in the fighter's colour at the

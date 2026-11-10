@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 
 import type { Bout, BoutId, Exchange, ExchangeId, MarkId, TakeId } from '../contracts.js';
-import { everyMark, isChosen, pointsOnly, showing, toggled } from './selection.js';
+import { everyMark, isChosen, showing, startingChoice, toggled } from './selection.js';
 
 const id = (value: string) => value as MarkId;
 
@@ -94,36 +94,30 @@ describe('which moment plays behind the list', () => {
 });
 
 /**
- * The summary opens with only the marks that were given a point ticked: those
- * are the moments the bout turned on, and the saved video is their story. The
- * rest are there to tick if wanted.
+ * The summary opens with the marks that were annotated ticked — placing a hit
+ * on a mark is the referee saying it matters — or, where nothing was
+ * annotated at all, every mark ticked, so SAVE works straight away.
  */
-describe('starting the summary from the points given', () => {
-  const pointed: Bout = {
+describe('starting the summary from what was annotated', () => {
+  const hit = { atMs: 0, x: 0.5, y: 0.5, side: 'red' as const };
+  const annotated: Bout = {
     ...bout,
-    exchanges: [
-      exchange(1, [
-        ['a', 1_000],
-        ['b', 5_000],
-      ]),
-      exchange(2, [['c', 2_000]]),
-    ].map((each, index) =>
-      index === 0
-        ? { ...each, marks: each.marks.map((m) => (m.id === 'b' ? { ...m, point: 'red' as const } : m)) }
-        : { ...each, marks: each.marks.map((m) => ({ ...m, point: 'blue' as const })) }
-    ),
+    exchanges: bout.exchanges.map((each) => ({
+      ...each,
+      marks: each.marks.map((m) => (m.id === 'b' || m.id === 'c' ? { ...m, hits: [hit] } : m)),
+    })),
   };
 
-  test('ticks only the marks that were given a point', () => {
-    expect(pointsOnly(pointed).chosen).toEqual(['b', 'c']);
+  test('ticks only the annotated marks, when any are', () => {
+    expect(startingChoice(annotated).chosen).toEqual(['b', 'c']);
   });
 
-  test('ticks nothing when no point was given', () => {
-    expect(pointsOnly(bout).chosen).toEqual([]);
+  test('ticks every mark when none was annotated', () => {
+    expect(startingChoice(bout).chosen).toEqual(['a', 'b', 'c']);
   });
 
   /** What plays first is what is going into the video. */
-  test('plays the first pointed moment behind the list before anything is touched', () => {
-    expect(showing(pointsOnly(pointed), pointed)).toBe('b');
+  test('plays the first annotated moment behind the list before anything is touched', () => {
+    expect(showing(startingChoice(annotated), annotated)).toBe('b');
   });
 });

@@ -28,16 +28,20 @@ export function everyMark(bout: Bout): Selection {
 }
 
 /**
- * Only the marks that were given a point — how the summary opens.
+ * How the summary opens: the marks that were annotated, or every mark if none
+ * was.
  *
- * Those are the moments the bout turned on, and the saved video is their
- * story. The rest are listed, unticked, to be added if wanted.
+ * Placing a hit on a mark is the referee saying it matters, so those are the
+ * moments the saved video is about. A bout where nothing was annotated starts
+ * with everything ticked instead, so SAVE works straight away rather than
+ * being greyed out until something is ticked.
  */
-export function pointsOnly(bout: Bout): Selection {
-  const pointed = new Set(
-    bout.exchanges.flatMap((exchange) => exchange.marks.filter((mark) => mark.point).map((mark) => mark.id))
+export function startingChoice(bout: Bout): Selection {
+  const annotated = new Set(
+    bout.exchanges.flatMap((exchange) => exchange.marks.filter((mark) => mark.hits?.length).map((mark) => mark.id))
   );
-  return { chosen: inOrder(bout).filter((id) => pointed.has(id)), lastTouched: null };
+  if (annotated.size === 0) return everyMark(bout);
+  return { chosen: inOrder(bout).filter((id) => annotated.has(id)), lastTouched: null };
 }
 
 export function isChosen(selection: Selection, id: MarkId): boolean {

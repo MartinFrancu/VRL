@@ -94,23 +94,18 @@ export interface Take {
 // ------------------------------------------------------------- inside Bout
 
 /**
- * One noted instant, on the exchange's clock.
+ * One noted instant, on the exchange's clock, and the hits placed on it.
  *
- * An instant, and who got the point for it if anyone. That is the first of
- * scoring to land here, and deliberately the least of it: which fighter, not
- * what was hit or under which rules, because there will be more than one rule
- * set wanting different fields. This type never leaves Bout, so when they come
- * nothing outside Bout can break — giving a point touched nothing else.
+ * Scoring is deliberately not here. A point per mark was tried and taken out
+ * again: there will be more than one rule set wanting different fields, and
+ * until one is chosen the marks say only when something happened and where the
+ * hits landed. This type never leaves Bout, so whatever scoring turns into,
+ * nothing outside Bout can break.
  */
 export interface Mark {
   readonly id: MarkId;
   readonly atMs: number;
-  /** Who the referee gave the point to, if anyone. Absent means no point. */
-  readonly point?: Side;
-  /**
-   * Where each hit landed, in the order they were placed. Separate from the
-   * point: a double where nobody scores still has two hits to show.
-   */
+  /** Where each hit landed, in the order they were placed. */
   readonly hits?: readonly Hit[];
 }
 
@@ -132,7 +127,7 @@ export interface Hit {
   readonly side: Side;
 }
 
-/** The two fighters, by the colour each wears. */
+/** The two fighters, by the colour each wears — the colour a hit is drawn in. */
 export type Side = 'red' | 'blue';
 
 /**

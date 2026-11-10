@@ -28,7 +28,7 @@ Unordered. Nothing here is a commitment.
   that is settled, rather than guessed at now. Whole-footage serialisation is
   straightforward either way.
 
-- **What does a mark mean?** A mark is now an instant and, optionally, which fighter got the point for it. The rest below is still open. Before that, a mark was only an instant — the millisecond
+- **What does a mark mean?** A mark is now an instant and the hits placed on it. A point per mark was added in 1.1.17 and taken out again in 1.1.20, pending a choice of rule set. The rest below is still open. Before that, a mark was only an instant — the millisecond
   the referee pressed. Saving bouts and annotating hits will both want more from
   it (which fighter, what kind of hit, valid or not), and the save format has to
   have room for that before any phone writes a file in it. This is the question

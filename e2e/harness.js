@@ -336,26 +336,26 @@ export async function openApp(browser, { url, shareSheet = false }) {
       await page.waitForFunction(() => document.body.dataset['screen'] === 'idle');
     },
 
-    /** Give the mark on screen its point: 'red', 'blue', or null for none. */
-    async givePoint(side) {
-      await page.locator('#point').click();
-      await page.locator(side === 'red' ? '#give-red' : side === 'blue' ? '#give-blue' : '#give-none').click();
+    /**
+     * The pencil: open the annotating bar for the mark on screen, with
+     * `side` chosen on it if given.
+     */
+    async annotate(side) {
+      if (!(await app.placing())) await page.locator('#annotate').click();
+      if (side) await app.chooseHitSide(side);
     },
 
-    /** Each review tab's point, in order: 'red', 'blue' or null. */
-    tabPoints: () =>
+    /** Which review tabs show the dot for a mark with hits, in order. */
+    tabsAnnotated: () =>
+      read(() => [...document.getElementById('tabs').children].map((tab) => tab.classList.contains('annotated'))),
+
+    /** On the summary, each mark's hits as the colours of its dots, in order. */
+    summaryHits: () =>
       read(() =>
-        [...document.getElementById('tabs').children].map((tab) =>
-          tab.classList.contains('red') ? 'red' : tab.classList.contains('blue') ? 'blue' : null
+        [...document.querySelectorAll('#picks label')].map((label) =>
+          [...label.querySelectorAll('.hits i')].map((dot) => dot.className)
         )
       ),
-
-    pointButton: () => read(() => document.getElementById('point').textContent),
-    pickingPoint: () => read(() => !document.getElementById('pick-point').hidden),
-
-    /** On the summary, each mark's point as shown beside it, in order. */
-    summaryPoints: () =>
-      read(() => [...document.querySelectorAll('#picks label')].map((label) => label.querySelector('.side')?.textContent ?? null)),
 
     /** Tick every mark on the summary that is not already ticked. */
     async tickAll() {

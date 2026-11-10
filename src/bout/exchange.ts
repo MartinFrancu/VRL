@@ -14,7 +14,7 @@
 // classes. The rule: classes where there is something to keep alive, functions
 // where there is a value.
 
-import type { Cut, Exchange, Hit, MarkId, Side, Span } from '../contracts.js';
+import type { Cut, Exchange, Hit, MarkId, Span } from '../contracts.js';
 
 /** How much of an exchange to show around a mark. The referee's own settings. */
 export interface CutSpec {
@@ -112,27 +112,6 @@ export function cut(exchange: Exchange, markIds: readonly MarkId[], spec: CutSpe
     });
 
   return { spans };
-}
-
-/**
- * The exchange with one mark's point given, changed, or taken away.
- *
- * `null` takes it away, and leaves the mark exactly as it was before it had
- * one: no point is the absence of a point, not a third side.
- */
-export function withPoint(exchange: Exchange, markId: MarkId, side: Side | null): Exchange {
-  if (!exchange.marks.some((mark) => mark.id === markId)) {
-    throw new Error(`this exchange has no mark ${markId}`);
-  }
-
-  return {
-    ...exchange,
-    marks: exchange.marks.map((mark) => {
-      if (mark.id !== markId) return mark;
-      const { point: _was, ...unpointed } = mark;
-      return side ? { ...unpointed, point: side } : unpointed;
-    }),
-  };
 }
 
 /**

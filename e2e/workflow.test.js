@@ -358,109 +358,8 @@ describe('getting onto a phone and staying there', () => {
 });
 
 /**
- * Giving a mark its point, from review: red, blue, or none. The tab takes the
- * colour, and the summary starts with only the pointed marks ticked.
- */
-describe('giving points', () => {
-  async function reviewing(onCleanup, marks = 3) {
-    const app = await freshApp(onCleanup);
-    await filmBout(app, marks, { spacingMs: 700 });
-    await app.review();
-    return app;
-  }
-
-  test('gives the mark on screen to red, and its tab takes the colour', async ({ onTestFinished }) => {
-    const app = await reviewing(onTestFinished);
-    await app.selectTab(1);
-    expect(await app.pointButton()).toBe('POINT');
-
-    await app.givePoint('red');
-
-    expect(await app.pickingPoint()).toBe(false);
-    expect(await app.tabPoints()).toEqual([null, 'red', null]);
-    expect(await app.pointButton()).toBe('RED');
-  });
-
-  test('changes a point, and takes it away again', async ({ onTestFinished }) => {
-    const app = await reviewing(onTestFinished);
-
-    await app.givePoint('red');
-    await app.givePoint('blue');
-    expect(await app.tabPoints()).toEqual(['blue', null, null]);
-
-    await app.givePoint(null);
-    expect(await app.tabPoints()).toEqual([null, null, null]);
-    expect(await app.pointButton()).toBe('POINT');
-  });
-
-  test('keeps each point on its own mark when moving between them', async ({ onTestFinished }) => {
-    const app = await reviewing(onTestFinished);
-
-    await app.givePoint('red');
-    await app.selectTab(2);
-    expect(await app.pointButton()).toBe('POINT');
-    await app.givePoint('blue');
-    await app.selectTab(0);
-
-    expect(await app.pointButton()).toBe('RED');
-    expect(await app.tabPoints()).toEqual(['red', null, 'blue']);
-  });
-
-  test('can be called off, changing nothing', async ({ onTestFinished }) => {
-    const app = await reviewing(onTestFinished);
-    await app.givePoint('red');
-
-    await app.page.locator('#point').click();
-    expect(await app.pickingPoint()).toBe(true);
-    await app.page.locator('#pick-cancel').click();
-
-    expect(await app.pickingPoint()).toBe(false);
-    expect(await app.tabPoints()).toEqual(['red', null, null]);
-  });
-
-  /**
-   * Across two exchanges: the points given in each review are on the summary,
-   * beside their marks, and they are what starts ticked.
-   */
-  test('starts the summary with only the pointed marks ticked, and says whose they are', async ({
-    onTestFinished,
-  }) => {
-    const app = await reviewing(onTestFinished);
-    await app.selectTab(1);
-    await app.givePoint('red');
-    await app.back();
-    for (let i = 0; i < 2; i++) {
-      await app.film(700);
-      await app.mark();
-    }
-    await app.film(800);
-    await app.review();
-    await app.givePoint('blue');
-
-    await app.openSummary();
-
-    expect(await app.sections()).toEqual([3, 2]);
-    expect(await app.ticked()).toEqual([false, true, false, true, false]);
-    expect(await app.summaryPoints()).toEqual([null, 'Red', null, 'Blue', null]);
-    expect(await app.exportSaveOffered()).toBe(true);
-  });
-
-  test('saves a video of the pointed moments alone', async ({ onTestFinished }) => {
-    const app = await reviewing(onTestFinished);
-    await app.setWindow('lead', 500);
-    await app.setWindow('tail', 200);
-    await app.selectTab(2);
-    await app.givePoint('blue');
-
-    const saved = await app.save();
-
-    expect(saved.name).toMatch(/ SBA 1 mark\./);
-  });
-});
-
-/**
- * Placing hits: after a point is given, tapping the picture puts a hit where it
- * landed, at the moment on screen — any number of them, each in the colour
+ * Annotating: the pencil opens a bar, and tapping the picture puts a hit where
+ * it landed, at the moment on screen — any number of them, each in the colour
  * chosen on the bar. The hit is drawn over the picture by the same code that
  * draws it into the saved video.
  */
@@ -475,40 +374,47 @@ describe('placing hits', () => {
   const isRed = ({ r, g, b, a }) => a > 200 && r > 180 && g < 130 && b < 130;
   const isBlue = ({ r, g, b, a }) => a > 200 && b > 180 && r < 120;
 
-  test('starts once a point is given, in that fighter\'s colour', async ({ onTestFinished }) => {
+  test('opens from the pencil, and closes from it again', async ({ onTestFinished }) => {
     const app = await reviewing(onTestFinished);
     expect(await app.placing()).toBe(false);
 
-    await app.givePoint('blue');
-
+    await app.page.locator('#annotate').click();
     expect(await app.placing()).toBe(true);
-    expect(await app.placingSide()).toBe('blue');
     expect(await app.hitCount()).toBe(0);
-  });
 
-  /** A double where nobody scores still has hits to place. */
-  test('starts after no point, too', async ({ onTestFinished }) => {
-    const app = await reviewing(onTestFinished);
-
-    await app.givePoint(null);
-
-    expect(await app.placing()).toBe(true);
-  });
-
-  test('does not start when the point is called off', async ({ onTestFinished }) => {
-    const app = await reviewing(onTestFinished);
-
-    await app.page.locator('#point').click();
-    await app.page.locator('#pick-cancel').click();
-
+    await app.page.locator('#annotate').click();
     expect(await app.placing()).toBe(false);
+  });
+
+  /** The colour stays on whichever was used last. */
+  test('keeps the colour last used', async ({ onTestFinished }) => {
+    const app = await reviewing(onTestFinished);
+    await app.annotate('blue');
+    await app.doneHits();
+
+    await app.annotate();
+
+    expect(await app.placingSide()).toBe('blue');
+  });
+
+  /** A dot on the tab says the mark has hits; undone to none, the dot goes. */
+  test('puts a dot on the tab of a mark with hits, and takes it off again', async ({ onTestFinished }) => {
+    const app = await reviewing(onTestFinished);
+    await app.selectTab(1);
+    await app.annotate('red');
+
+    await app.tapPictureAt(0.3, 0.4);
+    expect(await app.tabsAnnotated()).toEqual([false, true]);
+
+    await app.undoHit();
+    expect(await app.tabsAnnotated()).toEqual([false, false]);
   });
 
   test('places a hit for every tap, takes back the last on Undo, and ends on Done', async ({
     onTestFinished,
   }) => {
     const app = await reviewing(onTestFinished);
-    await app.givePoint('red');
+    await app.annotate('red');
 
     await app.tapPictureAt(0.3, 0.4);
     expect(await app.hitCount()).toBe(1);
@@ -525,7 +431,7 @@ describe('placing hits', () => {
   /** The bars beside the picture are not the picture. */
   test('places nothing for a tap on the black bar beside the picture', async ({ onTestFinished }) => {
     const app = await reviewing(onTestFinished);
-    await app.givePoint('red');
+    await app.annotate('red');
 
     await app.tapBar();
 
@@ -538,7 +444,7 @@ describe('placing hits', () => {
    */
   test('shows the hit over the picture at its moment, and not a second later', async ({ onTestFinished }) => {
     const app = await reviewing(onTestFinished);
-    await app.givePoint('red');
+    await app.annotate('red');
     await app.tapPictureAt(0.3, 0.4);
 
     expect(isRed(await app.hitLayerAt(0.3, 0.4))).toBe(true);
@@ -550,7 +456,7 @@ describe('placing hits', () => {
 
   test('places each hit in the colour chosen for it', async ({ onTestFinished }) => {
     const app = await reviewing(onTestFinished);
-    await app.givePoint('red');
+    await app.annotate('red');
 
     await app.chooseHitSide('blue');
     await app.tapPictureAt(0.6, 0.5);
@@ -569,7 +475,7 @@ describe('placing hits', () => {
     const app = await freshApp(onTestFinished);
     await filmBout(app, 1, { spacingMs: 1500 });
     await app.review();
-    await app.givePoint('red');
+    await app.annotate('red');
     await app.tapPictureAt(0.3, 0.4);
     await app.doneHits();
 
@@ -587,7 +493,7 @@ describe('placing hits', () => {
     const app = await freshApp(onTestFinished);
     await filmBout(app, 1, { spacingMs: 1500 });
     await app.review();
-    await app.givePoint('red');
+    await app.annotate('red');
     await app.tapPictureAt(0.3, 0.4);
     await app.doneHits();
 
@@ -600,7 +506,7 @@ describe('placing hits', () => {
   /** Outside placing, a tap on the picture is still nothing at all. */
   test('places nothing once placing is done', async ({ onTestFinished }) => {
     const app = await reviewing(onTestFinished);
-    await app.givePoint('red');
+    await app.annotate('red');
     await app.doneHits();
 
     await app.tapPictureAt(0.3, 0.4);
@@ -638,15 +544,53 @@ describe('the summary', () => {
     return app;
   }
 
-  /** Only marks given a point start ticked, and here none was. */
-  test('opens with one section per exchange, nothing ticked when no point was given', async ({
+  /** Nothing was annotated here, so every mark starts ticked. */
+  test('opens with one section per exchange, every mark ticked when none was annotated', async ({
     onTestFinished,
   }) => {
     const app = await summedUp(onTestFinished, { tick: false });
 
     expect(await app.sections()).toEqual([3, 2]);
-    expect(await app.ticked()).toEqual([false, false, false, false, false]);
-    expect(await app.exportSaveOffered()).toBe(false);
+    expect(await app.ticked()).toEqual([true, true, true, true, true]);
+    expect(await app.exportSaveOffered()).toBe(true);
+  });
+
+  /**
+   * Annotated marks are the ones that matter, so with any annotated only those
+   * start ticked — and each shows its hits, one dot per hit in its colour.
+   */
+  test('starts with only the annotated marks ticked, showing their hits', async ({ onTestFinished }) => {
+    const app = await freshApp(onTestFinished);
+    await filmBout(app, 3, { spacingMs: 700 });
+    await app.review();
+    await app.selectTab(1);
+    await app.annotate('red');
+    await app.tapPictureAt(0.3, 0.4);
+    await app.chooseHitSide('blue');
+    await app.tapPictureAt(0.7, 0.6);
+    await app.doneHits();
+
+    await app.openSummary();
+
+    expect(await app.ticked()).toEqual([false, true, false]);
+    expect(await app.summaryHits()).toEqual([[], ['red', 'blue'], []]);
+  });
+
+  test('saves a video of the annotated moments alone', async ({ onTestFinished }) => {
+    const app = await freshApp(onTestFinished);
+    await filmBout(app, 3, { spacingMs: 700 });
+    await app.review();
+    await app.setWindow('lead', 500);
+    await app.setWindow('tail', 200);
+    await app.selectTab(2);
+    await app.annotate('red');
+    await app.tapPictureAt(0.5, 0.5);
+    await app.doneHits();
+    await app.openSummary();
+
+    const saved = await app.save();
+
+    expect(saved.name).toMatch(/ SBA 1 mark\./);
   });
 
   test('offers nothing to save when nothing is ticked', async ({ onTestFinished }) => {

@@ -16,9 +16,9 @@
 // from the outside and the one least worth rewriting blind.
 
 import { cutBout, exchangeHolding, newBout, withExchange, withExchangeReplaced } from './app/bout/bout.js';
-import { cut, durationOf, withHit, withoutLastHit, withPoint } from './app/bout/exchange.js';
+import { cut, durationOf, withHit, withoutLastHit } from './app/bout/exchange.js';
 import { drawHits, pictureIn, toFrame } from './app/render/hits.js';
-import { isChosen, pointsOnly, showing, toggled } from './app/bout/selection.js';
+import { isChosen, showing, startingChoice, toggled } from './app/bout/selection.js';
 import { Capture } from './app/capture/capture.js';
 import { cameraClockUsable } from './app/capture/clock.js';
 import * as media from './app/media/media.js';
@@ -32,7 +32,7 @@ import {
 import { canRecordReel, recordReel } from './app/render/record-reel.js';
 import { reelFilename, reelLengthMs } from './app/render/reel.js';
 
-const VERSION = '1.1.19';
+const VERSION = '1.1.20';
 
 const el = (id) => document.getElementById(id);
 const preview = el('preview');
@@ -424,7 +424,7 @@ function renderTabs() {
 function markActiveTab() {
   const tabs = [...el('tabs').children];
   tabs.forEach((button, index) => button.classList.toggle('on', index === current));
-  paintPoints();
+  paintAnnotated();
   // 'nearest' on both axes: enough to bring it into the strip, not enough to
   // scroll the screen underneath it.
   tabs[current]?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
@@ -552,56 +552,33 @@ function onDragMove(event) {
   );
 }
 
-// --------------------------------------------------------- giving points
+// ------------------------------------------------------------ annotating
 
-/**
- * Each mark's point shown where it was given: the tab filled with the
- * fighter's colour, and the POINT button saying who has the mark on screen.
- */
-function paintPoints() {
+/** A dot on each tab whose mark has hits, so what is annotated shows at a glance. */
+function paintAnnotated() {
   const marks = exchange?.marks ?? [];
   [...el('tabs').children].forEach((button, index) => {
-    const point = marks[index]?.point;
-    button.classList.toggle('red', point === 'red');
-    button.classList.toggle('blue', point === 'blue');
+    button.classList.toggle('annotated', Boolean(marks[index]?.hits?.length));
   });
-  const point = marks[current]?.point ?? null;
-  el('point').textContent = point ? point.toUpperCase() : 'POINT';
-  el('point').classList.toggle('red', point === 'red');
-  el('point').classList.toggle('blue', point === 'blue');
+  el('annotate').classList.toggle('on', placing);
 }
 
-function askForPoint() {
+/** The pencil: open the annotating bar, or close it again. */
+function toggleAnnotating() {
   if (!exchange?.marks[current]) return;
-  el('pick-title').textContent = `Point for mark ${current + 1}`;
-  el('pick-point').hidden = false;
-}
-
-/**
- * Give the mark on screen to red or blue, or take its point away.
- *
- * The exchange on screen and the bout holding it are both updated: the
- * summary reads the bout, and that is where the points have to have landed.
- */
-function givePoint(side) {
-  const mark = exchange?.marks[current];
-  el('pick-point').hidden = true;
-  if (!mark) return;
-  exchange = withPoint(exchange, mark.id, side);
-  bout = withExchangeReplaced(bout, exchange);
-  paintPoints();
-  startPlacing(side ?? 'red');
+  if (placing) finishPlacing();
+  else startPlacing(placingSide);
 }
 
 // --------------------------------------------------------- placing hits
 
 /**
- * Placing hits on the mark on screen, after its point is given.
+ * Annotating the mark on screen: placing hits on it.
  *
- * Any number, each in the colour chosen on the bar — a double where both
- * fighters land is two hits, whoever got the point. Dragging still moves
- * through the moment, so the hit goes in at the frame it landed on. Undo takes
- * back the last one; Done ends it.
+ * Opened by the pencil. Any number of hits, each in the colour chosen on the
+ * bar, which stays on whichever was used last. Dragging still moves through
+ * the moment, so the hit goes in at the frame it landed on. Undo takes back
+ * the last one; Done ends it.
  */
 let placing = false;
 let placingSide = 'red';
@@ -612,12 +589,19 @@ function startPlacing(side) {
   choosePlacingSide(side);
   el('placing').hidden = false;
   showPlacingCount();
+  paintAnnotated();
 }
 
 function stopPlacing() {
   placing = false;
   document.body.classList.remove('placing');
   el('placing').hidden = true;
+  if (exchange) paintAnnotated();
+}
+
+/** Done: the bar closes. */
+function finishPlacing() {
+  stopPlacing();
 }
 
 function choosePlacingSide(side) {
@@ -665,6 +649,7 @@ function afterHitsChanged() {
   span = cut(exchange, [mark.id], { leadMs, tailMs }).spans[0];
   renderPosition();
   showPlacingCount();
+  paintAnnotated();
 }
 
 // -------------------------------------------------------------- the summary
@@ -688,8 +673,8 @@ let behindTake = null;
 const folded = new Set();
 
 function openSummary() {
-  // The marks given a point are what the bout turned on, so they start ticked.
-  selection = pointsOnly(bout);
+  // The annotated marks are the ones that matter — or all, if none was.
+  selection = startingChoice(bout);
   folded.clear();
   renderPicks();
   screenIs('export');
@@ -763,11 +748,16 @@ function renderPicks() {
       at.className = 'at';
       at.textContent = `${(mark.atMs / 1000).toFixed(1)}s`;
       label.append(box, number);
-      if (mark.point) {
-        const side = document.createElement('span');
-        side.className = `side ${mark.point}`;
-        side.textContent = mark.point === 'red' ? 'Red' : 'Blue';
-        label.append(side);
+      // One dot per hit, in its fighter's colour.
+      if (mark.hits?.length) {
+        const dots = document.createElement('span');
+        dots.className = 'hits';
+        for (const hit of mark.hits) {
+          const dot = document.createElement('i');
+          dot.className = hit.side;
+          dots.append(dot);
+        }
+        label.append(dots);
       }
       label.append(at);
       row.append(label);
@@ -1078,8 +1068,8 @@ function renderDiagnostics() {
     // The bout on screen is re-placed, not just the next one. Resolving is
     // cheap; re-filming is not.
     // Re-placing builds the exchange afresh from Capture's readings, which know
-    // nothing of points. That is safe only because this panel is reached from
-    // idle, between bouts; were it ever reachable mid-bout, points would need
+    // nothing of hits. That is safe only because this panel is reached from
+    // idle, between bouts; were it ever reachable mid-bout, hits would need
     // carrying across here.
     const replaced = capture.usingClock(markSource);
     if (replaced && bout) bout = withExchangeReplaced(bout, replaced);
@@ -1129,7 +1119,7 @@ el('stage').addEventListener('pointerup', onDragEnd);
 el('hit-red').addEventListener('click', () => choosePlacingSide('red'));
 el('hit-blue').addEventListener('click', () => choosePlacingSide('blue'));
 el('hit-undo').addEventListener('click', undoHit);
-el('hit-done').addEventListener('click', stopPlacing);
+el('hit-done').addEventListener('click', finishPlacing);
 // The bar's own buttons sit on the picture; a press on them is not a drag.
 for (const id of ['hit-red', 'hit-blue', 'hit-undo', 'hit-done']) {
   el(id).addEventListener('pointerdown', (event) => event.stopPropagation());
@@ -1144,13 +1134,7 @@ el('help-close').addEventListener('click', () => {
 });
 
 el('export-back').addEventListener('click', carryOn);
-el('point').addEventListener('click', askForPoint);
-el('give-red').addEventListener('click', () => givePoint('red'));
-el('give-blue').addEventListener('click', () => givePoint('blue'));
-el('give-none').addEventListener('click', () => givePoint(null));
-el('pick-cancel').addEventListener('click', () => {
-  el('pick-point').hidden = true;
-});
+el('annotate').addEventListener('click', toggleAnnotating);
 el('export-end').addEventListener('click', askToEndBout);
 el('export-save').addEventListener('click', () => void saveReel());
 el('saving-stop').addEventListener('click', closeSaving);
