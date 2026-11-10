@@ -32,7 +32,7 @@ import {
 import { canRecordReel, recordReel } from './app/render/record-reel.js';
 import { reelFilename, reelLengthMs } from './app/render/reel.js';
 
-const VERSION = '1.1.21';
+const VERSION = '1.1.22';
 
 const el = (id) => document.getElementById(id);
 const preview = el('preview');
@@ -372,10 +372,10 @@ async function toSummary() {
 /** Ask before throwing a bout away — its footage cannot be got back. */
 function askToEndBout() {
   const exchanges = bout?.exchanges.length ?? 0;
-  el('confirm-title').textContent = 'End this bout?';
+  el('confirm-title').textContent = 'Discard this bout?';
   el('confirm-text').textContent =
-    `Its ${exchanges} exchange${exchanges === 1 ? '' : 's'} will be gone. ` +
-    'Save the video first if you want one — this cannot be undone.';
+    `Its ${exchanges} exchange${exchanges === 1 ? '' : 's'} will be gone without being saved, ` +
+    'and cannot be got back.';
   el('confirm').hidden = false;
 }
 
@@ -936,9 +936,36 @@ function closeSaving() {
   el('saving-share').hidden = true;
   el('saving-download').hidden = true;
   el('saving-download').removeAttribute('href');
+  el('saving-new').hidden = true;
+  el('saving').classList.remove('saved');
   el('saving').hidden = true;
   el('saving-stop').textContent = 'Stop';
   if (document.body.dataset['screen'] === 'export') playBehind();
+}
+
+/**
+ * Say it worked, once it has: after the share sheet is done with the video,
+ * or the download has been started.
+ *
+ * Offers the two things that come next. New bout lets this one go without
+ * asking, since it has just been saved; Back to the bout stays on the summary,
+ * to save another cut of it or carry on filming.
+ */
+function showSaved() {
+  if (!ready) return;
+  el('saving').classList.add('saved');
+  el('saving-title').textContent = '✓ Saved';
+  el('saving-text').textContent = `${ready.name} — start the next bout, or go back to this one.`;
+  el('saving-share').hidden = true;
+  el('saving-download').hidden = true;
+  el('saving-new').hidden = false;
+  el('saving-stop').textContent = 'Back to the bout';
+}
+
+/** New bout, from the saved panel: this one is safe, so no asking. */
+function newBoutAfterSaving() {
+  closeSaving();
+  endBout();
 }
 
 async function saveReel() {
@@ -1023,7 +1050,7 @@ async function shareReady() {
   if (!ready) return;
   try {
     await navigator.share({ files: [ready.file], title: ready.name });
-    closeSaving();
+    showSaved();
   } catch (error) {
     // Closing the share sheet without choosing anything is not a failure, and
     // Share stays where it is for another go.
@@ -1197,7 +1224,11 @@ el('help-close').addEventListener('click', () => {
 
 el('export-back').addEventListener('click', carryOn);
 el('annotate').addEventListener('click', toggleAnnotating);
-el('export-end').addEventListener('click', askToEndBout);
+el('export-discard').addEventListener('click', askToEndBout);
+el('saving-new').addEventListener('click', newBoutAfterSaving);
+// The download is the browser's to do once the link is followed; the panel
+// changes a moment later, so as not to stand in the way of it.
+el('saving-download').addEventListener('click', () => setTimeout(showSaved, 0));
 el('export-save').addEventListener('click', () => void saveReel());
 el('saving-stop').addEventListener('click', closeSaving);
 el('saving-share').addEventListener('click', () => void shareReady());

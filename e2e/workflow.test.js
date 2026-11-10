@@ -257,14 +257,14 @@ describe('moving between the modes', () => {
    * A bout's footage is the one thing here that cannot be got back, so ending
    * it asks first — and the asking can be called off.
    */
-  test('asks before ending the bout, and keeps it if told to', async ({ onTestFinished }) => {
+  test('asks before discarding the bout, and keeps it if told to', async ({ onTestFinished }) => {
     const app = await freshApp(onTestFinished);
     await filmBout(app, 2);
     await app.openSummary();
 
-    await app.page.locator('#export-end').click();
+    await app.page.locator('#export-discard').click();
     expect(await app.confirmShowing()).toBe(true);
-    expect(await app.confirmTitle()).toBe('End this bout?');
+    expect(await app.confirmTitle()).toBe('Discard this bout?');
 
     await app.keepFilming();
     expect(await app.confirmShowing()).toBe(false);
@@ -272,7 +272,7 @@ describe('moving between the modes', () => {
     expect(await app.sections()).toEqual([2]);
   });
 
-  test('ends the bout when the asking is answered, leaving nothing behind', async ({ onTestFinished }) => {
+  test('discards the bout when the asking is answered, leaving nothing behind', async ({ onTestFinished }) => {
     const app = await freshApp(onTestFinished);
     await filmBout(app, 2);
     await app.openSummary();
@@ -860,6 +860,23 @@ describe('saving the bout', () => {
     expect(darkest).toBeLessThan(brightest * 0.25);
   });
 
+  /** On a laptop there is no share sheet to say so; the download is the sign. */
+  test('says it was saved once the download is started', async ({ onTestFinished }) => {
+    const app = await twoExchanges(onTestFinished);
+    await app.page.locator('#export-save').click();
+    await app.page.waitForFunction(() => !document.getElementById('saving-download').hidden, undefined, {
+      timeout: 60_000,
+    });
+    expect(await app.savedShowing()).toBe(false);
+
+    const coming = app.page.waitForEvent('download');
+    await app.page.locator('#saving-download').click();
+    await coming;
+
+    await app.page.waitForFunction(() => document.getElementById('saving').classList.contains('saved'));
+    expect(await app.savingTitle()).toBe('✓ Saved');
+  });
+
   test('leaves the summary as it was, and the bout still going', async ({ onTestFinished }) => {
     const app = await twoExchanges(onTestFinished);
 
@@ -913,6 +930,54 @@ describe('handing a saved video to a phone', () => {
     expect(shared).toHaveLength(1);
     expect(shared[0].name).toMatch(/^\d{4}-\d{2}-\d{2} SBA 3 marks\.(mp4|webm)$/);
     expect(shared[0].bytes).toBeGreaterThan(1000);
+  });
+
+  /** Only once the share sheet is done with it — and then what comes next. */
+  test('says it was saved once the share sheet is done, offering a new bout', async ({ onTestFinished }) => {
+    const app = await savedOnAPhone(onTestFinished);
+    expect(await app.savedShowing()).toBe(false);
+
+    await app.page.locator('#saving-share').click();
+
+    expect(await app.savedShowing()).toBe(true);
+    expect(await app.savingTitle()).toBe('✓ Saved');
+    expect(await app.page.locator('#saving-new').isVisible()).toBe(true);
+  });
+
+  /** Closing the sheet without choosing anything saved nothing, and says nothing. */
+  test('does not say it was saved when the share sheet is closed', async ({ onTestFinished }) => {
+    const app = await savedOnAPhone(onTestFinished);
+    await app.page.evaluate(() => (window.__cancelShare = true));
+
+    await app.page.locator('#saving-share').click();
+
+    expect(await app.savedShowing()).toBe(false);
+    expect(await app.page.locator('#saving-share').isVisible()).toBe(true);
+  });
+
+  /** Just saved, so starting again needs no asking. */
+  test('starts a new bout from there without asking', async ({ onTestFinished }) => {
+    const app = await savedOnAPhone(onTestFinished);
+    await app.page.locator('#saving-share').click();
+
+    await app.page.locator('#saving-new').click();
+
+    expect(await app.confirmShowing()).toBe(false);
+    expect(await app.screen()).toBe('idle');
+    await filmBout(app, 1);
+    await app.openSummary();
+    expect(await app.sections()).toEqual([1]);
+  });
+
+  test('goes back to the bout from there, as it was', async ({ onTestFinished }) => {
+    const app = await savedOnAPhone(onTestFinished);
+    await app.page.locator('#saving-share').click();
+
+    await app.page.locator('#saving-stop').click();
+
+    expect(await app.savingShowing()).toBe(false);
+    expect(await app.screen()).toBe('export');
+    expect(await app.sections()).toEqual([3]);
   });
 
   test('never opens the video in place of the app', async ({ onTestFinished }) => {

@@ -61,9 +61,11 @@ you are choosing. **SAVE** makes one short video of the whole bout — the ticke
 moments, exchange by exchange, dipping briefly to black between each — and
 offers it to the phone's share sheet (a download link on a laptop). It records
 by playing the moments through, so it takes as long as they last. **BACK**
-carries on the same bout; **End bout** throws it away, asking first. The line
-under the list says how much footage the bout is holding in memory, since
-nothing is written to storage yet.
+carries on the same bout, and **Discard** throws it away, asking first. Once a
+video has been handed over, the panel says **✓ Saved** and offers **New bout**
+(no asking — it has just been saved) or **Back to the bout**. The line under
+the list says how much footage the bout is holding in memory, since nothing is
+written to storage yet.
 
 Marks whose windows overlap are not yet merged, so a second covered by two
 marks appears twice.

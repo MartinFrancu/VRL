@@ -8,6 +8,15 @@ One entry per chunk, newest first, marked with the chunk's own letter:
 
 See `.claude/skills/chunks/SKILL.md` for the agreement these letters come from.
 
+## 1.1.22
+
+- **D** — Discard sits beside SAVE on the summary, in place of End bout in the
+  corner, and asks once. After a successful save the panel says **✓ Saved**
+  and offers New bout, which needs no asking since the bout has just been
+  saved, or Back to the bout. It says so only once the share sheet is done
+  with the video, or the download has started — closing the sheet without
+  choosing anything saves nothing and says nothing.
+
 ## 1.1.21
 
 - **D** — Annotating from the summary. ✎ beside a mark opens it on the review

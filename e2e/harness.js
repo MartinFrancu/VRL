@@ -144,6 +144,8 @@ export async function openApp(browser, { url, shareSheet = false }) {
       window.__shared = [];
       navigator.canShare = (data) => Boolean(data?.files?.length);
       navigator.share = async (data) => {
+        // A test can have the referee close the sheet without choosing.
+        if (window.__cancelShare) throw new DOMException('closed', 'AbortError');
         if (!navigator.userActivation?.isActive) {
           window.__shareRefused = (window.__shareRefused ?? 0) + 1;
           throw new DOMException('share must follow a tap', 'NotAllowedError');
@@ -297,6 +299,9 @@ export async function openApp(browser, { url, shareSheet = false }) {
     saveOffered: () => read(() => !document.getElementById('save').disabled),
     savingShowing: () => read(() => !document.getElementById('saving').hidden),
     savingTitle: () => read(() => document.getElementById('saving-title').textContent),
+    /** Whether the panel is saying the video was saved. */
+    savedShowing: () =>
+      read(() => !document.getElementById('saving').hidden && document.getElementById('saving').classList.contains('saved')),
 
     /** Set the run-up or the tail, as the sliders in diagnostics do. */
     async setWindow(which, ms) {
@@ -329,9 +334,9 @@ export async function openApp(browser, { url, shareSheet = false }) {
       await page.waitForFunction(() => document.body.dataset['screen'] === 'recording');
     },
 
-    /** End bout on the summary, and confirm it. */
+    /** Discard on the summary, and confirm it. */
     async endBout() {
-      await page.locator('#export-end').click();
+      await page.locator('#export-discard').click();
       await page.locator('#confirm-end').click();
       await page.waitForFunction(() => document.body.dataset['screen'] === 'idle');
     },

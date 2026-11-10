@@ -87,7 +87,6 @@
         font-weight: 600; color: var(--ink); cursor: pointer; list-style-position: inside;
       }
       #picks summary .at { margin-left: auto; font-weight: 400; }
-      #export-end { font-size: 13px; padding: 12px 10px; }
       #picks label {
         display: flex; align-items: center; gap: 14px; padding: 12px 14px;
         border: 1px solid var(--rule); border-radius: 12px; background: rgba(21, 27, 32, 0.8);
@@ -97,7 +96,9 @@
       #picks input { width: 26px; height: 26px; accent-color: var(--accent); margin: 0; }
       #picks .at { color: var(--faded); font-size: 14px; margin-left: auto; }
       #export-length { margin: 0; color: var(--faded); text-align: center; }
-      #export-save { font-size: 18px; padding: 16px; border-color: var(--accent); color: var(--accent); }
+      #export .actions-row { display: flex; gap: 10px; }
+      #export-save { flex: 2; font-size: 18px; padding: 16px; border-color: var(--accent); color: var(--accent); }
+      #export-discard { flex: 1; font-size: 16px; padding: 16px; border-color: var(--mark); color: var(--mark); }
       #export-save[disabled] { opacity: 0.35; }
 
       video {
@@ -369,7 +370,10 @@
       #saving .row > * { flex: 1; }
       #saving-share, #saving-download { background: var(--accent); border-color: var(--accent); color: #031417; font-weight: 600; }
       #saving-download { display: block; text-align: center; text-decoration: none; padding: 12px 16px; border: 1px solid; border-radius: 10px; }
-      #saving-download[hidden], #saving-share[hidden] { display: none; }
+      #saving-download[hidden], #saving-share[hidden], #saving-new[hidden] { display: none; }
+      #saving-new { background: var(--accent); border-color: var(--accent); color: #031417; font-weight: 600; }
+      /* Saved: the title in green, so it reads as done at a glance. */
+      #saving.saved h3 { color: #5ad18a; }
       #confirm .danger { background: var(--mark); border-color: var(--mark); color: #fff; }
 
       /* ---------- the panel behind the ⓘ ---------- */
@@ -552,11 +556,13 @@
         <nav>
           <button id="export-back">BACK</button>
           <h2>The bout</h2>
-          <button id="export-end">End bout</button>
         </nav>
         <ul id="picks"></ul>
         <p id="export-length"></p>
-        <button id="export-save" disabled>SAVE</button>
+        <div class="actions-row">
+          <button id="export-discard">Discard</button>
+          <button id="export-save" disabled>SAVE</button>
+        </div>
       </div>
     </section>
 
@@ -573,6 +579,8 @@
                finishes. -->
           <button id="saving-share" hidden>Share</button>
           <a id="saving-download" hidden>Download</a>
+          <!-- Once it has been handed over: start again, or back to this one. -->
+          <button id="saving-new" hidden>New bout</button>
           <button id="saving-stop">Stop</button>
         </div>
       </div>
@@ -585,7 +593,7 @@
         <p id="confirm-text"></p>
         <div class="row">
           <button id="confirm-cancel">Keep it</button>
-          <button class="danger" id="confirm-end">End bout</button>
+          <button class="danger" id="confirm-end">Discard</button>
         </div>
       </div>
     </div>
@@ -613,8 +621,8 @@
         <h2>Ending a bout loses it</h2>
         <p>
           Nothing is kept once a bout ends. On the summary, <b>BACK</b> carries on
-          the same bout; <b>End bout</b> throws all of it away, asking first. Save
-          the video before you end it if you want one.
+          the same bout, and <b>Discard</b> throws all of it away, asking first.
+          Once a video has been saved, <b>New bout</b> starts the next one.
         </p>
 
         <h2>Put it on another phone</h2>
