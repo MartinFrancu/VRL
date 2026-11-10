@@ -8,6 +8,17 @@ One entry per chunk, newest first, marked with the chunk's own letter:
 
 See `.claude/skills/chunks/SKILL.md` for the agreement these letters come from.
 
+## 1.1.14
+
+- **B** — Saving a video left an iPhone on a black screen. A phone opens its
+  share sheet only straight after a tap, and the app asked for it when the
+  recording finished — seconds after SAVE was pressed. The phone refused, and
+  the app fell back to a download link, which on an iPhone opens the video in
+  place of the app with no way back. Now the finished video waits behind a
+  **Share** button, so the share sheet is asked inside a tap of its own, and
+  the page never clicks a download link for the referee. The panel it sits in
+  also gets the same box as the discard question, which it had been missing.
+
 ## 1.1.13
 
 - **D** — The saved video dips briefly to black at every join instead of

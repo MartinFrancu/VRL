@@ -404,6 +404,57 @@ describe('saving the marked moments', () => {
 });
 
 /**
+ * The bug that left an iPhone on a black screen.
+ *
+ * A phone only lets a page open its share sheet in the moment after a tap.
+ * Saving takes as long as the video lasts — seconds — so asking for the share
+ * sheet when the recording finished was asking too late. It was refused, and
+ * the app fell back to a download link, which on an iPhone opens the video in
+ * place of the app with no way back.
+ *
+ * So these use a share sheet that refuses late requests the way a phone's
+ * does, and the default windows, so the video takes longer to make than the
+ * tap lasts.
+ */
+describe('handing a saved video to a phone', () => {
+  async function savedOnAPhone(onCleanup) {
+    const app = await openApp(browser, { url: server.url, shareSheet: true });
+    onCleanup(() => app.close());
+    await filmBout(app, 3, { spacingMs: 1000 });
+    await app.review();
+    await app.openSave();
+    await app.page.locator('#export-save').click();
+    // However long it takes, and then whatever the screen offers next.
+    await app.page.waitForFunction(
+      () => window.__shared.length > 0 || window.__downloadClicks.length > 0 || !!document.querySelector('#saving-share:not([hidden])'),
+      undefined,
+      { timeout: 60_000 }
+    );
+    return app;
+  }
+
+  test('reaches the share sheet even when the video took a while to make', async ({ onTestFinished }) => {
+    const app = await savedOnAPhone(onTestFinished);
+
+    // A tap of its own, so the share sheet is asked inside one.
+    if (await app.page.locator('#saving-share').isVisible()) await app.page.locator('#saving-share').click();
+
+    const shared = await app.page.evaluate(() => window.__shared);
+    expect(shared).toHaveLength(1);
+    expect(shared[0].name).toMatch(/^\d{4}-\d{2}-\d{2} SBA 3 marks\.(mp4|webm)$/);
+    expect(shared[0].bytes).toBeGreaterThan(1000);
+  });
+
+  test('never opens the video in place of the app', async ({ onTestFinished }) => {
+    const app = await savedOnAPhone(onTestFinished);
+    if (await app.page.locator('#saving-share').isVisible()) await app.page.locator('#saving-share').click();
+
+    expect(await app.page.evaluate(() => window.__downloadClicks)).toEqual([]);
+    expect(await app.screen()).toBe('export');
+  });
+});
+
+/**
  * Choosing which marks go into the saved video, on a screen of its own — so
  * it can be opened from anywhere a bout can be, and goes back to wherever
  * that was.

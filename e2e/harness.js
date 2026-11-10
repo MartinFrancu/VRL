@@ -103,7 +103,7 @@ export function versionInManifest() {
  * `film`, where the passage of recording time is the thing being waited for
  * rather than a stand-in for synchronisation.
  */
-export async function openApp(browser, { url }) {
+export async function openApp(browser, { url, shareSheet = false }) {
   const context = await browser.newContext({
     ignoreHTTPSErrors: true,
     permissions: ['camera'],
@@ -111,6 +111,48 @@ export async function openApp(browser, { url }) {
     // part of what is being tested.
     viewport: { width: 420, height: 860 },
   });
+
+  // Every download link the page clicks, so a test can say none was — on an
+  // iPhone a download link to a video opens it in place of the app.
+  //
+  // Caught on the element's own click() as well as on the document, because
+  // a link made on the fly and never added to the page is clicked without the
+  // document ever hearing of it.
+  await context.addInitScript(() => {
+    window.__downloadClicks = [];
+    const note = (link) => {
+      if (link?.hasAttribute?.('download')) window.__downloadClicks.push(link.getAttribute('download'));
+    };
+    const click = HTMLAnchorElement.prototype.click;
+    HTMLAnchorElement.prototype.click = function () {
+      if (!this.isConnected) note(this);
+      return click.call(this);
+    };
+    document.addEventListener(
+      'click',
+      (event) => note(event.target instanceof Element ? event.target.closest('a[download]') : null),
+      true
+    );
+  });
+
+  if (shareSheet) {
+    // A share sheet like a phone's: it takes files, and it refuses unless the
+    // page is still inside the moment of a tap. Desktop Chromium has no share
+    // sheet at all, which is how an app that shared too late passed here and
+    // left an iPhone on a black screen.
+    await context.addInitScript(() => {
+      window.__shared = [];
+      navigator.canShare = (data) => Boolean(data?.files?.length);
+      navigator.share = async (data) => {
+        if (!navigator.userActivation?.isActive) {
+          window.__shareRefused = (window.__shareRefused ?? 0) + 1;
+          throw new DOMException('share must follow a tap', 'NotAllowedError');
+        }
+        const file = data.files[0];
+        window.__shared.push({ name: file.name, type: file.type, bytes: file.size });
+      };
+    });
+  }
   const page = await context.newPage();
 
   const faults = [];
@@ -314,10 +356,15 @@ export async function openApp(browser, { url }) {
      */
     async save() {
       if ((await screen()) !== 'export') await app.openSave();
-      const coming = page.waitForEvent('download', { timeout: 60_000 });
       await page.locator('#export-save').click();
+      await page.waitForFunction(() => !document.getElementById('saving-download').hidden, undefined, {
+        timeout: 60_000,
+      });
+      const coming = page.waitForEvent('download', { timeout: 30_000 });
+      await page.locator('#saving-download').click();
       const download = await coming;
       const path = await download.path();
+      await page.locator('#saving-stop').click();
       return { name: download.suggestedFilename(), path, bytes: statSync(path).size };
     },
 
