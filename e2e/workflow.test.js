@@ -631,6 +631,114 @@ describe('the summary', () => {
 });
 
 /**
+ * Annotating from the summary: ✎ beside a mark opens it on the review screen
+ * with the annotating bar open, and BACK or Done brings it back.
+ */
+describe('annotating from the summary', () => {
+  /** Two exchanges, two marks then one, nothing annotated yet. */
+  async function onTheSummary(onCleanup) {
+    const app = await freshApp(onCleanup);
+    await filmBout(app, 2, { spacingMs: 700 });
+    await app.review();
+    await app.back();
+    await app.film(1500);
+    await app.mark();
+    await app.film(800);
+    await app.openSummary();
+    return app;
+  }
+
+  test('opens the mark on review, with the bar open, among its own exchange\'s marks', async ({
+    onTestFinished,
+  }) => {
+    const app = await onTheSummary(onTestFinished);
+
+    await app.annotateFromSummary(1, 2);
+
+    expect(await app.screen()).toBe('review');
+    expect(await app.placing()).toBe(true);
+    expect(await app.tabCount()).toBe(1);
+    expect(await app.readout()).toBe('+0.00s');
+  });
+
+  /**
+   * The footage on screen has to be the mark's own exchange. The hits would be
+   * stored right either way — where and when do not depend on the picture —
+   * so without this, an earlier exchange could be annotated over the last
+   * one's footage and nothing else would notice. The two exchanges here are
+   * different lengths, which is how the player says which it holds.
+   */
+  test('shows the mark\'s own exchange, not the last one filmed', async ({ onTestFinished }) => {
+    const app = await freshApp(onTestFinished);
+    await filmBout(app, 2, { spacingMs: 700 });
+    await app.review();
+    const firstMs = await app.durationMs();
+    await app.back();
+    await app.film(3000);
+    await app.mark();
+    await app.film(800);
+    await app.openSummary();
+
+    await app.annotateFromSummary(1, 1);
+
+    expect(Math.abs((await app.durationMs()) - firstMs)).toBeLessThan(150);
+  });
+
+  test('comes back to the summary on Done, showing the hits placed', async ({ onTestFinished }) => {
+    const app = await onTheSummary(onTestFinished);
+    await app.annotateFromSummary(2, 1);
+    await app.tapPictureAt(0.4, 0.4);
+
+    await app.doneHits();
+
+    expect(await app.screen()).toBe('export');
+    expect(await app.summaryHits()).toEqual([[], ['red'], []]);
+  });
+
+  test('comes back to the summary on BACK, too, not to filming', async ({ onTestFinished }) => {
+    const app = await onTheSummary(onTestFinished);
+    await app.annotateFromSummary(1, 1);
+
+    await app.backToSummary();
+
+    expect(await app.screen()).toBe('export');
+    expect(await app.sections()).toEqual([2, 1]);
+  });
+
+  /**
+   * The ticks are the referee's choices and are left alone — except that a
+   * mark just annotated is ticked, since annotating it says it matters.
+   */
+  test('keeps the ticks as they were, and ticks the mark just annotated', async ({ onTestFinished }) => {
+    const app = await onTheSummary(onTestFinished);
+    await app.toggleMark(1, 1);
+    await app.toggleMark(1, 2);
+    expect(await app.ticked()).toEqual([false, true, false]);
+
+    await app.annotateFromSummary(1, 2);
+    await app.tapPictureAt(0.5, 0.5);
+    await app.doneHits();
+
+    expect(await app.ticked()).toEqual([false, true, true]);
+  });
+
+  /** A hit placed from the summary is in the saved video like any other. */
+  test('puts a hit placed from the summary into the saved video', async ({ onTestFinished }) => {
+    const app = await onTheSummary(onTestFinished);
+    await app.annotateFromSummary(1, 2);
+    await app.tapPictureAt(0.3, 0.4);
+    await app.doneHits();
+    for (const n of [1, 2]) await app.toggleMark(n, 1);
+    expect(await app.ticked()).toEqual([false, false, true]);
+
+    const saved = await app.save();
+    const { samples } = await app.colourAlong(saved.path, 0.3, 0.4);
+
+    expect(samples.some(({ r, g, b }) => r > 120 && r > g + 50 && r > b + 50)).toBe(true);
+  });
+});
+
+/**
  * Saving the bout: one short video of the chosen moments of every exchange,
  * in order, with a quick dip to black between each.
  *

@@ -8,6 +8,13 @@ One entry per chunk, newest first, marked with the chunk's own letter:
 
 See `.claude/skills/chunks/SKILL.md` for the agreement these letters come from.
 
+## 1.1.21
+
+- **D** — Annotating from the summary. ✎ beside a mark opens it on the review
+  screen, in its own exchange's footage, with the annotating bar open. BACK or
+  Done comes back to the summary with the ticks as they were — and the mark
+  just annotated ticked, since annotating it says it matters.
+
 ## 1.1.20
 
 - **D** — Points are gone. On review a pencil (✎) takes POINT's place and

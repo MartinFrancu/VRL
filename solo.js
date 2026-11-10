@@ -32,7 +32,7 @@ import {
 import { canRecordReel, recordReel } from './app/render/record-reel.js';
 import { reelFilename, reelLengthMs } from './app/render/reel.js';
 
-const VERSION = '1.1.20';
+const VERSION = '1.1.21';
 
 const el = (id) => document.getElementById(id);
 const preview = el('preview');
@@ -316,6 +316,7 @@ function screenIs(name) {
 async function toReview() {
   if (capture.markCount === 0) return;
   stopFilming();
+  reviewingFrom = 'filming';
 
   await finishExchange();
   const take = exchange.takes[0];
@@ -342,8 +343,15 @@ async function toReview() {
  * fight is about to resume.
  */
 function toRecord() {
+  if (reviewingFrom === 'summary') return backToSummary();
   startFilming();
 }
+
+/**
+ * Where the review screen was opened from: straight after filming, or from the
+ * summary to annotate a mark. BACK and Done go back to whichever it was.
+ */
+let reviewingFrom = 'filming';
 
 /**
  * The bout is over: on to the summary.
@@ -602,6 +610,8 @@ function stopPlacing() {
 /** Done: the bar closes. */
 function finishPlacing() {
   stopPlacing();
+  // Opened from the summary just to annotate, Done means back there.
+  if (reviewingFrom === 'summary') backToSummary();
 }
 
 function choosePlacingSide(side) {
@@ -687,6 +697,49 @@ function carryOn() {
   startFilming();
 }
 
+/**
+ * Annotate one mark from the summary: its exchange on the review screen, on
+ * that mark, with the bar already open.
+ *
+ * The exchange's own recording is put back in the player first and waited for,
+ * since a recorder's file can only be sought once it has been measured.
+ */
+async function annotateFromSummary(exchangeIndex, markIndex) {
+  const chosen = bout?.exchanges[exchangeIndex];
+  if (!chosen?.marks[markIndex]) return;
+  stopBehind();
+
+  exchange = chosen;
+  const measured = media.measureDurationMs(clip, { giveUpAfterMs: 3000 });
+  clip.src = media.urlOf(exchange.takes[0].media);
+  clip.load();
+  await measured;
+
+  reviewingFrom = 'summary';
+  renderTabs();
+  select(markIndex);
+  screenIs('review');
+  startPlacing(placingSide);
+}
+
+/**
+ * From annotating, back to the summary as it was left — the same marks ticked,
+ * plus the one just annotated if it now has hits, since annotating it says it
+ * matters.
+ */
+function backToSummary() {
+  const annotated = exchange?.marks[current];
+  stopPlacing();
+  if (annotated?.hits?.length && !isChosen(selection, annotated.id)) {
+    selection = toggled(selection, bout, annotated.id);
+  }
+  reviewingFrom = 'filming';
+  leaveExchange();
+  renderPicks();
+  screenIs('export');
+  playBehind();
+}
+
 /** The footage behind a take, wherever in the bout it is. */
 function takeFootage(takeId) {
   for (const each of bout?.exchanges ?? []) {
@@ -760,7 +813,16 @@ function renderPicks() {
         label.append(dots);
       }
       label.append(at);
-      row.append(label);
+      // Annotate this mark: outside the label, so a tap on it does not also
+      // tick or untick the box.
+      const edit = document.createElement('button');
+      edit.className = 'edit';
+      edit.textContent = '✎';
+      edit.title = 'Annotate this mark';
+      edit.dataset['exchange'] = String(exchangeIndex + 1);
+      edit.dataset['mark'] = String(markIndex + 1);
+      edit.addEventListener('click', () => void annotateFromSummary(exchangeIndex, markIndex));
+      row.append(label, edit);
       marks.append(row);
     });
 

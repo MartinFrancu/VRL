@@ -345,6 +345,20 @@ export async function openApp(browser, { url, shareSheet = false }) {
       if (side) await app.chooseHitSide(side);
     },
 
+    /** ✎ beside mark `n` of exchange `exchange` on the summary, both from 1. */
+    async annotateFromSummary(n, exchange = 1) {
+      await page.locator(`#picks button.edit[data-exchange="${exchange}"][data-mark="${n}"]`).click();
+      await page.waitForFunction(() => document.body.dataset['screen'] === 'review' && !document.getElementById('placing').hidden, undefined, {
+        timeout: 10_000,
+      });
+    },
+
+    /** BACK from annotating opened on the summary: back to the summary. */
+    async backToSummary() {
+      await page.locator('#toRecord').click();
+      await page.waitForFunction(() => document.body.dataset['screen'] === 'export');
+    },
+
     /** Which review tabs show the dot for a mark with hits, in order. */
     tabsAnnotated: () =>
       read(() => [...document.getElementById('tabs').children].map((tab) => tab.classList.contains('annotated'))),
