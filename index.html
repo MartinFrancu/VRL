@@ -73,7 +73,15 @@
       #export h2 { margin: 0; font-size: 18px; flex: 1; }
       #export-back { font-size: 13px; padding: 12px 10px; border-color: var(--mark); color: var(--mark); }
       #picks { list-style: none; margin: 0; padding: 0; flex: 1; min-height: 0; overflow-y: auto;
-               display: flex; flex-direction: column; gap: 8px; }
+               display: flex; flex-direction: column; gap: 10px; }
+      #picks ul { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+      /* One folding section per exchange. */
+      #picks summary {
+        display: flex; align-items: center; gap: 10px; padding: 6px 4px; font-size: 15px;
+        font-weight: 600; color: var(--ink); cursor: pointer; list-style-position: inside;
+      }
+      #picks summary .at { margin-left: auto; font-weight: 400; }
+      #export-end { font-size: 13px; padding: 12px 10px; }
       #picks label {
         display: flex; align-items: center; gap: 14px; padding: 12px 14px;
         border: 1px solid var(--rule); border-radius: 12px; background: rgba(21, 27, 32, 0.8);
@@ -231,8 +239,6 @@
       }
       #tabs button.on { border-color: var(--accent); color: var(--accent); }
       #toRecord { font-size: 13px; padding: 12px 10px; flex: none; border-color: var(--mark); color: var(--mark); }
-      #save { font-size: 13px; padding: 12px 10px; flex: none; }
-      #save[disabled] { opacity: 0.35; }
 
       /* The saving overlay: the same box as the discard question. */
       #saving { position: fixed; inset: 0; z-index: 30; display: grid; place-content: center;
@@ -473,7 +479,6 @@
     <section id="review">
       <nav id="topbar">
         <div id="tabs"></div>
-        <button id="save" title="Save the marked moments as one video" disabled>SAVE</button>
         <button id="toRecord">BACK</button>
       </nav>
 
@@ -496,11 +501,12 @@
       <div class="sheet">
         <nav>
           <button id="export-back">BACK</button>
-          <h2>Save a video</h2>
+          <h2>The bout</h2>
+          <button id="export-end">End bout</button>
         </nav>
         <ul id="picks"></ul>
         <p id="export-length"></p>
-        <button id="export-save">SAVE</button>
+        <button id="export-save" disabled>SAVE</button>
       </div>
     </section>
 
@@ -528,8 +534,8 @@
         <h3 id="confirm-title">Discard this bout?</h3>
         <p id="confirm-text"></p>
         <div class="row">
-          <button id="confirm-cancel">Keep filming</button>
-          <button class="danger" id="confirm-end">Discard</button>
+          <button id="confirm-cancel">Keep it</button>
+          <button class="danger" id="confirm-end">End bout</button>
         </div>
       </div>
     </div>
@@ -543,8 +549,8 @@
           <li>Point it at the fight and press <b>START</b>. Hold the phone the way you want to film <b>before</b> you press it.</li>
           <li><b>Tap the picture</b> whenever you see something worth a second look. It keeps filming, and you can mark as often as you like.</li>
           <li>Press <b>REVIEW</b> when the fight is stopped.</li>
-          <li><b>Drag across the picture</b> to move through the moment. The numbers switch between your marks, and <b>BACK</b> returns to filming.</li>
-          <li><b>SAVE</b> opens a list of your marks. Untick any you don't want — the one you last touched plays behind the list, at double speed. <b>SAVE</b> there makes one short video of the ticked moments, with a quick fade between each, and hands it to your phone. It records by playing them through, so it takes as long as they last.</li>
+          <li><b>Drag across the picture</b> to move through the moment. The numbers switch between your marks. <b>BACK</b> keeps this exchange and goes straight back to filming the next.</li>
+          <li>When the bout is over, press <b>END</b>. Every exchange is listed with its marks. Untick any you don't want — the one you last touched plays behind the list, at double speed — and <b>SAVE</b> makes one short video of the whole bout, with a quick fade between each moment, and hands it to your phone. It records by playing them through, so it takes as long as they last.</li>
         </ol>
 
         <h2>Turn the phone before you start</h2>
@@ -554,11 +560,11 @@
           comes back the wrong way round.
         </p>
 
-        <h2>Leaving a bout loses it</h2>
+        <h2>Ending a bout loses it</h2>
         <p>
-          <b>BACK</b> from review starts a new bout straight away — the marks you
-          were looking at are gone, with no warning. <b>END</b> throws the bout
-          away too, but asks first if there are marks you have not looked at.
+          Nothing is kept once a bout ends. On the summary, <b>BACK</b> carries on
+          the same bout; <b>End bout</b> throws all of it away, asking first. Save
+          the video before you end it if you want one.
         </p>
 
         <h2>Put it on another phone</h2>

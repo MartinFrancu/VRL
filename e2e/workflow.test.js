@@ -190,52 +190,94 @@ describe('reviewing a bout that was filmed with three marks', () => {
 });
 
 describe('moving between the modes', () => {
-  test('goes back to filming from review', async ({ onTestFinished }) => {
+  /**
+   * BACK keeps the exchange: it is part of the bout now, and will be on the
+   * summary when the bout ends. This settles the question docs/BACKLOG.md had
+   * open about whether BACK should throw it away.
+   */
+  test('goes back to filming from review, keeping the exchange', async ({ onTestFinished }) => {
     const app = await freshApp(onTestFinished);
     await filmBout(app, 2);
     await app.review();
 
     await app.back();
-
     expect(await app.screen()).toBe('recording');
-    // Deliberately silent about what happens to the marks. Today BACK throws
-    // the bout away without asking; whether that is wanted is an open question
-    // in docs/BACKLOG.md, and a test here would turn it into a commitment.
+    expect(await app.markCount()).toBe(0);
+
+    await app.openSummary();
+    expect(await app.sections()).toEqual([2]);
   });
 
   /**
-   * Marks that have not been looked at are the only thing in this app that
-   * cannot be got back, and END sits next to REVIEW where a thumb could find
-   * the wrong one.
+   * END is the end of the bout, not of an exchange. What is being filmed when
+   * it is pressed becomes the last exchange, so nothing marked is lost and
+   * nothing needs asking.
    */
-  test('asks before ending a bout that has marks in it, and goes on filming if told to', async ({
-    onTestFinished,
-  }) => {
+  test('ends the bout on END, keeping what was being filmed as its last exchange', async ({ onTestFinished }) => {
     const app = await freshApp(onTestFinished);
     await filmBout(app, 2);
 
-    await app.end();
-
-    expect(await app.confirmShowing()).toBe(true);
-    expect(await app.confirmTitle()).toBe('Discard 2 marks?');
-    // Still filming while the question is on screen — it is a question, not a
-    // stop.
-    expect(await app.screen()).toBe('recording');
-
-    await app.keepFilming();
+    await app.openSummary();
 
     expect(await app.confirmShowing()).toBe(false);
-    expect(await app.screen()).toBe('recording');
-    expect(await app.markCount()).toBe(2);
-    expect(await app.reviewOffered()).toBe(true);
+    expect(await app.screen()).toBe('export');
+    expect(await app.sections()).toEqual([2]);
+  });
+
+  test('sums up every exchange of the bout, in the order they were filmed', async ({ onTestFinished }) => {
+    const app = await freshApp(onTestFinished);
+    await filmBout(app, 2);
+    await app.review();
+    await app.back();
+    await app.film(700);
+    await app.mark();
+    await app.film(800);
+
+    await app.openSummary();
+
+    expect(await app.sections()).toEqual([2, 1]);
+  });
+
+  /** The summary's BACK means the bout was not over after all. */
+  test('carries on the same bout from the summary', async ({ onTestFinished }) => {
+    const app = await freshApp(onTestFinished);
+    await filmBout(app, 2);
+    await app.openSummary();
+
+    await app.leaveSummary();
+    await app.film(700);
+    await app.mark();
+    await app.film(800);
+    await app.openSummary();
+
+    expect(await app.sections()).toEqual([2, 1]);
+  });
+
+  /**
+   * A bout's footage is the one thing here that cannot be got back, so ending
+   * it asks first — and the asking can be called off.
+   */
+  test('asks before ending the bout, and keeps it if told to', async ({ onTestFinished }) => {
+    const app = await freshApp(onTestFinished);
+    await filmBout(app, 2);
+    await app.openSummary();
+
+    await app.page.locator('#export-end').click();
+    expect(await app.confirmShowing()).toBe(true);
+    expect(await app.confirmTitle()).toBe('End this bout?');
+
+    await app.keepFilming();
+    expect(await app.confirmShowing()).toBe(false);
+    expect(await app.screen()).toBe('export');
+    expect(await app.sections()).toEqual([2]);
   });
 
   test('ends the bout when the asking is answered, leaving nothing behind', async ({ onTestFinished }) => {
     const app = await freshApp(onTestFinished);
     await filmBout(app, 2);
+    await app.openSummary();
 
-    await app.end();
-    await app.discard();
+    await app.endBout();
 
     expect(await app.screen()).toBe('idle');
     expect(await app.markCount()).toBe(0);
@@ -243,13 +285,14 @@ describe('moving between the modes', () => {
     expect(await app.reviewOffered()).toBe(false);
     expect(await app.note()).toBe('Point it at the fight, then press START.');
 
-    // And the next bout starts clean rather than inheriting anything.
-    await app.start();
-    expect(await app.markCount()).toBe(0);
-    expect(await app.reviewOffered()).toBe(false);
+    // And the next bout starts clean rather than inheriting the last one.
+    await filmBout(app, 1);
+    await app.openSummary();
+    expect(await app.sections()).toEqual([1]);
   });
 
-  test('ends a bout with nothing marked without asking', async ({ onTestFinished }) => {
+  /** Nothing filmed and nothing marked is nothing to sum up. */
+  test('goes straight back to idle when a bout ends with nothing marked in it', async ({ onTestFinished }) => {
     const app = await freshApp(onTestFinished);
     await app.start();
 
@@ -262,20 +305,17 @@ describe('moving between the modes', () => {
 
   /**
    * There are no buttons on the picture while filming — the `?` is hidden and
-   * the three controls sit below it — so today nothing can be pressed there by
+   * the three controls sit below it — so nothing can be pressed there by
    * accident. This pins that: a control is a control, and pressing one must
-   * never also mark. It is the refactor that moves a button onto the stage,
-   * where it looks like it belongs, that this is waiting for.
+   * never also mark.
    */
   test('does not take a mark when a control is pressed while filming', async ({ onTestFinished }) => {
     const app = await freshApp(onTestFinished);
     await filmBout(app, 1);
 
-    await app.end();
-    expect(await app.markCount()).toBe(1);
+    await app.openSummary();
 
-    await app.keepFilming();
-    expect(await app.markCount()).toBe(1);
+    expect(await app.sections()).toEqual([1]);
   });
 });
 
@@ -318,46 +358,112 @@ describe('getting onto a phone and staying there', () => {
 });
 
 /**
- * Saving the marked moments as one short video — the thing the whole app is
- * for once the fight is over and somebody wants to show what happened.
- *
- * It is recorded by playing it, so these tests take as long as the footage
- * they produce. Both use short windows, which keeps them quick and also makes
- * the point: the saved file is a fraction of the bout it came from.
+ * The summary: every exchange of the bout, a checkbox per mark, and behind the
+ * list the moment last touched, looping at double speed.
  */
-describe('saving the marked moments', () => {
-  /** A short run-up and tail, so a few seconds of bout gives a small reel. */
+describe('the summary', () => {
   const leadMs = 500;
   const tailMs = 200;
 
-  async function filmedAndReviewed(onCleanup, marks = 3) {
+  /** Two exchanges — three marks reviewed, then two more — with short windows. */
+  async function summedUp(onCleanup) {
     const app = await freshApp(onCleanup);
-    await filmBout(app, marks, { spacingMs: 700 });
+    await filmBout(app, 3, { spacingMs: 700 });
     await app.review();
     await app.setWindow('lead', leadMs);
     await app.setWindow('tail', tailMs);
+    await app.back();
+    for (let i = 0; i < 2; i++) {
+      await app.film(700);
+      await app.mark();
+    }
+    await app.film(800);
+    await app.openSummary();
     return app;
   }
 
-  /** Off until there is a reviewed bout to save, the same as REVIEW is. */
-  test('is not offered before a bout has been reviewed', async ({ onTestFinished }) => {
+  test('opens with one section per exchange, every mark ticked', async ({ onTestFinished }) => {
+    const app = await summedUp(onTestFinished);
+
+    expect(await app.sections()).toEqual([3, 2]);
+    expect(await app.ticked()).toEqual([true, true, true, true, true]);
+    expect(await app.exportSaveOffered()).toBe(true);
+  });
+
+  test('offers nothing to save when nothing is ticked', async ({ onTestFinished }) => {
+    const app = await summedUp(onTestFinished);
+
+    for (const n of [1, 2, 3]) await app.toggleMark(n, 1);
+    for (const n of [1, 2]) await app.toggleMark(n, 2);
+
+    expect(await app.ticked()).toEqual([false, false, false, false, false]);
+    expect(await app.exportSaveOffered()).toBe(false);
+  });
+
+  /**
+   * Behind the list, the moment last touched loops at double speed — from its
+   * own exchange's recording, whichever that is. Sampled for longer than the
+   * stretch takes to play, so a loop that ran off the end of its stretch
+   * instead of going back would show up here.
+   */
+  test('loops the last touched moment behind the list, at double speed', async ({ onTestFinished }) => {
+    const app = await summedUp(onTestFinished);
+
+    await app.toggleMark(2, 2);
+    expect(await app.showingMark()).toEqual({ exchange: 2, mark: 2 });
+
+    const samples = [];
+    for (let i = 0; i < 12; i++) {
+      samples.push(await app.behind());
+      await app.film(120);
+    }
+
+    expect(samples.every((sample) => sample.rate === 2)).toBe(true);
+    expect(samples.some((sample) => !sample.paused)).toBe(true);
+    // The second mark of the second exchange was taken about 1.4s into it.
+    const spread = samples.map((sample) => sample.atMs);
+    expect(Math.min(...spread)).toBeGreaterThan(1_400 - leadMs - 400);
+    expect(Math.max(...spread)).toBeLessThan(1_400 + tailMs + 500);
+  });
+});
+
+/**
+ * Saving the bout: one short video of the chosen moments of every exchange,
+ * in order, with a quick dip to black between each.
+ *
+ * It is recorded by playing it, so these take as long as the footage they
+ * produce. Short windows keep them quick, and make the point: the saved file
+ * is a fraction of what was filmed.
+ */
+describe('saving the bout', () => {
+  const leadMs = 500;
+  const tailMs = 200;
+
+  /** One exchange of `first` marks reviewed, then one of `second` marks. */
+  async function twoExchanges(onCleanup, first = 2, second = 1, { spacingMs = 700 } = {}) {
+    const app = await freshApp(onCleanup);
+    await filmBout(app, first, { spacingMs: 700 });
+    await app.review();
+    await app.setWindow('lead', leadMs);
+    await app.setWindow('tail', tailMs);
+    await app.back();
+    for (let i = 0; i < second; i++) {
+      await app.film(spacingMs);
+      await app.mark();
+    }
+    await app.film(800);
+    await app.openSummary();
+    return app;
+  }
+
+  test('is not offered until there is a bout to sum up', async ({ onTestFinished }) => {
     const app = await freshApp(onTestFinished);
-    expect(await app.saveOffered()).toBe(false);
-
-    await app.start();
-    await app.film(400);
-    await app.mark();
-    expect(await app.saveOffered()).toBe(false);
+    expect(await app.screen()).toBe('idle');
+    expect(await app.exportSaveOffered()).toBe(false);
   });
 
-  test('is offered once a bout has been marked and reviewed', async ({ onTestFinished }) => {
-    const app = await filmedAndReviewed(onTestFinished);
-
-    expect(await app.saveOffered()).toBe(true);
-  });
-
-  test('produces a video file named for the bout', async ({ onTestFinished }) => {
-    const app = await filmedAndReviewed(onTestFinished);
+  test('produces a video file named for the bout and its moments', async ({ onTestFinished }) => {
+    const app = await twoExchanges(onTestFinished);
 
     const saved = await app.save();
 
@@ -367,13 +473,12 @@ describe('saving the marked moments', () => {
   });
 
   /**
-   * The point of the feature. Three marked moments of half a second's run-up
-   * and a fifth of a second after are a couple of seconds; the bout they came
-   * out of is several times that, and a real one is minutes.
+   * The point of the feature: the moments of every exchange, and nothing else.
+   * Three moments of 0.7s are about two seconds, against several seconds of
+   * filming across the two exchanges.
    */
-  test('saves only the marked moments, not the whole bout', async ({ onTestFinished }) => {
-    const app = await filmedAndReviewed(onTestFinished);
-    const boutMs = await app.durationMs();
+  test('saves the chosen moments of every exchange, not the footage', async ({ onTestFinished }) => {
+    const app = await twoExchanges(onTestFinished);
 
     const saved = await app.save();
     const reelMs = await app.lengthOfVideo(saved.path);
@@ -381,25 +486,78 @@ describe('saving the marked moments', () => {
     const wanted = 3 * (leadMs + tailMs);
     expect(reelMs).toBeGreaterThan(wanted * 0.5);
     expect(reelMs).toBeLessThan(wanted * 2);
-    expect(reelMs).toBeLessThan(boutMs);
   });
 
-  test('leaves the bout where it was, and the app usable', async ({ onTestFinished }) => {
-    const app = await filmedAndReviewed(onTestFinished);
-    await app.selectTab(1);
-    const wasAt = await app.positionMs();
+  /**
+   * Each moment is taken from its own exchange's recording, switching between
+   * them as the video goes. One moment from each exchange; the second one's
+   * mark is later than the whole first exchange is long, so played from the
+   * first exchange's recording there would be nothing there to show — the
+   * back half of the saved video would be missing or black.
+   *
+   * It has to be one from each. With a single moment the first recording
+   * loaded is the right one by luck, and a recorder that never switched would
+   * pass — which is how an earlier version of this test let exactly that
+   * through.
+   */
+  test('switches to each exchange\'s own recording for its moments', async ({ onTestFinished }) => {
+    const app = await twoExchanges(onTestFinished, 2, 3, { spacingMs: 1500 });
+    await app.toggleMark(2, 1);
+    for (const n of [1, 2]) await app.toggleMark(n, 2);
+    expect(await app.ticked()).toEqual([true, false, false, false, true]);
+
+    const saved = await app.save();
+    const { lengthMs, samples } = await app.brightnessAlong(saved.path, 40);
+
+    const oneMoment = leadMs + tailMs;
+    expect(lengthMs).toBeGreaterThan(2 * oneMoment * 0.7);
+    expect(lengthMs).toBeLessThan(2 * oneMoment * 2.2);
+    const backHalf = samples.filter((sample) => sample.atMs > lengthMs * 0.6 && sample.atMs < lengthMs * 0.9);
+    expect(Math.max(...backHalf.map((sample) => sample.luma))).toBeGreaterThan(40);
+  });
+
+  test('leaves an unticked mark out of the saved video', async ({ onTestFinished }) => {
+    const app = await twoExchanges(onTestFinished);
+    await app.toggleMark(2, 1);
+
+    const saved = await app.save();
+    const reelMs = await app.lengthOfVideo(saved.path);
+
+    expect(saved.name).toMatch(/ SBA 2 marks\./);
+    expect(reelMs).toBeGreaterThan(2 * (leadMs + tailMs) * 0.5);
+    expect(reelMs).toBeLessThan(3 * (leadMs + tailMs));
+  });
+
+  /**
+   * The fades, in the file. Brightness is read off the saved video itself: at
+   * the joins there has to be a frame close to black, while the moments are as
+   * bright as they were filmed. Without the fades nothing in the middle of the
+   * file would be dark at all.
+   */
+  test('dips to black between the moments', async ({ onTestFinished }) => {
+    const app = await twoExchanges(onTestFinished);
+
+    const saved = await app.save();
+    const { lengthMs, samples } = await app.brightnessAlong(saved.path, 40);
+
+    const brightest = Math.max(...samples.map((sample) => sample.luma));
+    const middle = samples.filter((sample) => sample.atMs > lengthMs * 0.2 && sample.atMs < lengthMs * 0.8);
+    const darkest = Math.min(...middle.map((sample) => sample.luma));
+
+    expect(brightest).toBeGreaterThan(40);
+    expect(darkest).toBeLessThan(brightest * 0.25);
+  });
+
+  test('leaves the summary as it was, and the bout still going', async ({ onTestFinished }) => {
+    const app = await twoExchanges(onTestFinished);
 
     await app.save();
     expect(await app.savingShowing()).toBe(false);
     expect(await app.screen()).toBe('export');
+    expect(await app.sections()).toEqual([2, 1]);
 
-    await app.leaveSave();
-    expect(await app.screen()).toBe('review');
-    expect(await app.activeTab()).toBe(1);
-    expect(await app.positionMs()).toBeCloseTo(wasAt, 1);
-    // And it can still be driven afterwards.
-    await app.selectTab(2);
-    expect(await app.activeTab()).toBe(2);
+    await app.leaveSummary();
+    expect(await app.screen()).toBe('recording');
   });
 });
 
@@ -421,8 +579,7 @@ describe('handing a saved video to a phone', () => {
     const app = await openApp(browser, { url: server.url, shareSheet: true });
     onCleanup(() => app.close());
     await filmBout(app, 3, { spacingMs: 1000 });
-    await app.review();
-    await app.openSave();
+    await app.openSummary();
     await app.page.locator('#export-save').click();
     // However long it takes, and then whatever the screen offers next.
     await app.page.waitForFunction(
@@ -451,122 +608,5 @@ describe('handing a saved video to a phone', () => {
 
     expect(await app.page.evaluate(() => window.__downloadClicks)).toEqual([]);
     expect(await app.screen()).toBe('export');
-  });
-});
-
-/**
- * Choosing which marks go into the saved video, on a screen of its own — so
- * it can be opened from anywhere a bout can be, and goes back to wherever
- * that was.
- */
-describe('the Save screen', () => {
-  const leadMs = 500;
-  const tailMs = 200;
-
-  async function onSaveScreen(onCleanup) {
-    const app = await freshApp(onCleanup);
-    await filmBout(app, 3, { spacingMs: 700 });
-    await app.review();
-    await app.setWindow('lead', leadMs);
-    await app.setWindow('tail', tailMs);
-    await app.openSave();
-    return app;
-  }
-
-  test('opens from review with one box per mark, every one ticked', async ({ onTestFinished }) => {
-    const app = await onSaveScreen(onTestFinished);
-
-    expect(await app.screen()).toBe('export');
-    expect(await app.ticked()).toEqual([true, true, true]);
-    expect(await app.exportSaveOffered()).toBe(true);
-  });
-
-  /**
-   * The point of the screen. Unticked, a mark is not in the file — the name
-   * says two, and the video is about two marks long rather than three.
-   */
-  test('leaves an unticked mark out of the saved video', async ({ onTestFinished }) => {
-    const app = await onSaveScreen(onTestFinished);
-    await app.toggleMark(2);
-    expect(await app.ticked()).toEqual([true, false, true]);
-
-    const saved = await app.save();
-    const reelMs = await app.lengthOfVideo(saved.path);
-
-    expect(saved.name).toMatch(/ SBA 2 marks\./);
-    const twoMarks = 2 * (leadMs + tailMs);
-    expect(reelMs).toBeGreaterThan(twoMarks * 0.5);
-    expect(reelMs).toBeLessThan(3 * (leadMs + tailMs));
-  });
-
-  test('offers nothing to save when nothing is ticked', async ({ onTestFinished }) => {
-    const app = await onSaveScreen(onTestFinished);
-
-    for (const n of [1, 2, 3]) await app.toggleMark(n);
-
-    expect(await app.ticked()).toEqual([false, false, false]);
-    expect(await app.exportSaveOffered()).toBe(false);
-  });
-
-  /**
-   * Behind the list, the moment last touched loops at double speed. Sampled
-   * for longer than the stretch takes to play, so a loop that ran off the end
-   * of its stretch instead of going back to the start would show up here.
-   */
-  test('loops the last touched moment behind the list, at double speed', async ({ onTestFinished }) => {
-    const app = await onSaveScreen(onTestFinished);
-    await app.leaveSave();
-    await app.selectTab(2);
-    const markAt = await app.positionMs();
-    await app.openSave();
-
-    await app.toggleMark(3);
-    expect(await app.showingMark()).toBe(3);
-
-    const samples = [];
-    for (let i = 0; i < 12; i++) {
-      samples.push(await app.behind());
-      await app.film(120);
-    }
-
-    expect(samples.every((sample) => sample.rate === 2)).toBe(true);
-    expect(samples.some((sample) => !sample.paused)).toBe(true);
-    for (const { atMs } of samples) {
-      expect(atMs).toBeGreaterThanOrEqual(markAt - leadMs - 60);
-      expect(atMs).toBeLessThanOrEqual(markAt + tailMs + 250);
-    }
-  });
-
-  /**
-   * The fades, in the file. Brightness is read off the saved video itself, not
-   * off the code: somewhere around each join there has to be a frame close to
-   * black, while the middle of a moment is as bright as it was filmed. Without
-   * the fades, nothing in the middle of the file would be dark at all.
-   */
-  test('dips to black between the moments in the saved video', async ({ onTestFinished }) => {
-    const app = await onSaveScreen(onTestFinished);
-
-    const saved = await app.save();
-    const { lengthMs, samples } = await app.brightnessAlong(saved.path, 40);
-
-    const brightest = Math.max(...samples.map((sample) => sample.luma));
-    const middle = samples.filter((sample) => sample.atMs > lengthMs * 0.2 && sample.atMs < lengthMs * 0.8);
-    const darkest = Math.min(...middle.map((sample) => sample.luma));
-
-    expect(brightest).toBeGreaterThan(40);
-    expect(darkest).toBeLessThan(brightest * 0.25);
-  });
-
-  test('goes back to review, on the mark that was being looked at', async ({ onTestFinished }) => {
-    const app = await onSaveScreen(onTestFinished);
-    await app.leaveSave();
-    await app.selectTab(2);
-    await app.openSave();
-
-    await app.leaveSave();
-
-    expect(await app.screen()).toBe('review');
-    expect(await app.activeTab()).toBe(2);
-    expect(await app.readout()).toBe('+0.00s');
   });
 });

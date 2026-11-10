@@ -15,15 +15,21 @@
 // real time, and by a distance the heaviest thing in the plan. Worth reaching
 // for only if this disappoints.
 
-import type { Cut, MediaHandle, Span } from '../contracts.js';
-import { record, release } from '../media/media.js';
+import type { Cut, MediaHandle, Span, TakeId } from '../contracts.js';
+import { measureDurationMs, record, release } from '../media/media.js';
 import { FADE_MS, fadeAt, reelLengthMs } from './reel.js';
 
 export interface ReelSources {
-  /** The exchange's footage, already loaded. Played through, and left paused afterwards. */
+  /** Plays the footage. Left paused afterwards, on what it held before. */
   readonly video: HTMLVideoElement;
   /** Where frames are drawn. Resized to the footage; nothing else uses it. */
   readonly canvas: HTMLCanvasElement;
+  /**
+   * Where each recording can be loaded from, by take — for a whole bout, whose
+   * moments come from several exchanges. Left out, the cut is one recording
+   * and the video already holds it.
+   */
+  readonly urlFor?: (take: TakeId) => string | null;
 }
 
 export interface ReelOptions {
@@ -52,6 +58,21 @@ export function canRecordReel(): boolean {
 
 const nextFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 
+/**
+ * Put another recording into the player, and wait until it can be sought.
+ *
+ * A recorder's file says nothing of its own length until something asks to
+ * seek past the end, so it is measured on the way in — the same trick the
+ * review screen relies on. The measuring has to be listening before the new
+ * source is set, or the moment it is waiting for has already gone by.
+ */
+async function loadInto(video: HTMLVideoElement, url: string): Promise<void> {
+  const measured = measureDurationMs(video, { giveUpAfterMs: 3000 });
+  video.src = url;
+  video.load();
+  await measured;
+}
+
 function seekTo(video: HTMLVideoElement, seconds: number): Promise<void> {
   return new Promise((resolve) => {
     if (Math.abs(video.currentTime - seconds) < 0.001) return resolve();
@@ -68,7 +89,7 @@ function seekTo(video: HTMLVideoElement, seconds: number): Promise<void> {
  */
 export async function recordReel(
   cut: Cut,
-  { video, canvas }: ReelSources,
+  { video, canvas, urlFor }: ReelSources,
   { onProgress, fps = 30, signal, fadeMs = FADE_MS }: ReelOptions = {}
 ): Promise<MediaHandle> {
   if (cut.spans.length === 0) throw new Error('nothing was marked, so there is nothing to save');
@@ -105,7 +126,10 @@ export async function recordReel(
 
   const wasMuted = video.muted;
   const wasAt = video.currentTime;
+  const wasSource = video.getAttribute('src');
   video.muted = true;
+  /** Which recording the player holds; unknown until the first is loaded. */
+  let loaded: TakeId | null = null;
 
   const stream = canvas.captureStream(fps);
   paint();
@@ -118,6 +142,16 @@ export async function recordReel(
       if (signal?.aborted) throw new Error('saving was stopped');
 
       playing = null;
+      const take = span.takes[0];
+      if (urlFor && take && take !== loaded) {
+        // Moving to another exchange's recording. The frame stays black while
+        // it loads, the same as during any seek, so the switch is just a
+        // slightly longer dip.
+        const url = urlFor(take);
+        if (!url) throw new Error(`no footage for recording ${take}`);
+        await loadInto(video, url);
+        loaded = take;
+      }
       await seekTo(video, span.fromMs / 1000);
       playing = span;
       await video.play();
@@ -153,8 +187,15 @@ export async function recordReel(
     for (const track of stream.getTracks()) track.stop();
     video.pause();
     video.muted = wasMuted;
-    // Put the playhead back where the referee had it, so saving does not move
-    // the picture out from under them.
-    await seekTo(video, wasAt).catch(() => {});
+    // Put the player back as it was — the recording it held, and where its
+    // playhead was — so saving does not move the picture out from under anyone.
+    if (urlFor && video.getAttribute('src') !== wasSource) {
+      if (wasSource) await loadInto(video, wasSource).catch(() => {});
+      else {
+        video.removeAttribute('src');
+        video.load();
+      }
+    }
+    if (wasSource) await seekTo(video, wasAt).catch(() => {});
   }
 }

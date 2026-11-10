@@ -22,7 +22,8 @@ for that one load and never again.
 
 ## Using it
 
-It has three screens and nothing else.
+A **bout** is the whole fight. It is filmed in **exchanges**: film until the
+fight is stopped, look at what you marked, carry on.
 
 **Idle** — pointed at the fight, not recording. One button: **START**. Hold the
 phone the way you mean to film *before* you press it.
@@ -32,25 +33,30 @@ look. The whole picture is the button, because you are watching the fight rather
 than the screen. It flashes and buzzes so you know it took, and the dots along
 the top count them. Mark as often as you like; it keeps filming throughout.
 
-- **REVIEW** — grey until you have marked something, so the grey also tells you
-  whether you have
-- **END** — back to idle, asking first if there are marks you have not seen
+- **REVIEW** — when the fight is stopped. Grey until you have marked something,
+  so the grey also tells you whether you have
+- **END** — the bout is over: on to the summary
 
 **Review** — the numbered marks along the top, and the picture. **Drag your
 thumb across the picture** to move through the moment; the full width is the
 whole window, which works out finer than one frame per pixel. Each mark shows
 about a second and a half before it and a second after — adjustable under
-**Settings & diagnostics**. **BACK** returns to filming.
+**Settings & diagnostics**. **BACK** keeps this exchange and goes straight back
+to filming the next.
 
-**SAVE** opens a screen listing the marks, every one ticked. Untick any that
-should be left out; whichever mark was last ticked or unticked loops behind
-the list at double speed, so you can see what you are choosing. **SAVE** there
-makes one short video of the ticked moments, dipping briefly to black between
-each, and hands it to the phone — the
-share sheet where there is one, a download where there is not. It records by
-playing the moments through, so it takes as long as they last, and a progress
-bar says how far along it is. Marks whose windows overlap are not
-yet merged, so a second covered by two marks appears twice.
+**Summary** — reached by END. Every exchange of the bout, each with its marks,
+every one ticked. Untick any that should be left out; whichever mark was last
+ticked or unticked loops behind the list at double speed, so you can see what
+you are choosing. **SAVE** makes one short video of the whole bout — the ticked
+moments, exchange by exchange, dipping briefly to black between each — and
+offers it to the phone's share sheet (a download link on a laptop). It records
+by playing the moments through, so it takes as long as they last. **BACK**
+carries on the same bout; **End bout** throws it away, asking first. The line
+under the list says how much footage the bout is holding in memory, since
+nothing is written to storage yet.
+
+Marks whose windows overlap are not yet merged, so a second covered by two
+marks appears twice.
 
 ## Things worth knowing before an event
 

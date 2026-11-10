@@ -135,6 +135,22 @@ export interface Exchange {
   readonly marks: readonly Mark[];
 }
 
+/**
+ * A bout: the whole fight, as a referee sees it.
+ *
+ * Film until the fight is stopped, review the marks, carry on — each of those
+ * is an exchange, and the bout is the exchanges in the order they were filmed.
+ * Saving makes one video of the whole bout.
+ *
+ * Like Mark, it is read only inside the Bout layer. What leaves is a Cut.
+ */
+export interface Bout {
+  readonly id: BoutId;
+  /** ISO 8601 — when the first exchange started. The saved video is named for it. */
+  readonly startedAt: string;
+  readonly exchanges: readonly Exchange[];
+}
+
 // --------------------------------------------------------- Bout  ->  Render
 
 /**

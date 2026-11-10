@@ -8,6 +8,18 @@ One entry per chunk, newest first, marked with the chunk's own letter:
 
 See `.claude/skills/chunks/SKILL.md` for the agreement these letters come from.
 
+## 1.1.16
+
+- **D** — A bout is now the whole fight, filmed in exchanges. BACK from review
+  keeps the exchange and goes straight on to film the next one, instead of
+  throwing it away. END ends the bout and opens the **summary**: one section
+  per exchange, a checkbox per mark, the last one touched looping behind the
+  list. SAVE there makes one video of the whole bout, exchange by exchange,
+  switching between recordings as it goes. BACK on the summary carries on the
+  bout; End bout throws it away, asking first. SAVE is gone from review — a
+  point button takes its place next. The summary shows how much footage the
+  bout is holding in memory.
+
 ## 1.1.15
 
 - **R** — What the code called a bout — one recording and its marks — is now

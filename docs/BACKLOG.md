@@ -6,6 +6,12 @@ belongs to a different one lands here instead of riding along.
 
 Unordered. Nothing here is a commitment.
 
+## Settled
+
+- **Should BACK discard the bout without asking?** No. A bout is now several
+  exchanges, and BACK from review keeps the exchange and goes on to film the
+  next; END ends the bout and opens the summary. Decided in 1.1.16.
+
 ## Open questions — decide before building
 
 - **How does a bout saved as snippets read back?** Serialisation was left out of
@@ -21,12 +27,6 @@ Unordered. Nothing here is a commitment.
   decision below. `toRecord` and `fromRecord` should be written with Store, once
   that is settled, rather than guessed at now. Whole-footage serialisation is
   straightforward either way.
-
-- **Should BACK discard the bout without asking?** Today it does: leaving review
-  for the recording screen throws the marks away on the reasoning that you have
-  just looked at them. Deliberately left out of the characterization suite in
-  1.1.3, because freezing it in a test would turn an unexamined choice into a
-  commitment. Decide what it should be, then test that.
 
 - **What does a mark mean?** Today a mark is only an instant — the millisecond
   the referee pressed. Saving bouts and annotating hits will both want more from
@@ -74,3 +74,9 @@ Unordered. Nothing here is a commitment.
   losing the camera while idle, after at least one bout, shows the "reload the
   page" note and forces idle, where losing it before any bout says nothing.
   Harmless either way; the message is just wrong in one of the two cases.
+
+- **A bout lives only in memory.** Every exchange's footage is held until the
+  bout ends, at roughly a megabyte a second of filming. A long bout could be
+  more than a phone will hold, and the app being closed loses all of it. The
+  summary shows how much is held, so a real tournament can say whether this
+  bites before Store is built.

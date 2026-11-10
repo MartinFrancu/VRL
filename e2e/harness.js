@@ -310,25 +310,43 @@ export async function openApp(browser, { url, shareSheet = false }) {
       );
     },
 
-    /** Open the Save screen from review. */
-    async openSave() {
-      await page.locator('#save').click();
-      await page.waitForFunction(() => document.body.dataset['screen'] === 'export');
+    /**
+     * End the bout and go to the summary — by END, from wherever filming is. From
+     * review that means BACK first, which keeps the exchange and starts the
+     * next; ending with nothing marked in that one simply lets it go.
+     */
+    async openSummary() {
+      if ((await screen()) === 'review') await app.back();
+      await page.locator('#end').click();
+      await page.waitForFunction(() => document.body.dataset['screen'] === 'export', undefined, {
+        timeout: 20_000,
+      });
     },
 
-    /** Back from the Save screen to wherever it was opened from. */
-    async leaveSave() {
+    /** BACK from the summary: carry on filming the same bout. */
+    async leaveSummary() {
       await page.locator('#export-back').click();
-      await page.waitForFunction(() => document.body.dataset['screen'] !== 'export');
+      await page.waitForFunction(() => document.body.dataset['screen'] === 'recording');
     },
 
-    /** Which marks are ticked on the Save screen, in order. */
+    /** End bout on the summary, and confirm it. */
+    async endBout() {
+      await page.locator('#export-end').click();
+      await page.locator('#confirm-end').click();
+      await page.waitForFunction(() => document.body.dataset['screen'] === 'idle');
+    },
+
+    /** How many marks each exchange on the summary lists, in order. */
+    sections: () =>
+      read(() => [...document.querySelectorAll('#picks details')].map((section) => section.querySelectorAll('input').length)),
+
+    /** Which marks are ticked on the summary, in order, across every exchange. */
     ticked: () =>
       read(() => [...document.querySelectorAll('#picks input')].map((box) => box.checked)),
 
-    /** Tick or untick mark `n`, counting from 1 as the screen does. */
-    async toggleMark(n) {
-      await page.locator(`#picks input[data-mark="${n}"]`).click();
+    /** Tick or untick mark `n` of exchange `exchange`, both counting from 1. */
+    async toggleMark(n, exchange = 1) {
+      await page.locator(`#picks input[data-exchange="${exchange}"][data-mark="${n}"]`).click();
     },
 
     exportSaveOffered: () => read(() => !document.getElementById('export-save').disabled),
@@ -343,19 +361,19 @@ export async function openApp(browser, { url, shareSheet = false }) {
     /** Which mark the list is highlighting as the one playing behind it. */
     showingMark: () =>
       read(() => {
-        const label = document.querySelector('#picks label.showing input');
-        return label ? Number(label.getAttribute('data-mark')) : null;
+        const box = document.querySelector('#picks label.showing input');
+        return box ? { exchange: Number(box.dataset.exchange), mark: Number(box.dataset.mark) } : null;
       }),
 
     /**
-     * Save from the Save screen, and catch the file that comes out.
+     * Save from the summary, and catch the file that comes out.
      *
-     * Opens the screen first if it is not already showing. On a phone the file
-     * goes to the share sheet; with no share sheet the app falls back to a
-     * download, which is what a desktop browser does and what can be caught.
+     * Ends the bout first if the summary is not already showing. On a phone the
+     * file goes to the share sheet; with no share sheet there is a Download link
+     * instead, which is what a desktop browser gets and what can be caught.
      */
     async save() {
-      if ((await screen()) !== 'export') await app.openSave();
+      if ((await screen()) !== 'export') await app.openSummary();
       await page.locator('#export-save').click();
       await page.waitForFunction(() => !document.getElementById('saving-download').hidden, undefined, {
         timeout: 60_000,

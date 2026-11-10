@@ -15,6 +15,7 @@
 // deliberately still plain JavaScript: it is the layer the browser tests cover
 // from the outside and the one least worth rewriting blind.
 
+import { cutBout, exchangeHolding, newBout, withExchange, withExchangeReplaced } from './app/bout/bout.js';
 import { cut, durationOf } from './app/bout/exchange.js';
 import { everyMark, isChosen, showing, toggled } from './app/bout/selection.js';
 import { Capture } from './app/capture/capture.js';
@@ -30,7 +31,7 @@ import {
 import { canRecordReel, recordReel } from './app/render/record-reel.js';
 import { reelFilename, reelLengthMs } from './app/render/reel.js';
 
-const VERSION = '1.1.15';
+const VERSION = '1.1.16';
 
 const el = (id) => document.getElementById(id);
 const preview = el('preview');
@@ -185,12 +186,15 @@ window.addEventListener('orientationchange', orientationChanged);
 function onCameraLost() {
   // Says nothing before the first bout of a session, which is the oddity noted
   // in docs/BACKLOG.md: the message is right while filming and wrong when idle
-  // after a bout. Carried over unchanged rather than mixed into a refactor.
+  // after a bout.
   if (!hasFilmed) return;
   el('live-note').textContent = 'The camera stopped — a call, or another app took it. Reload the page.';
   stopFilming();
   void capture.discard();
-  screenIs('idle');
+  // The exchange being filmed is gone, but the ones before it need not be:
+  // the summary still has them, so they can be saved before reloading.
+  if (bout && bout.exchanges.length > 0) openSummary();
+  else endBout();
 }
 
 // ------------------------------------------------------------------- filming
@@ -233,8 +237,20 @@ const capture = new Capture({
   },
 });
 
+/**
+ * The fight under way: every exchange filmed so far, in order. Null until
+ * START, and again once the bout is ended.
+ *
+ * A referee films until the fight is stopped, reviews, and carries on — each
+ * of those is an exchange, and the bout is all of them. Every exchange's
+ * footage is kept until the bout ends, because the saved video is made of the
+ * whole bout.
+ */
+let bout = null;
+
 function startFilming() {
-  releaseExchange();
+  leaveExchange();
+  if (!bout) bout = newBout(crypto.randomUUID(), new Date().toISOString());
   shownMs = null;
   capture.start();
   recordingStartedAt = performance.now();
@@ -242,8 +258,8 @@ function startFilming() {
   hasFilmed = true;
 
   screenIs('recording');
-  // A fresh bout has nothing to review and no marks spent, whatever the last
-  // one left behind.
+  // A fresh exchange has nothing to review and no marks spent, whatever the
+  // last one left behind.
   el('toReview').disabled = true;
   renderDots();
   renderTapHint();
@@ -276,10 +292,17 @@ function markAt() {
   el('toReview').disabled = false;
 }
 
-/** Stop the trimmings that only run while a bout does. */
+/** Stop the trimmings that only run while an exchange is being filmed. */
 function stopFilming() {
   clearInterval(ticker);
   keepAwake(false);
+}
+
+/** Finish the exchange being filmed and add it to the bout. */
+async function finishExchange() {
+  exchange = await capture.finish(markSource);
+  bout = withExchange(bout, exchange);
+  return exchange;
 }
 
 // ------------------------------------------------------- moving between modes
@@ -288,12 +311,12 @@ function screenIs(name) {
   document.body.dataset['screen'] = name;
 }
 
-/** Stop filming and look at what was marked. */
+/** Stop filming and look at what was marked in this exchange. */
 async function toReview() {
   if (capture.markCount === 0) return;
   stopFilming();
 
-  exchange = await capture.finish(markSource);
+  await finishExchange();
   const take = exchange.takes[0];
   // Kept where nothing resets it. The question these answer is asked on the
   // idle screen, which is reached by starting another bout, which would
@@ -307,48 +330,58 @@ async function toReview() {
 
   renderTabs();
   select(0);
-  el('save').disabled = !canRecordReel() || exchange.marks.length === 0;
-  el('save').title = canRecordReel()
-    ? 'Choose marks and save them as one video'
-    : 'This browser cannot record a video from a canvas';
   screenIs('review');
 }
 
 /**
  * Straight back to filming, from the review screen.
  *
- * The bout being reviewed goes: it has been looked at, which is the whole
- * point of having been in here. No confirmation for that reason.
+ * The exchange just reviewed is kept — it is part of the bout now, and will be
+ * on the summary when the bout ends. The next one starts at once, because the
+ * fight is about to resume.
  */
 function toRecord() {
   startFilming();
 }
 
 /**
- * Stop altogether.
+ * The bout is over: on to the summary.
  *
- * Asks first when there are marks, because marks that have not been reviewed
- * are the only thing in this app that cannot be got back, and END sits next to
- * REVIEW where a thumb could find the wrong one.
+ * Whatever is being filmed becomes the last exchange if anything was marked in
+ * it, and is let go of if nothing was. With no exchanges at all there is
+ * nothing to sum up, and it is straight back to idle.
  */
-function toIdle() {
-  const spent = capture.markCount;
-  if (spent > 0) {
-    const count = `${spent} mark${spent === 1 ? '' : 's'}`;
-    el('confirm-title').textContent = `Discard ${count}?`;
-    el('confirm-text').textContent =
-      'You have not looked at them yet. Ending now throws this bout away, and it cannot be got back.';
-    el('confirm').hidden = false;
-    return;
-  }
-  endNow();
+async function toSummary() {
+  stopFilming();
+  if (capture.markCount > 0) await finishExchange();
+  else await capture.discard();
+
+  if (!bout || bout.exchanges.length === 0) return endBout();
+  openSummary();
 }
 
-function endNow() {
+/** Ask before throwing a bout away — its footage cannot be got back. */
+function askToEndBout() {
+  const exchanges = bout?.exchanges.length ?? 0;
+  el('confirm-title').textContent = 'End this bout?';
+  el('confirm-text').textContent =
+    `Its ${exchanges} exchange${exchanges === 1 ? '' : 's'} will be gone. ` +
+    'Save the video first if you want one — this cannot be undone.';
+  el('confirm').hidden = false;
+}
+
+/** Let the whole bout go, and go back to idle. */
+function endBout() {
   el('confirm').hidden = true;
   stopFilming();
   void capture.discard();
-  releaseExchange();
+  leaveExchange();
+  emptyBehind();
+  selection = null;
+  for (const each of bout?.exchanges ?? []) {
+    for (const take of each.takes) media.release(take.media);
+  }
+  bout = null;
   el('toReview').disabled = true;
   el('elapsed').textContent = '0:00';
   el('live-note').textContent = 'Point it at the fight, then press START.';
@@ -357,11 +390,11 @@ function endNow() {
   screenIs('idle');
 }
 
-/** Let go of the footage, and of the element holding onto it. */
-function releaseExchange() {
-  emptyBehind();
-  selection = null;
-  for (const take of exchange?.takes ?? []) media.release(take.media);
+/**
+ * Stop showing the exchange on the review screen — without letting go of its
+ * footage, which belongs to the bout.
+ */
+function leaveExchange() {
   exchange = null;
   span = null;
   clip.removeAttribute('src');
@@ -469,75 +502,117 @@ function onDragMove(event) {
   );
 }
 
-// ---------------------------------------------------------- the Save screen
+// -------------------------------------------------------------- the summary
 
 /**
- * Choosing which marks go into the saved video.
+ * The end of a bout: every exchange, and the marks in each, chosen for the
+ * saved video.
  *
- * Its own screen, opened with a bout and the name of the screen that opened
- * it, so it can be reached from anywhere a bout can be — review today, a list
- * of saved bouts later — and goes back to wherever that was.
- *
+ * Reached by END. One section per exchange, each with a checkbox per mark.
  * Behind the list, the moment last ticked or unticked loops at double speed,
  * so the referee can see what they are choosing without leaving the list.
+ * BACK carries on filming the same bout; End bout throws it away, asking first.
  */
 const behind = el('behind');
 let selection = null;
-let cameFrom = 'review';
 /** The stretch the background is looping, or null when it is not. */
 let behindSpan = null;
+/** Which recording the background holds, so it is not reloaded needlessly. */
+let behindTake = null;
+/** Exchanges whose sections the referee has folded away. */
+const folded = new Set();
 
-function openSave(from) {
-  if (!exchange || exchange.marks.length === 0) return;
-  cameFrom = from;
-  selection = everyMark(exchange);
+function openSummary() {
+  selection = everyMark(bout);
+  folded.clear();
   renderPicks();
-  behind.src = media.urlOf(exchange.takes[0].media);
   screenIs('export');
   playBehind();
 }
 
-function closeSave() {
+/** BACK from the summary: the bout is not over after all. */
+function carryOn() {
   stopBehind();
-  screenIs(cameFrom);
-  if (cameFrom === 'review') select(current);
+  startFilming();
 }
 
-/** One checkbox per mark, numbered as the review tabs are. */
+/** The footage behind a take, wherever in the bout it is. */
+function takeFootage(takeId) {
+  for (const each of bout?.exchanges ?? []) {
+    const take = each.takes.find((candidate) => candidate.id === takeId);
+    if (take) return take.media;
+  }
+  return null;
+}
+
+/** How much the bout is holding in memory — the thing that could run out. */
+function boutBytes() {
+  let total = 0;
+  for (const each of bout?.exchanges ?? []) {
+    for (const take of each.takes) total += media.sizeOf(take.media);
+  }
+  return total;
+}
+
+/** One section per exchange, with a checkbox per mark, numbered as in review. */
 function renderPicks() {
   const picks = el('picks');
   picks.innerHTML = '';
-  const marks = exchange.marks;
-  const playing = showing(selection, exchange);
+  const playing = showing(selection, bout);
 
-  marks.forEach((mark, index) => {
+  bout.exchanges.forEach((each, exchangeIndex) => {
     const item = document.createElement('li');
-    const label = document.createElement('label');
-    label.classList.toggle('showing', mark.id === playing);
-    const box = document.createElement('input');
-    box.type = 'checkbox';
-    box.checked = isChosen(selection, mark.id);
-    box.dataset['mark'] = String(index + 1);
-    box.addEventListener('change', () => {
-      selection = toggled(selection, exchange, mark.id);
-      renderPicks();
-      playBehind();
+    const section = document.createElement('details');
+    section.open = !folded.has(each.id);
+    section.addEventListener('toggle', () => {
+      if (section.open) folded.delete(each.id);
+      else folded.add(each.id);
     });
-    const number = document.createElement('span');
-    number.textContent = `Mark ${index + 1}`;
-    const at = document.createElement('span');
-    at.className = 'at';
-    at.textContent = `${(mark.atMs / 1000).toFixed(1)}s`;
-    label.append(box, number, at);
-    item.append(label);
+    const heading = document.createElement('summary');
+    const chosenHere = each.marks.filter((mark) => isChosen(selection, mark.id)).length;
+    heading.textContent = `Exchange ${exchangeIndex + 1}`;
+    const count = document.createElement('span');
+    count.className = 'at';
+    count.textContent = `${chosenHere} of ${each.marks.length}`;
+    heading.append(count);
+    const marks = document.createElement('ul');
+
+    each.marks.forEach((mark, markIndex) => {
+      const row = document.createElement('li');
+      const label = document.createElement('label');
+      label.classList.toggle('showing', mark.id === playing);
+      const box = document.createElement('input');
+      box.type = 'checkbox';
+      box.checked = isChosen(selection, mark.id);
+      box.dataset['exchange'] = String(exchangeIndex + 1);
+      box.dataset['mark'] = String(markIndex + 1);
+      box.addEventListener('change', () => {
+        selection = toggled(selection, bout, mark.id);
+        renderPicks();
+        playBehind();
+      });
+      const number = document.createElement('span');
+      number.textContent = `Mark ${markIndex + 1}`;
+      const at = document.createElement('span');
+      at.className = 'at';
+      at.textContent = `${(mark.atMs / 1000).toFixed(1)}s`;
+      label.append(box, number, at);
+      row.append(label);
+      marks.append(row);
+    });
+
+    section.append(heading, marks);
+    item.append(section);
     picks.append(item);
   });
 
   const chosen = selection.chosen.length;
-  const plan = cut(exchange, selection.chosen, { leadMs, tailMs });
-  el('export-length').textContent = chosen
-    ? `${chosen} of ${marks.length} mark${marks.length === 1 ? '' : 's'} · ${(reelLengthMs(plan) / 1000).toFixed(1)}s`
-    : 'Nothing chosen';
+  const total = bout.exchanges.reduce((sum, each) => sum + each.marks.length, 0);
+  const plan = cutBout(bout, selection.chosen, { leadMs, tailMs });
+  el('export-length').textContent =
+    (chosen
+      ? `${chosen} of ${total} mark${total === 1 ? '' : 's'} · ${(reelLengthMs(plan) / 1000).toFixed(1)}s`
+      : 'Nothing chosen') + ` · ${(boutBytes() / 1e6).toFixed(0)} MB held`;
   el('export-save').disabled = chosen === 0 || !canRecordReel();
 }
 
@@ -545,12 +620,20 @@ function renderPicks() {
  * Loop the moment last touched, at double speed, behind the list.
  *
  * Double speed because it is there to be recognised, not studied — a moment
- * seen whole in a second and a bit is enough to know which one it is.
+ * seen whole in a second and a bit is enough to know which one it is. The
+ * moment can be in any exchange, so the background switches recording when it
+ * has to.
  */
 function playBehind() {
-  const id = showing(selection, exchange);
-  if (!id) return stopBehind();
-  behindSpan = cut(exchange, [id], { leadMs, tailMs }).spans[0];
+  const id = showing(selection, bout);
+  const holder = id ? exchangeHolding(bout, id) : null;
+  if (!holder) return stopBehind();
+  const take = holder.takes[0];
+  if (behindTake !== take.id) {
+    behind.src = media.urlOf(take.media);
+    behindTake = take.id;
+  }
+  behindSpan = cut(holder, [id], { leadMs, tailMs }).spans[0];
   behind.muted = true;
   behind.defaultPlaybackRate = 2;
   behind.playbackRate = 2;
@@ -578,9 +661,10 @@ function stopBehind() {
   behind.pause();
 }
 
-/** Forget the bout entirely, when the bout itself is let go of. */
+/** Forget the background's footage entirely, when the bout is let go of. */
 function emptyBehind() {
   stopBehind();
+  behindTake = null;
   behind.removeAttribute('src');
   behind.load();
 }
@@ -588,14 +672,14 @@ function emptyBehind() {
 // ------------------------------------------------- saving the marked moments
 
 /**
- * Saving a bout's marked moments as one short video.
+ * Saving a bout's chosen moments as one short video.
  *
  * It is recorded by playing it, so it takes exactly as long as the result
  * lasts — a few seconds for a handful of marks. That is why there is a
  * progress bar and a way to stop.
  *
  * Nothing merges overlapping stretches yet, so two marks a second apart put
- * that second in the file twice. Next chunk.
+ * that second in the file twice.
  */
 let saving = null;
 
@@ -633,10 +717,10 @@ function closeSaving() {
 }
 
 async function saveReel() {
-  if (!exchange || !selection || selection.chosen.length === 0 || saving) return;
+  if (!bout || !selection || selection.chosen.length === 0 || saving) return;
 
   const chosen = selection.chosen;
-  const plan = cut(exchange, chosen, { leadMs, tailMs });
+  const plan = cutBout(bout, chosen, { leadMs, tailMs });
   // The background would be decoding alongside the recording for nothing.
   stopBehind();
   const totalMs = reelLengthMs(plan);
@@ -653,7 +737,14 @@ async function saveReel() {
   try {
     footage = await recordReel(
       plan,
-      { video: clip, canvas: el('reel') },
+      {
+        video: clip,
+        canvas: el('reel'),
+        urlFor: (takeId) => {
+          const footage = takeFootage(takeId);
+          return footage ? media.urlOf(footage) : null;
+        },
+      },
       { onProgress: showSavingProgress, signal: stopped }
     );
   } catch (error) {
@@ -681,9 +772,8 @@ async function saveReel() {
  */
 function offerReel(footage, chosen) {
   const bytes = media.bytesOf(footage);
-  // Named for what is in it, not for the whole bout.
-  const kept = { ...exchange, marks: exchange.marks.filter((mark) => chosen.includes(mark.id)) };
-  const name = reelFilename(kept, bytes.type);
+  // Named for when the bout started and how many moments made it in.
+  const name = reelFilename(bout.startedAt, chosen.length, bytes.type);
   const file = new File([bytes], name, { type: bytes.type });
   ready = { footage, file, name };
 
@@ -815,7 +905,8 @@ function renderDiagnostics() {
     // The bout on screen is re-placed, not just the next one. Resolving is
     // cheap; re-filming is not.
     const replaced = capture.usingClock(markSource);
-    if (replaced) exchange = replaced;
+    if (replaced && bout) bout = withExchangeReplaced(bout, replaced);
+    if (replaced && exchange?.id === replaced.id) exchange = replaced;
     if (document.body.dataset['screen'] === 'review') select(current);
     renderDiagnostics();
   });
@@ -839,12 +930,12 @@ if ('serviceWorker' in navigator) {
 
 el('start').addEventListener('click', startFilming);
 el('toReview').addEventListener('click', () => void toReview());
-el('end').addEventListener('click', toIdle);
+el('end').addEventListener('click', () => void toSummary());
 el('toRecord').addEventListener('click', toRecord);
 el('confirm-cancel').addEventListener('click', () => {
   el('confirm').hidden = true;
 });
-el('confirm-end').addEventListener('click', endNow);
+el('confirm-end').addEventListener('click', endBout);
 
 // The whole picture is the mark button, but only while filming — and the
 // buttons sitting on top of it are their own.
@@ -866,8 +957,8 @@ el('help-close').addEventListener('click', () => {
   el('help').hidden = true;
 });
 
-el('save').addEventListener('click', () => openSave('review'));
-el('export-back').addEventListener('click', closeSave);
+el('export-back').addEventListener('click', carryOn);
+el('export-end').addEventListener('click', askToEndBout);
 el('export-save').addEventListener('click', () => void saveReel());
 el('saving-stop').addEventListener('click', closeSaving);
 el('saving-share').addEventListener('click', () => void shareReady());
@@ -888,6 +979,10 @@ for (const [input, get, set] of [
     set(Number(event.target.value));
     el(`${input}-value`).textContent = `${(get() / 1000).toFixed(1)}s`;
     if (exchange && document.body.dataset['screen'] === 'review') select(current);
+    if (bout && selection && document.body.dataset['screen'] === 'export') {
+      renderPicks();
+      playBehind();
+    }
   });
 }
 
