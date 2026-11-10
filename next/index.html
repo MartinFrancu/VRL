@@ -309,17 +309,25 @@
         z-index: 20;
       }
       #confirm[hidden] { display: none; }
-      #confirm .box {
+      #confirm .box,
+      #saving .box {
         background: var(--panel);
         border: 1px solid var(--rule);
         border-radius: 14px;
         padding: 22px;
         max-width: 360px;
       }
-      #confirm h3 { margin: 0 0 10px; font-size: 18px; }
-      #confirm p { margin: 0 0 18px; font-size: 14.5px; color: var(--faded); }
-      #confirm .row { display: flex; gap: 10px; }
-      #confirm .row button { flex: 1; }
+      #confirm h3,
+      #saving h3 { margin: 0 0 10px; font-size: 18px; }
+      #confirm p,
+      #saving p { margin: 0 0 18px; font-size: 14.5px; color: var(--faded); overflow-wrap: anywhere; }
+      #confirm .row,
+      #saving .row { display: flex; gap: 10px; }
+      #confirm .row button,
+      #saving .row > * { flex: 1; }
+      #saving-share, #saving-download { background: var(--accent); border-color: var(--accent); color: #031417; font-weight: 600; }
+      #saving-download { display: block; text-align: center; text-decoration: none; padding: 12px 16px; border: 1px solid; border-radius: 10px; }
+      #saving-download[hidden], #saving-share[hidden] { display: none; }
       #confirm .danger { background: var(--mark); border-color: var(--mark); color: #fff; }
 
       /* ---------- the panel behind the ⓘ ---------- */
@@ -503,6 +511,12 @@
         <p id="saving-text">It plays them through to record them, so it takes as long as they last.</p>
         <div id="saving-bar"><i></i></div>
         <div class="row">
+          <!-- Offered once the video exists, and only then: a phone opens its
+               share sheet only straight after a tap, so this has to be a tap
+               of its own rather than something that happens when recording
+               finishes. -->
+          <button id="saving-share" hidden>Share</button>
+          <a id="saving-download" hidden>Download</a>
           <button id="saving-stop">Stop</button>
         </div>
       </div>

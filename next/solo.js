@@ -30,7 +30,7 @@ import {
 import { canRecordReel, recordReel } from './app/render/record-reel.js';
 import { reelFilename, reelLengthMs } from './app/render/reel.js';
 
-const VERSION = '1.1.13';
+const VERSION = '1.1.14';
 
 const el = (id) => document.getElementById(id);
 const preview = el('preview');
@@ -605,11 +605,31 @@ function showSavingProgress(doneMs, totalMs) {
   el('saving-title').textContent = `Saving ${(totalMs / 1000).toFixed(1)}s of marked moments`;
 }
 
+/**
+ * The saved video, once there is one, waiting to be handed over.
+ *
+ * Held until the referee taps Share (or Download, or Done) because a phone
+ * opens its share sheet only straight after a tap. Asking for it the moment
+ * recording finished — seconds after SAVE was pressed — was asking too late:
+ * the phone refused, and the fallback opened the video in place of the app,
+ * which on an iPhone is a black screen with no way back.
+ */
+let ready = null;
+
+/** Stop, Done or Close — whichever the panel is currently offering. */
 function closeSaving() {
   saving?.abort();
   saving = null;
+  if (ready) {
+    media.release(ready.footage);
+    ready = null;
+  }
+  el('saving-share').hidden = true;
+  el('saving-download').hidden = true;
+  el('saving-download').removeAttribute('href');
   el('saving').hidden = true;
   el('saving-stop').textContent = 'Stop';
+  if (document.body.dataset['screen'] === 'export') playBehind();
 }
 
 async function saveReel() {
@@ -638,7 +658,6 @@ async function saveReel() {
     );
   } catch (error) {
     saving = null;
-    playBehind();
     if (stopped.aborted) return closeSaving();
     // Left open, with what went wrong on it. Saving is the one thing here that
     // can fail for reasons the referee cannot see.
@@ -649,42 +668,53 @@ async function saveReel() {
   }
 
   saving = null;
-  el('saving').hidden = true;
-  el('saving-stop').textContent = 'Stop';
-  await offerReel(footage, chosen);
-  playBehind();
+  offerReel(footage, chosen);
 }
 
 /**
- * Hand the finished video to the phone.
+ * Offer the finished video, and wait for a tap to hand it over.
  *
- * The share sheet where there is one — on a phone that is how a video reaches
- * a camera roll, a chat or a drive. A download link where there is not, which
- * is what a laptop does.
+ * Share where the phone has a share sheet that takes files — that is how a
+ * video reaches a camera roll, a chat or a drive. A download link where it
+ * has not, which is a laptop; it is a link the referee taps, never one the
+ * page clicks for them.
  */
-async function offerReel(footage, chosen) {
+function offerReel(footage, chosen) {
   const bytes = media.bytesOf(footage);
   // Named for what is in it, not for the whole bout.
-  const name = reelFilename({ ...bout, marks: bout.marks.filter((mark) => chosen.includes(mark.id)) }, bytes.type);
+  const kept = { ...bout, marks: bout.marks.filter((mark) => chosen.includes(mark.id)) };
+  const name = reelFilename(kept, bytes.type);
+  const file = new File([bytes], name, { type: bytes.type });
+  ready = { footage, file, name };
 
-  try {
-    const file = new File([bytes], name, { type: bytes.type });
-    if (navigator.canShare?.({ files: [file] })) {
-      await navigator.share({ files: [file], title: name });
-      media.release(footage);
-      return;
-    }
-  } catch (error) {
-    // Cancelling the share sheet throws, and is not a failure.
-    if (error?.name === 'AbortError') return media.release(footage);
+  const shareable = Boolean(navigator.canShare?.({ files: [file] }));
+  el('saving-title').textContent = 'Saved';
+  el('saving-text').textContent = shareable
+    ? `${name} — tap Share to send it to your camera roll, a chat or a drive.`
+    : name;
+  el('saving-bar').firstElementChild.style.width = '100%';
+  el('saving-share').hidden = !shareable;
+  const download = el('saving-download');
+  download.hidden = shareable;
+  if (!shareable) {
+    download.href = media.urlOf(footage);
+    download.download = name;
   }
+  el('saving-stop').textContent = 'Done';
+}
 
-  const link = document.createElement('a');
-  link.href = media.urlOf(footage);
-  link.download = name;
-  link.click();
-  // The link needs the URL to outlive the click, so this one waits.
-  setTimeout(() => media.release(footage), 60_000);
+/** Runs inside the tap on Share, which is what lets the phone open the sheet. */
+async function shareReady() {
+  if (!ready) return;
+  try {
+    await navigator.share({ files: [ready.file], title: ready.name });
+    closeSaving();
+  } catch (error) {
+    // Closing the share sheet without choosing anything is not a failure, and
+    // Share stays where it is for another go.
+    if (error?.name === 'AbortError') return;
+    el('saving-text').textContent = `Could not share it: ${error?.message ?? String(error)}`;
+  }
 }
 
 // ---------------------------------------------------------------- the trimmings
@@ -840,6 +870,7 @@ el('save').addEventListener('click', () => openSave('review'));
 el('export-back').addEventListener('click', closeSave);
 el('export-save').addEventListener('click', () => void saveReel());
 el('saving-stop').addEventListener('click', closeSaving);
+el('saving-share').addEventListener('click', () => void shareReady());
 
 el('info').addEventListener('click', showDiagnostics);
 el('diag-close').addEventListener('click', () => {
