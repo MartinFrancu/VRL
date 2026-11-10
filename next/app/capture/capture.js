@@ -1,4 +1,4 @@
-// Layer 1 — filming one bout, and handing back a bout with a clock that can be
+// Layer 1 — filming one exchange, and handing back an exchange with a clock that can be
 // trusted.
 //
 // A class, because unlike Bout there is something to keep alive here: a
@@ -8,7 +8,7 @@
 //
 // What it does *not* own is the camera itself. Acquiring a stream, following
 // the phone's rotation and noticing the camera being taken away are the shell's
-// job, because they outlive any one bout — the camera is open from permission
+// job, because they outlive any one exchange — the camera is open from permission
 // until the tab dies. What arrives here is a view onto whatever camera is
 // currently open.
 //
@@ -16,16 +16,16 @@
 // of it is a stand-in for MediaRecorder or getUserMedia, which the working
 // agreement forbids faking. The seam goes in front of the browser, and this is
 // where it goes.
-import { boutOf } from '../bout/bout.js';
+import { exchangeOf } from '../bout/exchange.js';
 import { resolveMarks } from './clock.js';
 export class Capture {
     #deps;
     #flight = null;
     /**
-     * The bout last finished, and the readings it came from.
+     * The exchange last finished, and the readings it came from.
      *
      * Kept because the diagnostics panel can flip which clock places the marks,
-     * and that has to take effect on the bout already on screen rather than only
+     * and that has to take effect on the exchange already on screen rather than only
      * on the next one. Resolving is cheap; re-filming is not.
      */
     #finished = null;
@@ -43,23 +43,23 @@ export class Capture {
     get mimeType() {
         return this.#flight?.recording.mimeType ?? this.#mimeType;
     }
-    /** The taps of the bout last finished, each still timed both ways. */
+    /** The taps of the exchange last finished, each still timed both ways. */
     get lastReadings() {
         return this.#finished?.readings ?? [];
     }
     /**
-     * The bout last finished, with its marks placed by `prefer` instead.
+     * The exchange last finished, with its marks placed by `prefer` instead.
      *
-     * Null before any bout has finished. The same bout, with the same id — only
+     * Null before any exchange has finished. The same exchange, with the same id — only
      * where its marks sit changes.
      */
     usingClock(prefer) {
         const finished = this.#finished;
         if (!finished)
             return null;
-        return boutOf({ ...finished.bout, marks: resolveMarks(finished.readings, prefer) });
+        return exchangeOf({ ...finished.exchange, marks: resolveMarks(finished.readings, prefer) });
     }
-    /** Begin a bout. Anything the last one left behind goes. */
+    /** Begin an exchange. Anything the last one left behind goes. */
     start() {
         const deps = this.#deps;
         this.#flight = {
@@ -93,7 +93,7 @@ export class Capture {
         });
         return id;
     }
-    /** Stop filming and hand back the bout. */
+    /** Stop filming and hand back the exchange. */
     async finish(prefer) {
         const flight = this.#flight;
         if (!flight)
@@ -102,10 +102,10 @@ export class Capture {
         this.#mimeType = flight.recording.mimeType;
         const media = await flight.recording.stop();
         const durationMs = await this.#deps.measureDuration(media);
-        const bout = boutOf({
+        const exchange = exchangeOf({
             id: this.#deps.newId(),
             filmedAt: this.#deps.nowIso(),
-            // One phone, so the bout's clock is this recording's own and nothing
+            // One phone, so the exchange's clock is this recording's own and nothing
             // needs aligning. Several would be `{ kind: 'shared', ... }`.
             clock: { kind: 'take', take: flight.takeId },
             takes: [
@@ -121,8 +121,8 @@ export class Capture {
             ],
             marks: resolveMarks(flight.readings, prefer),
         });
-        this.#finished = { bout, readings: flight.readings };
-        return bout;
+        this.#finished = { exchange, readings: flight.readings };
+        return exchange;
     }
     /**
      * Stop filming and keep nothing.

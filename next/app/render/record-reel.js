@@ -14,7 +14,7 @@
 // The alternative is WebCodecs and an mp4 muxer — frame-exact, faster than
 // real time, and by a distance the heaviest thing in the plan. Worth reaching
 // for only if this disappoints.
-import { record, release } from '../media/media.js';
+import { measureDurationMs, record, release } from '../media/media.js';
 import { FADE_MS, fadeAt, reelLengthMs } from './reel.js';
 /**
  * Whether this device can save a video at all.
@@ -28,6 +28,20 @@ export function canRecordReel() {
         typeof HTMLCanvasElement.prototype.captureStream === 'function');
 }
 const nextFrame = () => new Promise((resolve) => requestAnimationFrame(() => resolve()));
+/**
+ * Put another recording into the player, and wait until it can be sought.
+ *
+ * A recorder's file says nothing of its own length until something asks to
+ * seek past the end, so it is measured on the way in — the same trick the
+ * review screen relies on. The measuring has to be listening before the new
+ * source is set, or the moment it is waiting for has already gone by.
+ */
+async function loadInto(video, url) {
+    const measured = measureDurationMs(video, { giveUpAfterMs: 3000 });
+    video.src = url;
+    video.load();
+    await measured;
+}
 function seekTo(video, seconds) {
     return new Promise((resolve) => {
         if (Math.abs(video.currentTime - seconds) < 0.001)
@@ -42,7 +56,7 @@ function seekTo(video, seconds) {
  * Returns footage like any other — a `MediaHandle` — so what the caller does
  * with it is the caller's business: share it, download it, keep it.
  */
-export async function recordReel(cut, { video, canvas }, { onProgress, fps = 30, signal, fadeMs = FADE_MS } = {}) {
+export async function recordReel(cut, { video, canvas, urlFor }, { onProgress, fps = 30, signal, fadeMs = FADE_MS } = {}) {
     if (cut.spans.length === 0)
         throw new Error('nothing was marked, so there is nothing to save');
     if (!canRecordReel())
@@ -77,7 +91,10 @@ export async function recordReel(cut, { video, canvas }, { onProgress, fps = 30,
     };
     const wasMuted = video.muted;
     const wasAt = video.currentTime;
+    const wasSource = video.getAttribute('src');
     video.muted = true;
+    /** Which recording the player holds; unknown until the first is loaded. */
+    let loaded = null;
     const stream = canvas.captureStream(fps);
     paint();
     const recording = record(stream, { bitsPerSecond: 6_000_000 });
@@ -88,6 +105,17 @@ export async function recordReel(cut, { video, canvas }, { onProgress, fps = 30,
             if (signal?.aborted)
                 throw new Error('saving was stopped');
             playing = null;
+            const take = span.takes[0];
+            if (urlFor && take && take !== loaded) {
+                // Moving to another exchange's recording. The frame stays black while
+                // it loads, the same as during any seek, so the switch is just a
+                // slightly longer dip.
+                const url = urlFor(take);
+                if (!url)
+                    throw new Error(`no footage for recording ${take}`);
+                await loadInto(video, url);
+                loaded = take;
+            }
             await seekTo(video, span.fromMs / 1000);
             playing = span;
             await video.play();
@@ -123,9 +151,18 @@ export async function recordReel(cut, { video, canvas }, { onProgress, fps = 30,
             track.stop();
         video.pause();
         video.muted = wasMuted;
-        // Put the playhead back where the referee had it, so saving does not move
-        // the picture out from under them.
-        await seekTo(video, wasAt).catch(() => { });
+        // Put the player back as it was — the recording it held, and where its
+        // playhead was — so saving does not move the picture out from under anyone.
+        if (urlFor && video.getAttribute('src') !== wasSource) {
+            if (wasSource)
+                await loadInto(video, wasSource).catch(() => { });
+            else {
+                video.removeAttribute('src');
+                video.load();
+            }
+        }
+        if (wasSource)
+            await seekTo(video, wasAt).catch(() => { });
     }
 }
 //# sourceMappingURL=record-reel.js.map

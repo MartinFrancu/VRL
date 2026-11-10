@@ -14,7 +14,7 @@
 //   Mark         inside Bout only
 //   Span, Cut    Bout     -> Render
 //   Frameset     Render   -> a sink
-//   BoutRecord   Bout     -> Store
+//   ExchangeRecord Bout   -> Store
 //
 // Where two of these look nearly identical — Take and StoredTake especially —
 // that duplication is deliberate. See the note on StoredTake.
