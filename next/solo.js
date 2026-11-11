@@ -21,6 +21,7 @@ import { drawHits, pictureIn, toFrame } from './app/render/hits.js';
 import { isChosen, showing, startingChoice, toggled } from './app/bout/selection.js';
 import { Capture } from './app/capture/capture.js';
 import { cameraClockUsable } from './app/capture/clock.js';
+import { heldDifferently } from './app/capture/held.js';
 import * as media from './app/media/media.js';
 import {
   clampWithin,
@@ -32,7 +33,7 @@ import {
 import { canRecordReel, recordReel } from './app/render/record-reel.js';
 import { reelFilename, reelLengthMs } from './app/render/reel.js';
 
-const VERSION = '1.1.22';
+const VERSION = '1.1.25';
 
 const el = (id) => document.getElementById(id);
 const preview = el('preview');
@@ -175,14 +176,29 @@ async function followOrientation() {
   }
 }
 
+/**
+ * The huge warning while filming, whenever the phone is held the other way
+ * from START — the recording stays the shape it began, so this is going into
+ * it sideways. Only while filming: the rest of the time the camera follows the
+ * phone round and there is nothing wrong.
+ */
+function showTurned() {
+  const filming = document.body.dataset['screen'] === 'recording';
+  el('turned').hidden = !(filming && heldDifferently(heldAtStart, orientationNow()));
+}
+
 /** Rotation fires a flurry of these, and the camera is expensive to reopen. */
 function orientationChanged() {
+  // The warning is cheap and wants to be immediate; only the camera waits.
+  showTurned();
   clearTimeout(reopenSoon);
   reopenSoon = setTimeout(followOrientation, 400);
 }
 
 screen.orientation?.addEventListener?.('change', orientationChanged);
 window.addEventListener('orientationchange', orientationChanged);
+// Where there is no screen.orientation, the page's shape is all there is.
+window.addEventListener('resize', showTurned);
 
 function onCameraLost() {
   // Says nothing before the first bout of a session, which is the oddity noted
@@ -259,6 +275,7 @@ function startFilming() {
   hasFilmed = true;
 
   screenIs('recording');
+  showTurned();
   // A fresh exchange has nothing to review and no marks spent, whatever the
   // last one left behind.
   el('toReview').disabled = true;
@@ -297,6 +314,7 @@ function markAt() {
 function stopFilming() {
   clearInterval(ticker);
   keepAwake(false);
+  el('turned').hidden = true;
 }
 
 /** Finish the exchange being filmed and add it to the bout. */
@@ -673,6 +691,21 @@ function afterHitsChanged() {
  * so the referee can see what they are choosing without leaving the list.
  * BACK carries on filming the same bout; End bout throws it away, asking first.
  */
+/**
+ * The SBA's logo, for the corner of every saved video. Loaded up front and
+ * from the offline cache, so saving never waits on it — and if it cannot be
+ * had, the video is saved without it rather than not at all.
+ */
+let watermark = null;
+{
+  const logo = new Image();
+  logo.src = './logo.png';
+  logo
+    .decode()
+    .then(() => (watermark = logo))
+    .catch(() => {});
+}
+
 const behind = el('behind');
 let selection = null;
 /** The stretch the background is looping, or null when it is not. */
@@ -875,15 +908,41 @@ function loopBehind() {
       behind.currentTime = behindSpan.fromMs / 1000;
       behind.play().catch(() => {});
     }
+    paintBehindHits();
     if (behind.requestVideoFrameCallback) behind.requestVideoFrameCallback(check);
     else requestAnimationFrame(check);
   };
   check();
 }
 
+/**
+ * The looping moment's hits, over the background, timed by where the
+ * background actually is — the same drawing review and the saved video use.
+ */
+function paintBehindHits() {
+  const layer = el('behind-hits');
+  const ratio = window.devicePixelRatio || 1;
+  const width = Math.round(layer.clientWidth * ratio);
+  const height = Math.round(layer.clientHeight * ratio);
+  if (layer.width !== width || layer.height !== height) {
+    layer.width = width;
+    layer.height = height;
+  }
+  const paper = layer.getContext('2d');
+  paper.clearRect(0, 0, width, height);
+  if (!behindSpan?.hits?.length) return;
+
+  const picture = pictureIn(
+    { left: 0, top: 0, width, height },
+    { width: behind.videoWidth, height: behind.videoHeight }
+  );
+  if (picture) drawHits(paper, behindSpan.hits, behind.currentTime * 1000, picture);
+}
+
 function stopBehind() {
   behindSpan = null;
   behind.pause();
+  paintBehindHits();
 }
 
 /** Forget the background's footage entirely, when the bout is let go of. */
@@ -996,6 +1055,7 @@ async function saveReel() {
           const footage = takeFootage(takeId);
           return footage ? media.urlOf(footage) : null;
         },
+        ...(watermark ? { watermark } : {}),
       },
       { onProgress: showSavingProgress, signal: stopped }
     );

@@ -67,6 +67,8 @@
          can be seen without leaving the list to look at it. */
       #export { position: relative; overflow: hidden; }
       #behind { position: absolute; inset: 0; z-index: 0; }
+      /* Its hits, drawn over it the same way review draws them over the clip. */
+      #behind-hits { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
       #export .sheet {
         position: relative; z-index: 1; flex: 1; min-height: 0;
         display: flex; flex-direction: column; gap: 12px; padding: 12px;
@@ -196,6 +198,28 @@
         pointer-events: none;
       }
       #flash.on { animation: flash 200ms ease-out; }
+
+      /* The phone turned while filming. Huge, because a referee glancing at it
+         mid-exchange has a fraction of a second; see-through to taps, because
+         marking has to carry on regardless. */
+      #turned {
+        position: absolute;
+        inset: 0;
+        z-index: 3;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 16px;
+        background: rgba(224, 82, 82, 0.18);
+        color: var(--red);
+        text-align: center;
+        pointer-events: none;
+      }
+      #turned[hidden] { display: none; }
+      #turned b { font-size: min(60vw, 60vh); line-height: 0.9; font-weight: 900; text-shadow: 0 0 24px #000; }
+      #turned span { font-size: 20px; font-weight: 700; color: #fff; text-shadow: 0 1px 6px #000; max-width: 22em; }
       @keyframes flash { 0% { opacity: 0.5; } 100% { opacity: 0; } }
 
       .tapHint {
@@ -498,6 +522,7 @@
       <div class="stage" id="camera">
         <video id="preview" playsinline muted autoplay></video>
         <div id="flash"></div>
+        <div id="turned" hidden><b>!</b> <span>Turn the phone back — this is being filmed sideways</span></div>
         <div class="hud">
           <span id="elapsed">0:00</span>
           <span id="dots"></span>
@@ -552,6 +577,7 @@
     <!-- ---------------- save: choosing what goes into the video ---------------- -->
     <section id="export">
       <video id="behind" playsinline muted></video>
+        <canvas id="behind-hits"></canvas>
       <div class="sheet">
         <nav>
           <button id="export-back">BACK</button>
