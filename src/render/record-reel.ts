@@ -18,7 +18,7 @@
 import type { Cut, MediaHandle, Span, TakeId } from '../contracts.js';
 import { measureDurationMs, record, release } from '../media/media.js';
 import { drawHits } from './hits.js';
-import { FADE_MS, fadeAt, reelLengthMs } from './reel.js';
+import { FADE_MS, WATERMARK_OPACITY, fadeAt, reelLengthMs, watermarkBox } from './reel.js';
 
 export interface ReelSources {
   /** Plays the footage. Left paused afterwards, on what it held before. */
@@ -31,6 +31,12 @@ export interface ReelSources {
    * and the video already holds it.
    */
   readonly urlFor?: (take: TakeId) => string | null;
+  /**
+   * A logo for the bottom-left corner of every frame, already loaded. It stays
+   * through the dips to black, so the video is branded from first frame to
+   * last. Left out, there is none.
+   */
+  readonly watermark?: HTMLImageElement;
 }
 
 export interface ReelOptions {
@@ -90,7 +96,7 @@ function seekTo(video: HTMLVideoElement, seconds: number): Promise<void> {
  */
 export async function recordReel(
   cut: Cut,
-  { video, canvas, urlFor }: ReelSources,
+  { video, canvas, urlFor, watermark }: ReelSources,
   { onProgress, fps = 30, signal, fadeMs = FADE_MS }: ReelOptions = {}
 ): Promise<MediaHandle> {
   if (cut.spans.length === 0) throw new Error('nothing was marked, so there is nothing to save');
@@ -129,6 +135,12 @@ export async function recordReel(
       if (playing.hits?.length) {
         drawHits(paper, playing.hits, nowMs, { left: 0, top: 0, width: canvas.width, height: canvas.height }, strength);
       }
+    }
+    if (watermark?.naturalWidth) {
+      const box = watermarkBox(canvas.width, canvas.height, watermark.naturalWidth / watermark.naturalHeight);
+      paper.globalAlpha = WATERMARK_OPACITY;
+      paper.drawImage(watermark, box.left, box.top, box.width, box.height);
+      paper.globalAlpha = 1;
     }
     requestAnimationFrame(paint);
   };

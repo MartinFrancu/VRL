@@ -16,7 +16,7 @@
 // for only if this disappoints.
 import { measureDurationMs, record, release } from '../media/media.js';
 import { drawHits } from './hits.js';
-import { FADE_MS, fadeAt, reelLengthMs } from './reel.js';
+import { FADE_MS, WATERMARK_OPACITY, fadeAt, reelLengthMs, watermarkBox } from './reel.js';
 /**
  * Whether this device can save a video at all.
  *
@@ -57,7 +57,7 @@ function seekTo(video, seconds) {
  * Returns footage like any other — a `MediaHandle` — so what the caller does
  * with it is the caller's business: share it, download it, keep it.
  */
-export async function recordReel(cut, { video, canvas, urlFor }, { onProgress, fps = 30, signal, fadeMs = FADE_MS } = {}) {
+export async function recordReel(cut, { video, canvas, urlFor, watermark }, { onProgress, fps = 30, signal, fadeMs = FADE_MS } = {}) {
     if (cut.spans.length === 0)
         throw new Error('nothing was marked, so there is nothing to save');
     if (!canRecordReel())
@@ -95,6 +95,12 @@ export async function recordReel(cut, { video, canvas, urlFor }, { onProgress, f
             if (playing.hits?.length) {
                 drawHits(paper, playing.hits, nowMs, { left: 0, top: 0, width: canvas.width, height: canvas.height }, strength);
             }
+        }
+        if (watermark?.naturalWidth) {
+            const box = watermarkBox(canvas.width, canvas.height, watermark.naturalWidth / watermark.naturalHeight);
+            paper.globalAlpha = WATERMARK_OPACITY;
+            paper.drawImage(watermark, box.left, box.top, box.width, box.height);
+            paper.globalAlpha = 1;
         }
         requestAnimationFrame(paint);
     };

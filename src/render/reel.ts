@@ -48,6 +48,29 @@ export function reelFilename(startedAt: string, moments: number, mimeType = 'vid
   return `${when} SBA ${moments} mark${moments === 1 ? '' : 's'}.${extensionFor(mimeType)}`;
 }
 
+/** How big the logo in the corner is, as a share of the picture's shorter side. */
+export const WATERMARK_SIZE = 0.12;
+/** How far in from the corner it sits, on the same scale. */
+export const WATERMARK_MARGIN = 0.03;
+/** Slightly see-through, so it never hides what is behind it outright. */
+export const WATERMARK_OPACITY = 0.85;
+
+/**
+ * Where the logo goes in a saved video of this size: the bottom-left corner,
+ * sized by the shorter side so portrait and landscape get the same logo.
+ * `aspect` is the logo's own width over its height.
+ */
+export function watermarkBox(
+  width: number,
+  height: number,
+  aspect = 1
+): { left: number; top: number; width: number; height: number } {
+  const shorter = Math.min(width, height);
+  const size = shorter * WATERMARK_SIZE;
+  const margin = shorter * WATERMARK_MARGIN;
+  return { left: margin, top: height - margin - size, width: size * aspect, height: size };
+}
+
 /** How long each fade takes. Quick: a dip, not a scene change. */
 export const FADE_MS = 200;
 

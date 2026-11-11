@@ -32,7 +32,7 @@ import {
 import { canRecordReel, recordReel } from './app/render/record-reel.js';
 import { reelFilename, reelLengthMs } from './app/render/reel.js';
 
-const VERSION = '1.1.23';
+const VERSION = '1.1.24';
 
 const el = (id) => document.getElementById(id);
 const preview = el('preview');
@@ -673,6 +673,21 @@ function afterHitsChanged() {
  * so the referee can see what they are choosing without leaving the list.
  * BACK carries on filming the same bout; End bout throws it away, asking first.
  */
+/**
+ * The SBA's logo, for the corner of every saved video. Loaded up front and
+ * from the offline cache, so saving never waits on it — and if it cannot be
+ * had, the video is saved without it rather than not at all.
+ */
+let watermark = null;
+{
+  const logo = new Image();
+  logo.src = './logo.png';
+  logo
+    .decode()
+    .then(() => (watermark = logo))
+    .catch(() => {});
+}
+
 const behind = el('behind');
 let selection = null;
 /** The stretch the background is looping, or null when it is not. */
@@ -1022,6 +1037,7 @@ async function saveReel() {
           const footage = takeFootage(takeId);
           return footage ? media.urlOf(footage) : null;
         },
+        ...(watermark ? { watermark } : {}),
       },
       { onProgress: showSavingProgress, signal: stopped }
     );

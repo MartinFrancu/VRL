@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 
 import type { Cut, Span, TakeId } from '../contracts.js';
-import { fadeAt, reelFilename, reelLengthMs } from './reel.js';
+import { fadeAt, reelFilename, reelLengthMs, watermarkBox } from './reel.js';
 
 const span = (fromMs: number, toMs: number): Span => ({
   fromMs,
@@ -117,5 +117,39 @@ describe('fading between the moments', () => {
 
   test('is no fade at all when the fade is set to nothing', () => {
     expect(fadeAt(10_000, stretch, 0)).toBe(1);
+  });
+});
+
+/**
+ * The SBA logo in the corner of every saved video. Sized by the shorter side,
+ * so a portrait video and a landscape one carry the same size of logo for the
+ * same size of picture, rather than one of them getting a tiny one.
+ */
+describe('where the logo goes in the saved video', () => {
+  test('is in the bottom-left corner, clear of both edges', () => {
+    const box = watermarkBox(1280, 720);
+
+    expect(box.left).toBeGreaterThan(0);
+    expect(box.left).toBeLessThan(1280 * 0.1);
+    expect(box.top + box.height).toBeLessThan(720);
+    expect(box.top + box.height).toBeGreaterThan(720 * 0.9);
+  });
+
+  test('is 12% of the shorter side, landscape or portrait', () => {
+    expect(watermarkBox(1280, 720).height).toBeCloseTo(720 * 0.12, 5);
+    expect(watermarkBox(720, 1280).height).toBeCloseTo(720 * 0.12, 5);
+  });
+
+  test('keeps the same margin from the left as from the bottom', () => {
+    const box = watermarkBox(720, 1280);
+
+    expect(box.left).toBeCloseTo(1280 - (box.top + box.height), 5);
+  });
+
+  test("keeps the logo's own shape", () => {
+    expect(watermarkBox(1280, 720).width).toBeCloseTo(watermarkBox(1280, 720).height, 5);
+    const wide = watermarkBox(1280, 720, 2);
+
+    expect(wide.width).toBeCloseTo(wide.height * 2, 5);
   });
 });

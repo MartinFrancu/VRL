@@ -56,9 +56,10 @@ and a dot for each hit on them. The annotated marks start ticked, since they
 are the ones that matter — or all of them, if nothing was annotated. **✎**
 beside a mark opens it on the review screen to annotate, and BACK or Done
 comes back with the ticks as they were and that mark ticked; tick or untick any others; whichever mark was last
-ticked or unticked loops behind the list at double speed, so you can see what
-you are choosing. **SAVE** makes one short video of the whole bout — the ticked
-moments, exchange by exchange, dipping briefly to black between each — and
+ticked or unticked loops behind the list at double speed, with its hits, so
+you can see what you are choosing. **SAVE** makes one short video of the whole bout — the ticked
+moments, exchange by exchange, dipping briefly to black between each, with
+the SBA logo in the bottom-left corner throughout — and
 offers it to the phone's share sheet (a download link on a laptop). It records
 by playing the moments through, so it takes as long as they last. **BACK**
 carries on the same bout, and **Discard** throws it away, asking first. Once a

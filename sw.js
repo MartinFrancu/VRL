@@ -12,7 +12,7 @@
 // and the next opening has the new version. A version behind is a fair price
 // for never waiting.
 
-const CACHE = 'vrl-v8';
+const CACHE = 'vrl-v9';
 
 const SHELL = [
   './',
@@ -33,6 +33,8 @@ const SHELL = [
   './app/render/record-reel.js',
   './manifest.webmanifest',
   './qr.svg',
+  // Stamped into the corner of every saved video, offline too.
+  './logo.png',
   './icon-180.png',
   './icon-192.png',
   './icon-512.png',

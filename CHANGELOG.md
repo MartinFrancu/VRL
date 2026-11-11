@@ -8,6 +8,14 @@ One entry per chunk, newest first, marked with the chunk's own letter:
 
 See `.claude/skills/chunks/SKILL.md` for the agreement these letters come from.
 
+## 1.1.24
+
+- **D** — The saved video carries the SBA logo in its bottom-left corner,
+  slightly see-through, from the first frame to the last — through the dips
+  to black as well. It is sized by the picture's shorter side, so portrait
+  and landscape videos get the same logo. The logo is now part of the offline
+  cache, so this works in a hall with no signal.
+
 ## 1.1.23
 
 - **D** — The moment looping behind the summary shows its hits, as review and

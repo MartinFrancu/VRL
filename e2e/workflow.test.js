@@ -908,6 +908,28 @@ describe('saving the bout', () => {
     await app.leaveSummary();
     expect(await app.screen()).toBe('recording');
   });
+
+  /**
+   * The SBA's logo in the bottom-left corner of every saved video, for as long
+   * as it runs. Read at the middle of the logo — 3% + 6% of the shorter side
+   * in from the left and up from the bottom — which is the hawk's black body.
+   * The test camera films that corner a bright green, near full; with the logo
+   * over it at 85% it reads dark.
+   */
+  test('stamps the logo in the bottom-left corner of the saved video', async ({ onTestFinished }) => {
+    const app = await freshApp(onTestFinished);
+    await filmBout(app, 1, { spacingMs: 1500 });
+
+    const saved = await app.save();
+    const { width, height } = await app.colourAlong(saved.path, 0.5, 0.5, 1e9);
+    const middle = 0.09 * Math.min(width, height);
+    const { samples } = await app.colourAlong(saved.path, middle / width, 1 - middle / height, 200);
+
+    // Not the first and last frames: those are faded to black, logo or not.
+    const inside = samples.slice(2, -2);
+    expect(inside.length).toBeGreaterThan(3);
+    expect(inside.map(({ g }) => g).filter((g) => g > 120)).toEqual([]);
+  });
 });
 
 /**

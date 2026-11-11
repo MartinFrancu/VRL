@@ -621,7 +621,7 @@ export async function openApp(browser, { url, shareSheet = false }) {
             samples.push({ atMs, r, g, b });
           }
           URL.revokeObjectURL(url);
-          return { lengthMs, samples };
+          return { lengthMs, samples, width: probe.videoWidth, height: probe.videoHeight };
         },
         { data: base64, fx, fy, stepMs }
       );
