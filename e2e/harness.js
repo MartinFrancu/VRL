@@ -187,16 +187,47 @@ export async function openApp(browser, { url, shareSheet = false }) {
       await page.waitForFunction(() => document.body.dataset['screen'] === 'recording');
     },
 
+    /**
+     * Turn the phone, as far as the page can tell: the page's shape and
+     * `screen.orientation` both change, and the change event fires — which is
+     * what a real phone does, and what a resized desktop window does not.
+     */
+    async rotate(held) {
+      const cdp = await page.context().newCDPSession(page);
+      const landscape = held === 'landscape';
+      await cdp.send('Emulation.setDeviceMetricsOverride', {
+        width: landscape ? 860 : 420,
+        height: landscape ? 420 : 860,
+        deviceScaleFactor: 1,
+        mobile: true,
+        screenOrientation: landscape ? { type: 'landscapePrimary', angle: 90 } : { type: 'portraitPrimary', angle: 0 },
+      });
+      await page.waitForFunction((want) => screen.orientation.type.startsWith(want), held);
+    },
+
+    /** Whether the warning that the phone has been turned is up. */
+    turnedWarningShowing: () =>
+      read(() => {
+        const warning = document.getElementById('turned');
+        return !!warning && getComputedStyle(warning).display !== 'none' && warning.offsetWidth > 0;
+      }),
+
+    /** The words under the warning. */
+    turnedWarningText: () => read(() => document.getElementById('turned').textContent.replace(/\s+/g, ' ').trim()),
+
     /** Let the bout run. The only wait here that is actually about time. */
     film: (ms) => page.waitForTimeout(ms),
 
     /**
      * Tap the picture, as a referee does — not a button, the picture itself.
-     * Away from the corners the controls sit in.
+     * Away from the corners the controls sit in — and inside the picture
+     * whichever way up the phone is, since a turned phone has a short one.
      */
     async mark() {
       const before = await app.markCount();
-      await page.locator('#camera').click({ position: { x: 150, y: 520 } });
+      const camera = page.locator('#camera');
+      const box = await camera.boundingBox();
+      await camera.click({ position: { x: Math.min(150, box.width * 0.36), y: Math.min(520, box.height * 0.6) } });
       await page.waitForFunction((was) => document.getElementById('dots').children.length > was, before);
     },
 

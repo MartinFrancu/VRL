@@ -32,6 +32,10 @@ phone the way you mean to film *before* you press it.
 look. The whole picture is the button, because you are watching the fight rather
 than the screen. It flashes and buzzes so you know it took, and the dots along
 the top count them. Mark as often as you like; it keeps filming throughout.
+Turn the phone the other way while filming — upright to sideways, or back —
+and a huge red **!** covers the picture: the recording keeps the shape it
+started in, so the rest is coming out sideways. Turn it back and the warning
+goes. Taps still mark through it.
 
 - **REVIEW** — when the fight is stopped. Grey until you have marked something,
   so the grey also tells you whether you have

@@ -244,7 +244,7 @@ layer divides cleanly into a part that is pure and a part that is the browser.
 
 | Layer | Pure, unit-tested | The browser, covered end-to-end |
 |---|---|---|
-| Capture | `clock.ts` — which clock to believe | `capture.ts`'s recorder, and the shell's camera |
+| Capture | `clock.ts` — which clock to believe; `held.ts` — whether the phone was turned mid-exchange | `capture.ts`'s recorder, and the shell's camera |
 | Render | `playhead.ts` — gestures, readout, clamping | seeking a `<video>` element |
 | Media | `preferredMimeType` | `MediaRecorder`, blobs, duration measurement |
 

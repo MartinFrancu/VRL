@@ -78,6 +78,72 @@ describe('getting a bout filmed', () => {
     await app.mark();
     expect(await app.markCount()).toBe(2);
   });
+
+  /**
+   * The recording keeps the shape it started in, so a phone turned halfway
+   * through films the rest sideways. Said so huge it cannot be missed.
+   *
+   * Each starts with the phone held upright, as a referee would: left alone,
+   * the test browser reports a desktop's landscape screen whatever shape its
+   * window is.
+   */
+  test('warns, the moment the phone is turned while filming', async ({ onTestFinished }) => {
+    const app = await freshApp(onTestFinished);
+    await app.rotate('portrait');
+    await app.start();
+    expect(await app.turnedWarningShowing()).toBe(false);
+
+    await app.rotate('landscape');
+
+    await app.page.waitForFunction(() => getComputedStyle(document.getElementById('turned')).display !== 'none');
+    expect(await app.turnedWarningShowing()).toBe(true);
+    expect(await app.turnedWarningText()).toBe('! Turn the phone back — this is being filmed sideways');
+  });
+
+  /** The warning is over the picture, and the picture is what takes the marks. */
+  test('still takes a mark while warning', async ({ onTestFinished }) => {
+    const app = await freshApp(onTestFinished);
+    await app.rotate('portrait');
+    await app.start();
+    await app.rotate('landscape');
+    await app.page.waitForFunction(() => getComputedStyle(document.getElementById('turned')).display !== 'none');
+
+    await app.mark();
+
+    expect(await app.markCount()).toBe(1);
+  });
+
+  test('stops warning once the phone is turned back', async ({ onTestFinished }) => {
+    const app = await freshApp(onTestFinished);
+    await app.rotate('portrait');
+    await app.start();
+    await app.rotate('landscape');
+    await app.page.waitForFunction(() => getComputedStyle(document.getElementById('turned')).display !== 'none');
+
+    await app.rotate('portrait');
+
+    await app.page.waitForFunction(() => getComputedStyle(document.getElementById('turned')).display === 'none');
+    expect(await app.turnedWarningShowing()).toBe(false);
+  });
+
+  /**
+   * Away from filming the camera is free to follow the phone round, so turning
+   * it is nothing wrong. Checked back on the idle screen after a bout, where
+   * the camera is on show again and there is a START to compare with.
+   */
+  test('says nothing about a phone turned while not filming', async ({ onTestFinished }) => {
+    const app = await freshApp(onTestFinished);
+    await app.rotate('portrait');
+    await filmBout(app, 1);
+    await app.openSummary();
+    await app.endBout();
+
+    await app.rotate('landscape');
+    await app.film(600);
+
+    expect(await app.screen()).toBe('idle');
+    expect(await app.turnedWarningShowing()).toBe(false);
+  });
 });
 
 /**

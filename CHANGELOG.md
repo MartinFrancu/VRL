@@ -8,6 +8,15 @@ One entry per chunk, newest first, marked with the chunk's own letter:
 
 See `.claude/skills/chunks/SKILL.md` for the agreement these letters come from.
 
+## 1.1.25
+
+- **D** — While filming, turning the phone the other way from how it was held
+  at START (upright to sideways, or back) puts a huge red **!** over the
+  picture with "Turn the phone back — this is being filmed sideways". The
+  recording keeps the shape it started in, so that is what is happening. It
+  goes as soon as the phone is turned back, never shows outside filming, and
+  taps still mark through it. Upside down is not counted: same shape.
+
 ## 1.1.24
 
 - **D** — The saved video carries the SBA logo in its bottom-left corner,
