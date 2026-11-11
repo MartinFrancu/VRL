@@ -8,6 +8,12 @@ One entry per chunk, newest first, marked with the chunk's own letter:
 
 See `.claude/skills/chunks/SKILL.md` for the agreement these letters come from.
 
+## 1.1.26
+
+- **B** — The test build stamps saved videos with the SBA's real gold logo,
+  not its blue one. Blue stays on the test build's home-screen icons, which is
+  what it is for; a video leaves the phone and should look like the real thing.
+
 ## 1.1.25
 
 - **D** — While filming, turning the phone the other way from how it was held

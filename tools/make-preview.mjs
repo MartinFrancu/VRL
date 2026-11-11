@@ -10,7 +10,8 @@
 //
 // What it changes, and nothing else:
 //
-//   the icons        the kite inside the logo in blue, not the SBA's gold
+//   the icons        the kite inside the logo in blue, not the SBA's gold —
+//                    the icons only: saved videos carry the real gold logo
 //   the name         "SBA NEXT", which fits in the ~11 characters iOS shows
 //   the cache name   its own, so it can never collide with the real app's
 //   a marker         TEST next to the version, inside the app
@@ -18,7 +19,8 @@
 // The code is copied byte for byte. A test build that differs from the branch
 // in any way that matters would be worse than no test build at all.
 
-import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -42,11 +44,16 @@ for (const file of ['index.html', 'solo.js', 'sw.js', 'manifest.webmanifest', 'q
 }
 cpSync(join(ROOT, 'app'), join(OUT, 'app'), { recursive: true });
 
-// The same hawk with a blue kite instead of the SBA's gold. The bird, the eye
-// and the white ground stay exactly as they are — it is the logo that differs,
-// not a colour put behind it.
-const blueLogo = join(OUT, 'logo.png');
+// The same hawk with a blue kite instead of the SBA's gold, for the icons
+// only. The bird, the eye and the white ground stay exactly as they are — it
+// is the logo that differs, not a colour put behind it.
+//
+// Made outside the test build, because logo.png itself is what the app stamps
+// into every saved video, and a video is a thing that leaves the phone: it
+// carries the SBA's real gold logo, test build or not.
+const blueLogo = join(mkdtempSync(join(tmpdir(), 'vrl-preview-')), 'logo-blue.png');
 await recolourLogo(blueLogo, BLUE_HUE);
+cpSync(join(ROOT, 'logo.png'), join(OUT, 'logo.png'));
 
 execFileSync('node', [join(ROOT, 'tools/make-icons.mjs')], {
   cwd: ROOT,
