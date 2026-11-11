@@ -593,6 +593,26 @@ describe('the summary', () => {
     expect(saved.name).toMatch(/ SBA 1 mark\./);
   });
 
+  /**
+   * The moment looping behind the list shows its hits, the same as review and
+   * the saved video — so what is being chosen is seen with its annotations.
+   * Watched long enough for the loop to come round to the hit at least once.
+   */
+  test('shows the hits of the moment looping behind the list', async ({ onTestFinished }) => {
+    const app = await freshApp(onTestFinished);
+    await filmBout(app, 2, { spacingMs: 700 });
+    await app.review();
+    await app.selectTab(1);
+    await app.annotate('red');
+    await app.tapPictureAt(0.3, 0.4);
+    await app.doneHits();
+
+    await app.openSummary();
+
+    expect(await app.showingMark()).toEqual({ exchange: 1, mark: 2 });
+    expect(await app.behindShowsRedAt(0.3, 0.4)).toBe(true);
+  });
+
   test('offers nothing to save when nothing is ticked', async ({ onTestFinished }) => {
     const app = await summedUp(onTestFinished);
 

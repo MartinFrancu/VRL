@@ -8,6 +8,11 @@ One entry per chunk, newest first, marked with the chunk's own letter:
 
 See `.claude/skills/chunks/SKILL.md` for the agreement these letters come from.
 
+## 1.1.23
+
+- **D** — The moment looping behind the summary shows its hits, as review and
+  the saved video do, so what is being ticked is seen with its annotations.
+
 ## 1.1.22
 
 - **D** — Discard sits beside SAVE on the summary, in place of End bout in the

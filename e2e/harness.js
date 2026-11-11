@@ -364,6 +364,32 @@ export async function openApp(browser, { url, shareSheet = false }) {
       await page.waitForFunction(() => document.body.dataset['screen'] === 'export');
     },
 
+    /**
+     * Whether the summary's background ever shows a red hit at this spot of
+     * its picture, watched for up to `forMs` while it loops.
+     */
+    async behindShowsRedAt(fx, fy, forMs = 4000) {
+      return page
+        .waitForFunction(
+          ({ fx, fy }) => {
+            const layer = document.getElementById('behind-hits');
+            const video = document.getElementById('behind');
+            if (!layer || !video.videoWidth || !layer.width) return false;
+            const scale = Math.min(layer.width / video.videoWidth, layer.height / video.videoHeight);
+            const width = video.videoWidth * scale;
+            const height = video.videoHeight * scale;
+            const x = Math.round((layer.width - width) / 2 + fx * width);
+            const y = Math.round((layer.height - height) / 2 + fy * height);
+            const [r, g, b, a] = layer.getContext('2d').getImageData(x, y, 1, 1).data;
+            return a > 150 && r > 150 && g < 140 && b < 140;
+          },
+          { fx, fy },
+          { timeout: forMs, polling: 'raf' }
+        )
+        .then(() => true)
+        .catch(() => false);
+    },
+
     /** Which review tabs show the dot for a mark with hits, in order. */
     tabsAnnotated: () =>
       read(() => [...document.getElementById('tabs').children].map((tab) => tab.classList.contains('annotated'))),

@@ -32,7 +32,7 @@ import {
 import { canRecordReel, recordReel } from './app/render/record-reel.js';
 import { reelFilename, reelLengthMs } from './app/render/reel.js';
 
-const VERSION = '1.1.22';
+const VERSION = '1.1.23';
 
 const el = (id) => document.getElementById(id);
 const preview = el('preview');
@@ -875,15 +875,41 @@ function loopBehind() {
       behind.currentTime = behindSpan.fromMs / 1000;
       behind.play().catch(() => {});
     }
+    paintBehindHits();
     if (behind.requestVideoFrameCallback) behind.requestVideoFrameCallback(check);
     else requestAnimationFrame(check);
   };
   check();
 }
 
+/**
+ * The looping moment's hits, over the background, timed by where the
+ * background actually is — the same drawing review and the saved video use.
+ */
+function paintBehindHits() {
+  const layer = el('behind-hits');
+  const ratio = window.devicePixelRatio || 1;
+  const width = Math.round(layer.clientWidth * ratio);
+  const height = Math.round(layer.clientHeight * ratio);
+  if (layer.width !== width || layer.height !== height) {
+    layer.width = width;
+    layer.height = height;
+  }
+  const paper = layer.getContext('2d');
+  paper.clearRect(0, 0, width, height);
+  if (!behindSpan?.hits?.length) return;
+
+  const picture = pictureIn(
+    { left: 0, top: 0, width, height },
+    { width: behind.videoWidth, height: behind.videoHeight }
+  );
+  if (picture) drawHits(paper, behindSpan.hits, behind.currentTime * 1000, picture);
+}
+
 function stopBehind() {
   behindSpan = null;
   behind.pause();
+  paintBehindHits();
 }
 
 /** Forget the background's footage entirely, when the bout is let go of. */
