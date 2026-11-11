@@ -8,6 +8,13 @@ One entry per chunk, newest first, marked with the chunk's own letter:
 
 See `.claude/skills/chunks/SKILL.md` for the agreement these letters come from.
 
+## 1.1.27
+
+- **D** — The saved video opens on the full SBA logo, large and solid in the
+  middle of a black frame, for a second; it then shrinks into its corner over
+  half a second while the first moment comes up beneath it, and stays there.
+  The video is a second longer, and the length on the summary counts it.
+
 ## 1.1.26
 
 - **B** — The test build stamps saved videos with the SBA's real gold logo,

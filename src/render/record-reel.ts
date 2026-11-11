@@ -18,7 +18,7 @@
 import type { Cut, MediaHandle, Span, TakeId } from '../contracts.js';
 import { measureDurationMs, record, release } from '../media/media.js';
 import { drawHits } from './hits.js';
-import { FADE_MS, WATERMARK_OPACITY, fadeAt, reelLengthMs, watermarkBox } from './reel.js';
+import { FADE_MS, INTRO_HOLD_MS, fadeAt, logoAt, reelLengthMs } from './reel.js';
 
 export interface ReelSources {
   /** Plays the footage. Left paused afterwards, on what it held before. */
@@ -32,9 +32,11 @@ export interface ReelSources {
    */
   readonly urlFor?: (take: TakeId) => string | null;
   /**
-   * A logo for the bottom-left corner of every frame, already loaded. It stays
-   * through the dips to black, so the video is branded from first frame to
-   * last. Left out, there is none.
+   * A logo for the bottom-left corner of every frame, already loaded. The
+   * video opens on it full size in the middle, alone, before it shrinks into
+   * the corner over the first moment; it stays there through the dips to
+   * black, so the video is branded from first frame to last. Left out, there
+   * is none, and no opening either.
    */
   readonly watermark?: HTMLImageElement;
 }
@@ -102,7 +104,10 @@ export async function recordReel(
   if (cut.spans.length === 0) throw new Error('nothing was marked, so there is nothing to save');
   if (!canRecordReel()) throw new Error('this device cannot record video from a canvas');
 
-  const totalMs = reelLengthMs(cut);
+  // The opening logo only when there is a logo to open on: a second of plain
+  // black would be a second of nothing.
+  const introMs = watermark?.naturalWidth ? INTRO_HOLD_MS : 0;
+  const totalMs = reelLengthMs(cut, introMs);
 
   canvas.width = video.videoWidth || 1280;
   canvas.height = video.videoHeight || 720;
@@ -118,6 +123,8 @@ export async function recordReel(
   // otherwise the seek would show up as a flash of wherever the clip landed.
   let painting = true;
   let playing: Span | null = null;
+  /** When the recording began, which is what the opening logo is timed by. */
+  let startedAt = performance.now();
   const paint = () => {
     if (!painting) return;
     paper.globalAlpha = 1;
@@ -137,9 +144,16 @@ export async function recordReel(
       }
     }
     if (watermark?.naturalWidth) {
-      const box = watermarkBox(canvas.width, canvas.height, watermark.naturalWidth / watermark.naturalHeight);
-      paper.globalAlpha = WATERMARK_OPACITY;
-      paper.drawImage(watermark, box.left, box.top, box.width, box.height);
+      // Timed by the clock rather than the footage: the opening runs from the
+      // first frame of the file, before any footage is playing at all.
+      const logo = logoAt(
+        performance.now() - startedAt,
+        canvas.width,
+        canvas.height,
+        watermark.naturalWidth / watermark.naturalHeight
+      );
+      paper.globalAlpha = logo.opacity;
+      paper.drawImage(watermark, logo.left, logo.top, logo.width, logo.height);
       paper.globalAlpha = 1;
     }
     requestAnimationFrame(paint);
@@ -155,7 +169,13 @@ export async function recordReel(
   const stream = canvas.captureStream(fps);
   paint();
   const recording = record(stream, { bitsPerSecond: 6_000_000 });
+  startedAt = performance.now();
   let handedOver = false;
+  // The logo holds alone for this long; the first moment is loaded and found
+  // meanwhile, so the hold costs nothing extra.
+  let opening: Promise<void> | null = introMs
+    ? new Promise((resolve) => setTimeout(resolve, introMs))
+    : null;
 
   try {
     let doneMs = 0;
@@ -174,6 +194,12 @@ export async function recordReel(
         loaded = take;
       }
       await seekTo(video, span.fromMs / 1000);
+      if (opening) {
+        await opening;
+        opening = null;
+        doneMs += introMs;
+        onProgress?.(doneMs, totalMs);
+      }
       playing = span;
       await video.play();
 

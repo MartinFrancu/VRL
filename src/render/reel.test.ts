@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 
 import type { Cut, Span, TakeId } from '../contracts.js';
-import { fadeAt, reelFilename, reelLengthMs, watermarkBox } from './reel.js';
+import { INTRO_GLIDE_MS, INTRO_HOLD_MS, fadeAt, logoAt, reelFilename, reelLengthMs, watermarkBox } from './reel.js';
 
 const span = (fromMs: number, toMs: number): Span => ({
   fromMs,
@@ -25,6 +25,12 @@ describe('how long the saved video will be', () => {
 
   test('is nothing when there is nothing to save', () => {
     expect(reelLengthMs(cut())).toBe(0);
+  });
+
+  /** The opening logo holds alone before the first moment, and adds to it. */
+  test('adds the opening logo, when there is one', () => {
+    expect(reelLengthMs(cut(span(1_000, 3_500)), 1_000)).toBe(3_500);
+    expect(reelLengthMs(cut(), 1_000)).toBe(0);
   });
 
   /** Overlapping stretches are not yet merged, so for now they double-count. */
@@ -151,5 +157,55 @@ describe('where the logo goes in the saved video', () => {
     const wide = watermarkBox(1280, 720, 2);
 
     expect(wide.width).toBeCloseTo(wide.height * 2, 5);
+  });
+});
+
+/**
+ * The saved video opens on the full logo in the middle, alone on black, then
+ * the logo shrinks into its corner while the first moment comes up beneath it.
+ */
+describe('where the logo is as the saved video opens', () => {
+  const centre = (box: { left: number; top: number; width: number; height: number }) => ({
+    x: box.left + box.width / 2,
+    y: box.top + box.height / 2,
+  });
+
+  test('starts large, in the middle, and solid', () => {
+    const logo = logoAt(0, 1920, 1080);
+
+    expect(centre(logo)).toEqual({ x: 960, y: 540 });
+    expect(logo.height).toBeCloseTo(1080 * 0.6, 5);
+    expect(logo.opacity).toBe(1);
+  });
+
+  test('holds there for the whole of the hold', () => {
+    expect(logoAt(INTRO_HOLD_MS, 1920, 1080)).toEqual(logoAt(0, 1920, 1080));
+  });
+
+  test('ends in the corner, exactly where it then stays', () => {
+    const corner = watermarkBox(1920, 1080);
+    const settled = logoAt(INTRO_HOLD_MS + INTRO_GLIDE_MS, 1920, 1080);
+
+    expect(settled).toEqual({ ...corner, opacity: 0.85 });
+    expect(logoAt(60_000, 1920, 1080)).toEqual(settled);
+  });
+
+  /** Partway through the glide it is between the two, in place and in size. */
+  test('is on its way partway through the glide', () => {
+    const start = logoAt(0, 1920, 1080);
+    const end = logoAt(INTRO_HOLD_MS + INTRO_GLIDE_MS, 1920, 1080);
+    const half = logoAt(INTRO_HOLD_MS + INTRO_GLIDE_MS / 2, 1920, 1080);
+
+    expect(half.height).toBeLessThan(start.height);
+    expect(half.height).toBeGreaterThan(end.height);
+    expect(half.left).toBeLessThan(start.left);
+    expect(half.left).toBeGreaterThan(end.left);
+  });
+
+  test("keeps the logo's own shape throughout", () => {
+    for (const atMs of [0, INTRO_HOLD_MS + 100, INTRO_HOLD_MS + INTRO_GLIDE_MS]) {
+      const logo = logoAt(atMs, 1280, 720, 2);
+      expect(logo.width).toBeCloseTo(logo.height * 2, 5);
+    }
   });
 });
