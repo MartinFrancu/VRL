@@ -15,8 +15,8 @@
 // real time, and by a distance the heaviest thing in the plan. Worth reaching
 // for only if this disappoints.
 import { measureDurationMs, record, release } from '../media/media.js';
-import { drawHits } from './hits.js';
-import { END_HOLD_MS, FADE_MS, endGlideAt, fadeAt, logoAt, reelLengthMs, titleLayout, titleStrengthAt } from './reel.js';
+import { SIDE_COLOURS, drawHits } from './hits.js';
+import { END_HOLD_MS, FADE_MS, endGlideAt, fadeAt, hitTally, logoAt, reelLengthMs, tallyLayout, titleLayout, titleStrengthAt, } from './reel.js';
 /**
  * Whether this device can save a video at all.
  *
@@ -67,6 +67,10 @@ export async function recordReel(cut, { video, canvas, urlFor, watermark }, { on
     const endMs = watermark?.naturalWidth ? END_HOLD_MS : 0;
     const totalMs = reelLengthMs(cut, endMs);
     const last = cut.spans[cut.spans.length - 1];
+    // Each side's hits, under the end card's logo — only with an end card, and
+    // only when something was annotated.
+    const tally = hitTally(cut);
+    const showTally = endMs > 0 && tally.red + tally.blue > 0;
     canvas.width = video.videoWidth || 1280;
     canvas.height = video.videoHeight || 720;
     const paper = canvas.getContext('2d');
@@ -115,6 +119,8 @@ export async function recordReel(cut, { video, canvas, urlFor, watermark }, { on
         }
         if (words)
             drawTitle(paper, words, titleStrengthAt(performance.now() - startedAt));
+        if (showTally && towardsEnd > 0)
+            drawTally(paper, tally, towardsEnd);
         requestAnimationFrame(paint);
     };
     const wasMuted = video.muted;
@@ -224,6 +230,31 @@ function drawTitle(paper, words, strength) {
     paper.strokeText(words, x, y);
     paper.fillStyle = '#fff';
     paper.fillText(words, x, y);
+    paper.globalAlpha = 1;
+}
+/**
+ * Each side's hits as a number in its own colour — red, a dot, blue — centred
+ * under the end card's logo, coming up as the logo arrives.
+ */
+function drawTally(paper, tally, strength) {
+    const { width, height } = paper.canvas;
+    const { x, y, fontPx } = tallyLayout(width, height);
+    const parts = [
+        { text: String(tally.red), colour: SIDE_COLOURS.red },
+        { text: '  ·  ', colour: '#fff' },
+        { text: String(tally.blue), colour: SIDE_COLOURS.blue },
+    ];
+    paper.font = `800 ${fontPx}px system-ui, -apple-system, "Segoe UI", sans-serif`;
+    paper.textAlign = 'left';
+    paper.textBaseline = 'middle';
+    const total = parts.reduce((sum, part) => sum + paper.measureText(part.text).width, 0);
+    let at = x - total / 2;
+    paper.globalAlpha = Math.min(1, Math.max(0, strength));
+    for (const part of parts) {
+        paper.fillStyle = part.colour;
+        paper.fillText(part.text, at, y);
+        at += paper.measureText(part.text).width;
+    }
     paper.globalAlpha = 1;
 }
 //# sourceMappingURL=record-reel.js.map

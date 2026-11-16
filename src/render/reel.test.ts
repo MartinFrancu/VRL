@@ -1,14 +1,16 @@
 import { describe, expect, test } from 'vitest';
 
-import type { Cut, Span, TakeId } from '../contracts.js';
+import type { Cut, Hit, Span, TakeId } from '../contracts.js';
 import {
   END_GLIDE_MS,
   TITLE_MS,
   endGlideAt,
   fadeAt,
+  hitTally,
   logoAt,
   reelFilename,
   reelLengthMs,
+  tallyLayout,
   titleLayout,
   titleStrengthAt,
   watermarkBox,
@@ -268,6 +270,54 @@ describe('the title over the start of the saved video', () => {
       expect(title.y + title.fontPx / 2).toBeLessThan(height / 3);
       expect(title.fontPx).toBeCloseTo(1080 * 0.08, 5);
       expect(title.maxWidth).toBeCloseTo(width * 0.9, 5);
+    }
+  });
+});
+
+/**
+ * How many hits each side landed in the saved video, for its end card. Counted
+ * from what is in the video — the moments ticked — not from the whole bout.
+ */
+describe('the hit count on the end card', () => {
+  const hit = (atMs: number, side: Hit['side'], x = 0.5): Hit => ({ atMs, x, y: 0.5, side });
+  const withHits = (from: number, to: number, hits: Hit[]): Span => ({ ...span(from, to), hits });
+
+  test('counts each side', () => {
+    const counted = hitTally(cut(withHits(0, 2_000, [hit(500, 'red'), hit(900, 'blue'), hit(1_200, 'red')])));
+
+    expect(counted).toEqual({ red: 2, blue: 1 });
+  });
+
+  test('adds up across every moment', () => {
+    const counted = hitTally(cut(withHits(0, 2_000, [hit(500, 'red')]), withHits(5_000, 7_000, [hit(6_000, 'blue')])));
+
+    expect(counted).toEqual({ red: 1, blue: 1 });
+  });
+
+  /** Two marks close together share footage, and so share its hits. Once each. */
+  test('counts a hit once, even when two moments overlap over it', () => {
+    const shared = hit(1_500, 'red');
+    const counted = hitTally(cut(withHits(0, 2_000, [shared]), withHits(1_000, 3_000, [shared, hit(2_500, 'blue')])));
+
+    expect(counted).toEqual({ red: 1, blue: 1 });
+  });
+
+  test('is nothing, with nothing annotated', () => {
+    expect(hitTally(cut(span(0, 2_000)))).toEqual({ red: 0, blue: 0 });
+  });
+
+  /** Below the end card's logo, inside the picture, on either shape. */
+  test('sits centred below the logo of the end card', () => {
+    for (const [width, height] of [
+      [1920, 1080],
+      [1080, 1920],
+    ] as const) {
+      const tally = tallyLayout(width, height);
+      const logo = logoAt(1, width, height);
+
+      expect(tally.x).toBe(width / 2);
+      expect(tally.y - tally.fontPx / 2).toBeGreaterThan(logo.top + logo.height);
+      expect(tally.y + tally.fontPx / 2).toBeLessThan(height);
     }
   });
 });

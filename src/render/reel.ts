@@ -151,6 +151,34 @@ export function titleLayout(
   return { x: width / 2, y: shorter * 0.24, fontPx: shorter * 0.08, maxWidth: width * 0.9 };
 }
 
+/**
+ * How many hits each side landed in this saved video, for its end card.
+ *
+ * A hit inside two overlapping moments is in both of their stretches, and is
+ * still one hit: told apart by its recording, moment and spot.
+ */
+export function hitTally(cut: Cut): { red: number; blue: number } {
+  const seen = new Set<string>();
+  const tally = { red: 0, blue: 0 };
+  for (const span of cut.spans) {
+    for (const hit of span.hits ?? []) {
+      const key = `${span.takes[0] ?? ''}|${hit.atMs}|${hit.x}|${hit.y}|${hit.side}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      tally[hit.side] += 1;
+    }
+  }
+  return tally;
+}
+
+/** Where the hit count goes on the end card: centred, just below its logo. */
+export function tallyLayout(width: number, height: number): { x: number; y: number; fontPx: number } {
+  const shorter = Math.min(width, height);
+  const logoBottom = height / 2 + (shorter * END_SIZE) / 2;
+  const fontPx = shorter * 0.08;
+  return { x: width / 2, y: logoBottom + shorter * 0.04 + fontPx / 2, fontPx };
+}
+
 /** How long each fade takes. Quick: a dip, not a scene change. */
 export const FADE_MS = 200;
 

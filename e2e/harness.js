@@ -701,12 +701,12 @@ export async function openApp(browser, { url, shareSheet = false }) {
     },
 
     /**
-     * How many near-white pixels there are along one row of the video, frame
-     * by frame, `fy` down from the top as a fraction of its height. Read at
-     * 480 pixels across. The test camera films no white at all, so white
-     * along a row is something drawn over the footage — text, for one.
+     * How many near-white, red and blue pixels there are along one row of the
+     * video, frame by frame, `fy` down from the top as a fraction of its
+     * height. Read at 480 pixels across. The test camera films only green, so
+     * any of these along a row is something drawn over the footage.
      */
-    async whiteAlong(path, fy, stepMs = 100) {
+    async rowAlong(path, fy, stepMs = 100) {
       const base64 = readFileSync(path).toString('base64');
       return page.evaluate(
         async ({ data, fy, stepMs }) => {
@@ -739,10 +739,15 @@ export async function openApp(browser, { url, shareSheet = false }) {
             paper.drawImage(probe, 0, 0, canvas.width, canvas.height);
             const row = paper.getImageData(0, Math.round(fy * canvas.height), canvas.width, 1).data;
             let white = 0;
+            let red = 0;
+            let blue = 0;
             for (let at = 0; at < row.length; at += 4) {
-              if (row[at] > 200 && row[at + 1] > 200 && row[at + 2] > 200) white += 1;
+              const [r, g, b] = [row[at], row[at + 1], row[at + 2]];
+              if (r > 200 && g > 200 && b > 200) white += 1;
+              else if (r > 150 && g < 110 && b < 110) red += 1;
+              else if (b > 150 && r < 110) blue += 1;
             }
-            samples.push({ atMs, white });
+            samples.push({ atMs, white, red, blue });
           }
           URL.revokeObjectURL(url);
           return { lengthMs, samples, width: probe.videoWidth, height: probe.videoHeight };

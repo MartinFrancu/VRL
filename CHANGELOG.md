@@ -8,6 +8,13 @@ One entry per chunk, newest first, marked with the chunk's own letter:
 
 See `.claude/skills/chunks/SKILL.md` for the agreement these letters come from.
 
+## 1.1.33
+
+- **D** — The end card counts the hits: under the logo, a red number and a blue
+  one — each side's hits in the moments saved, in its own colour, coming up as
+  the logo arrives. A hit inside two overlapping moments counts once. With
+  nothing annotated there are no numbers, just the logo.
+
 ## 1.1.32
 
 - **D** — A title field on the summary. Whatever is typed there goes over the

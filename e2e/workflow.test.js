@@ -1009,7 +1009,7 @@ describe('saving the bout', () => {
 
     const saved = await app.save();
     const { width, height } = await app.colourAlong(saved.path, 0.5, 0.5, 1e9);
-    const { lengthMs, samples } = await app.whiteAlong(saved.path, (0.24 * Math.min(width, height)) / height);
+    const { lengthMs, samples } = await app.rowAlong(saved.path, (0.24 * Math.min(width, height)) / height);
 
     const early = samples.filter(({ atMs }) => atMs >= 200 && atMs <= 1500);
     expect(early.length).toBeGreaterThan(3);
@@ -1026,7 +1026,7 @@ describe('saving the bout', () => {
 
     const saved = await app.save();
     const { width, height } = await app.colourAlong(saved.path, 0.5, 0.5, 1e9);
-    const { samples } = await app.whiteAlong(saved.path, (0.24 * Math.min(width, height)) / height);
+    const { samples } = await app.rowAlong(saved.path, (0.24 * Math.min(width, height)) / height);
 
     const early = samples.filter(({ atMs }) => atMs >= 200 && atMs <= 1500);
     expect(early.length).toBeGreaterThan(3);
@@ -1044,6 +1044,49 @@ describe('saving the bout', () => {
     await app.openSummary();
 
     expect(await app.titleTyped()).toBe('');
+  });
+
+  /**
+   * Under the end card's logo, how many hits each side landed: a red number
+   * and a blue one. The numbers themselves are the unit tests' business; here,
+   * that both colours are drawn along the row they sit on, on the end card.
+   */
+  test('ends with the hit count of each side under the logo', async ({ onTestFinished }) => {
+    const app = await freshApp(onTestFinished);
+    await filmBout(app, 1, { spacingMs: 1500 });
+    await app.review();
+    await app.annotate('red');
+    await app.tapPictureAt(0.3, 0.4);
+    await app.tapPictureAt(0.6, 0.4);
+    await app.chooseHitSide('blue');
+    await app.tapPictureAt(0.5, 0.6);
+    await app.doneHits();
+
+    const saved = await app.save();
+    const { width, height } = await app.colourAlong(saved.path, 0.5, 0.5, 1e9);
+    const shorter = Math.min(width, height);
+    const row = (height / 2 + 0.3 * shorter + 0.08 * shorter) / height;
+    const { lengthMs, samples } = await app.rowAlong(saved.path, row);
+
+    const card = samples.filter(({ atMs }) => atMs >= lengthMs - 800 && atMs <= lengthMs - 200);
+    expect(card.length).toBeGreaterThan(3);
+    expect(card.filter(({ red, blue }) => red < 3 || blue < 3)).toEqual([]);
+  });
+
+  /** Nothing annotated, no count: the end card is the logo alone. */
+  test('ends without a hit count when nothing was annotated', async ({ onTestFinished }) => {
+    const app = await freshApp(onTestFinished);
+    await filmBout(app, 1, { spacingMs: 1500 });
+
+    const saved = await app.save();
+    const { width, height } = await app.colourAlong(saved.path, 0.5, 0.5, 1e9);
+    const shorter = Math.min(width, height);
+    const row = (height / 2 + 0.3 * shorter + 0.08 * shorter) / height;
+    const { lengthMs, samples } = await app.rowAlong(saved.path, row);
+
+    const card = samples.filter(({ atMs }) => atMs >= lengthMs - 800 && atMs <= lengthMs - 200);
+    expect(card.length).toBeGreaterThan(3);
+    expect(card.filter(({ white, red, blue }) => white + red + blue > 0)).toEqual([]);
   });
 
   /**
