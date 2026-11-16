@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 
 import type { Cut, Span, TakeId } from '../contracts.js';
-import { INTRO_GLIDE_MS, INTRO_HOLD_MS, fadeAt, logoAt, reelFilename, reelLengthMs, watermarkBox } from './reel.js';
+import { END_GLIDE_MS, endGlideAt, fadeAt, logoAt, reelFilename, reelLengthMs, watermarkBox } from './reel.js';
 
 const span = (fromMs: number, toMs: number): Span => ({
   fromMs,
@@ -27,8 +27,8 @@ describe('how long the saved video will be', () => {
     expect(reelLengthMs(cut())).toBe(0);
   });
 
-  /** The opening logo holds alone before the first moment, and adds to it. */
-  test('adds the opening logo, when there is one', () => {
+  /** The end card holds alone after the last moment, and adds to it. */
+  test('adds the end card, when there is one', () => {
     expect(reelLengthMs(cut(span(1_000, 3_500)), 1_000)).toBe(3_500);
     expect(reelLengthMs(cut(), 1_000)).toBe(0);
   });
@@ -161,51 +161,63 @@ describe('where the logo goes in the saved video', () => {
 });
 
 /**
- * The saved video opens on the full logo in the middle, alone on black, then
- * the logo shrinks into its corner while the first moment comes up beneath it.
+ * The saved video ends on the full logo in the middle, alone on black: during
+ * the last half-second of the last moment the corner logo grows into the
+ * middle, then holds there. Ending on black, it loops cleanly into a start
+ * that fades up from black.
  */
-describe('where the logo is as the saved video opens', () => {
+describe('where the logo is as the saved video ends', () => {
   const centre = (box: { left: number; top: number; width: number; height: number }) => ({
     x: box.left + box.width / 2,
     y: box.top + box.height / 2,
   });
 
-  test('starts large, in the middle, and solid', () => {
-    const logo = logoAt(0, 1920, 1080);
+  test('sits in its corner, see-through, until the end comes', () => {
+    expect(logoAt(0, 1920, 1080)).toEqual({ ...watermarkBox(1920, 1080), opacity: 0.85 });
+  });
+
+  test('ends large, in the middle, and solid', () => {
+    const logo = logoAt(1, 1920, 1080);
 
     expect(centre(logo)).toEqual({ x: 960, y: 540 });
     expect(logo.height).toBeCloseTo(1080 * 0.6, 5);
     expect(logo.opacity).toBe(1);
   });
 
-  test('holds there for the whole of the hold', () => {
-    expect(logoAt(INTRO_HOLD_MS, 1920, 1080)).toEqual(logoAt(0, 1920, 1080));
-  });
+  /** Partway there it is between the two, in place and in size. */
+  test('is on its way partway through', () => {
+    const corner = logoAt(0, 1920, 1080);
+    const middle = logoAt(1, 1920, 1080);
+    const half = logoAt(0.5, 1920, 1080);
 
-  test('ends in the corner, exactly where it then stays', () => {
-    const corner = watermarkBox(1920, 1080);
-    const settled = logoAt(INTRO_HOLD_MS + INTRO_GLIDE_MS, 1920, 1080);
-
-    expect(settled).toEqual({ ...corner, opacity: 0.85 });
-    expect(logoAt(60_000, 1920, 1080)).toEqual(settled);
-  });
-
-  /** Partway through the glide it is between the two, in place and in size. */
-  test('is on its way partway through the glide', () => {
-    const start = logoAt(0, 1920, 1080);
-    const end = logoAt(INTRO_HOLD_MS + INTRO_GLIDE_MS, 1920, 1080);
-    const half = logoAt(INTRO_HOLD_MS + INTRO_GLIDE_MS / 2, 1920, 1080);
-
-    expect(half.height).toBeLessThan(start.height);
-    expect(half.height).toBeGreaterThan(end.height);
-    expect(half.left).toBeLessThan(start.left);
-    expect(half.left).toBeGreaterThan(end.left);
+    expect(half.height).toBeGreaterThan(corner.height);
+    expect(half.height).toBeLessThan(middle.height);
+    expect(half.left).toBeGreaterThan(corner.left);
+    expect(half.left).toBeLessThan(middle.left);
   });
 
   test("keeps the logo's own shape throughout", () => {
-    for (const atMs of [0, INTRO_HOLD_MS + 100, INTRO_HOLD_MS + INTRO_GLIDE_MS]) {
-      const logo = logoAt(atMs, 1280, 720, 2);
+    for (const towards of [0, 0.3, 1]) {
+      const logo = logoAt(towards, 1280, 720, 2);
       expect(logo.width).toBeCloseTo(logo.height * 2, 5);
     }
+  });
+
+  describe('how far it has gone, during the last moment', () => {
+    const last = span(10_000, 12_000);
+
+    test('not at all, until the last half-second', () => {
+      expect(endGlideAt(10_000, last)).toBe(0);
+      expect(endGlideAt(12_000 - END_GLIDE_MS, last)).toBe(0);
+    });
+
+    test('evenly over the last half-second', () => {
+      expect(endGlideAt(12_000 - END_GLIDE_MS / 2, last)).toBeCloseTo(0.5, 5);
+    });
+
+    test('all the way, at the end and beyond', () => {
+      expect(endGlideAt(12_000, last)).toBe(1);
+      expect(endGlideAt(13_000, last)).toBe(1);
+    });
   });
 });

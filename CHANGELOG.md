@@ -8,6 +8,15 @@ One entry per chunk, newest first, marked with the chunk's own letter:
 
 See `.claude/skills/chunks/SKILL.md` for the agreement these letters come from.
 
+## 1.1.30
+
+- **D** — The full logo moves from the start of the saved video to its end. It
+  opens straight on the action, with the small logo in the corner, since
+  viewers of a short video decide in its first second; over the last
+  half-second of the last moment the logo grows into the middle and holds
+  there alone on black for a second. Ending on black, it loops cleanly into a
+  start that fades up from black.
+
 ## 1.1.29
 
 - **R** — A test pins down that the saved video has no soundtrack at all, as it

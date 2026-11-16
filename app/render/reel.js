@@ -18,10 +18,10 @@
  * two marks a second apart really do put that second in the file twice. That
  * is the next chunk; this one is about getting a file out at all.
  */
-export function reelLengthMs(cut, introMs = 0) {
+export function reelLengthMs(cut, endMs = 0) {
     if (cut.spans.length === 0)
         return 0;
-    return introMs + cut.spans.reduce((total, span) => total + Math.max(0, span.toMs - span.fromMs), 0);
+    return endMs + cut.spans.reduce((total, span) => total + Math.max(0, span.toMs - span.fromMs), 0);
 }
 /** What a browser will call the container this device recorded. */
 function extensionFor(mimeType) {
@@ -60,42 +60,47 @@ export function watermarkBox(width, height, aspect = 1) {
     const margin = shorter * WATERMARK_MARGIN;
     return { left: margin, top: height - margin - size, width: size * aspect, height: size };
 }
-/** How long the full logo holds alone in the middle before the first moment. */
-export const INTRO_HOLD_MS = 1000;
-/** How long it then takes to shrink into its corner, over the first moment. */
-export const INTRO_GLIDE_MS = 500;
-/** How big it starts, as a share of the picture's shorter side. */
-export const INTRO_SIZE = 0.6;
+/** How long the full logo holds alone in the middle after the last moment. */
+export const END_HOLD_MS = 1000;
+/** How long it takes to grow there from its corner, over the last moment. */
+export const END_GLIDE_MS = 500;
+/** How big it ends, as a share of the picture's shorter side. */
+export const END_SIZE = 0.6;
 /**
- * Where the logo is, and how solid, this long after the saved video starts.
- *
- * Alone in the middle, large and solid, for the hold; then gliding — eased, so
- * it settles rather than stops — into the corner `watermarkBox` gives, where it
- * stays for the rest of the video at its usual see-through strength.
+ * Where the logo is, and how solid, this far from its corner towards the end
+ * card: 0 is the corner `watermarkBox` gives, at its see-through strength; 1 is
+ * the middle, large and solid. Eased, so it arrives rather than stops.
  */
-export function logoAt(sinceStartMs, width, height, aspect = 1) {
+export function logoAt(towardsEnd, width, height, aspect = 1) {
     const corner = watermarkBox(width, height, aspect);
-    const size = Math.min(width, height) * INTRO_SIZE;
+    const through = Math.min(1, Math.max(0, towardsEnd));
+    if (through === 0)
+        return { ...corner, opacity: WATERMARK_OPACITY };
+    const size = Math.min(width, height) * END_SIZE;
     const middle = {
         left: (width - size * aspect) / 2,
         top: (height - size) / 2,
         width: size * aspect,
         height: size,
     };
-    const through = Math.min(1, Math.max(0, (sinceStartMs - INTRO_HOLD_MS) / INTRO_GLIDE_MS));
-    if (through === 0)
-        return { ...middle, opacity: 1 };
     if (through === 1)
-        return { ...corner, opacity: WATERMARK_OPACITY };
+        return { ...middle, opacity: 1 };
     const eased = 1 - (1 - through) ** 3;
     const between = (from, to) => from + (to - from) * eased;
     return {
-        left: between(middle.left, corner.left),
-        top: between(middle.top, corner.top),
-        width: between(middle.width, corner.width),
-        height: between(middle.height, corner.height),
-        opacity: between(1, WATERMARK_OPACITY),
+        left: between(corner.left, middle.left),
+        top: between(corner.top, middle.top),
+        width: between(corner.width, middle.width),
+        height: between(corner.height, middle.height),
+        opacity: between(WATERMARK_OPACITY, 1),
     };
+}
+/**
+ * How far the logo has gone towards the end card at this moment of the last
+ * stretch: nothing until its final `END_GLIDE_MS`, then evenly all the way.
+ */
+export function endGlideAt(nowMs, last) {
+    return Math.min(1, Math.max(0, (nowMs - (last.toMs - END_GLIDE_MS)) / END_GLIDE_MS));
 }
 /** How long each fade takes. Quick: a dip, not a scene change. */
 export const FADE_MS = 200;

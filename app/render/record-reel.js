@@ -16,7 +16,7 @@
 // for only if this disappoints.
 import { measureDurationMs, record, release } from '../media/media.js';
 import { drawHits } from './hits.js';
-import { FADE_MS, INTRO_HOLD_MS, fadeAt, logoAt, reelLengthMs } from './reel.js';
+import { END_HOLD_MS, FADE_MS, endGlideAt, fadeAt, logoAt, reelLengthMs } from './reel.js';
 /**
  * Whether this device can save a video at all.
  *
@@ -62,10 +62,11 @@ export async function recordReel(cut, { video, canvas, urlFor, watermark }, { on
         throw new Error('nothing was marked, so there is nothing to save');
     if (!canRecordReel())
         throw new Error('this device cannot record video from a canvas');
-    // The opening logo only when there is a logo to open on: a second of plain
-    // black would be a second of nothing.
-    const introMs = watermark?.naturalWidth ? INTRO_HOLD_MS : 0;
-    const totalMs = reelLengthMs(cut, introMs);
+    // The end card only when there is a logo to end on: a second of plain black
+    // would be a second of nothing.
+    const endMs = watermark?.naturalWidth ? END_HOLD_MS : 0;
+    const totalMs = reelLengthMs(cut, endMs);
+    const last = cut.spans[cut.spans.length - 1];
     canvas.width = video.videoWidth || 1280;
     canvas.height = video.videoHeight || 720;
     const paper = canvas.getContext('2d');
@@ -80,8 +81,8 @@ export async function recordReel(cut, { video, canvas, urlFor, watermark }, { on
     // otherwise the seek would show up as a flash of wherever the clip landed.
     let painting = true;
     let playing = null;
-    /** When the recording began, which is what the opening logo is timed by. */
-    let startedAt = performance.now();
+    /** How far the logo has gone from its corner towards the end card. */
+    let towardsEnd = 0;
     const paint = () => {
         if (!painting)
             return;
@@ -91,6 +92,8 @@ export async function recordReel(cut, { video, canvas, urlFor, watermark }, { on
         if (playing) {
             const nowMs = video.currentTime * 1000;
             const strength = fadeAt(nowMs, playing, fadeMs);
+            if (endMs && playing === last)
+                towardsEnd = endGlideAt(nowMs, playing);
             paper.globalAlpha = strength;
             paper.drawImage(video, 0, 0, canvas.width, canvas.height);
             paper.globalAlpha = 1;
@@ -102,9 +105,7 @@ export async function recordReel(cut, { video, canvas, urlFor, watermark }, { on
             }
         }
         if (watermark?.naturalWidth) {
-            // Timed by the clock rather than the footage: the opening runs from the
-            // first frame of the file, before any footage is playing at all.
-            const logo = logoAt(performance.now() - startedAt, canvas.width, canvas.height, watermark.naturalWidth / watermark.naturalHeight);
+            const logo = logoAt(towardsEnd, canvas.width, canvas.height, watermark.naturalWidth / watermark.naturalHeight);
             paper.globalAlpha = logo.opacity;
             paper.drawImage(watermark, logo.left, logo.top, logo.width, logo.height);
             paper.globalAlpha = 1;
@@ -120,13 +121,7 @@ export async function recordReel(cut, { video, canvas, urlFor, watermark }, { on
     const stream = canvas.captureStream(fps);
     paint();
     const recording = record(stream, { bitsPerSecond: 6_000_000 });
-    startedAt = performance.now();
     let handedOver = false;
-    // The logo holds alone for this long; the first moment is loaded and found
-    // meanwhile, so the hold costs nothing extra.
-    let opening = introMs
-        ? new Promise((resolve) => setTimeout(resolve, introMs))
-        : null;
     try {
         let doneMs = 0;
         for (const span of cut.spans) {
@@ -145,12 +140,6 @@ export async function recordReel(cut, { video, canvas, urlFor, watermark }, { on
                 loaded = take;
             }
             await seekTo(video, span.fromMs / 1000);
-            if (opening) {
-                await opening;
-                opening = null;
-                doneMs += introMs;
-                onProgress?.(doneMs, totalMs);
-            }
             playing = span;
             await video.play();
             const until = span.toMs / 1000;
@@ -166,6 +155,13 @@ export async function recordReel(cut, { video, canvas, urlFor, watermark }, { on
             onProgress?.(doneMs, totalMs);
             if (signal?.aborted)
                 throw new Error('saving was stopped');
+        }
+        // The end card: the logo alone in the middle of a black frame.
+        if (endMs) {
+            towardsEnd = 1;
+            await new Promise((resolve) => setTimeout(resolve, endMs));
+            doneMs += endMs;
+            onProgress?.(doneMs, totalMs);
         }
         handedOver = true;
         return await recording.stop();

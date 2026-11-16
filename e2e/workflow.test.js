@@ -837,8 +837,8 @@ describe('annotating from the summary', () => {
 describe('saving the bout', () => {
   const leadMs = 500;
   const tailMs = 200;
-  /** The full logo alone at the start of every saved video. */
-  const openingMs = 1000;
+  /** The full logo alone at the end of every saved video. */
+  const endCardMs = 1000;
 
   /** One exchange of `first` marks reviewed, then one of `second` marks. */
   async function twoExchanges(onCleanup, first = 2, second = 1, { spacingMs = 700 } = {}) {
@@ -886,8 +886,8 @@ describe('saving the bout', () => {
     const reelMs = await app.lengthOfVideo(saved.path);
 
     const wanted = 3 * (leadMs + tailMs);
-    expect(reelMs - openingMs).toBeGreaterThan(wanted * 0.5);
-    expect(reelMs - openingMs).toBeLessThan(wanted * 2);
+    expect(reelMs - endCardMs).toBeGreaterThan(wanted * 0.5);
+    expect(reelMs - endCardMs).toBeLessThan(wanted * 2);
   });
 
   /**
@@ -912,9 +912,11 @@ describe('saving the bout', () => {
     const { lengthMs, samples } = await app.brightnessAlong(saved.path, 40);
 
     const oneMoment = leadMs + tailMs;
-    expect(lengthMs - openingMs).toBeGreaterThan(2 * oneMoment * 0.7);
-    expect(lengthMs - openingMs).toBeLessThan(2 * oneMoment * 2.2);
-    const backHalf = samples.filter((sample) => sample.atMs > lengthMs * 0.6 && sample.atMs < lengthMs * 0.9);
+    expect(lengthMs - endCardMs).toBeGreaterThan(2 * oneMoment * 0.7);
+    expect(lengthMs - endCardMs).toBeLessThan(2 * oneMoment * 2.2);
+    // Measured along the footage, which stops where the end card begins.
+    const footageMs = lengthMs - endCardMs;
+    const backHalf = samples.filter((sample) => sample.atMs > footageMs * 0.6 && sample.atMs < footageMs * 0.9);
     expect(Math.max(...backHalf.map((sample) => sample.luma))).toBeGreaterThan(40);
   });
 
@@ -926,8 +928,8 @@ describe('saving the bout', () => {
     const reelMs = await app.lengthOfVideo(saved.path);
 
     expect(saved.name).toMatch(/ SBA 2 marks\./);
-    expect(reelMs - openingMs).toBeGreaterThan(2 * (leadMs + tailMs) * 0.5);
-    expect(reelMs - openingMs).toBeLessThan(3 * (leadMs + tailMs));
+    expect(reelMs - endCardMs).toBeGreaterThan(2 * (leadMs + tailMs) * 0.5);
+    expect(reelMs - endCardMs).toBeLessThan(3 * (leadMs + tailMs));
   });
 
   /**
@@ -995,14 +997,37 @@ describe('saving the bout', () => {
   });
 
   /**
-   * The saved video opens on the full logo, alone in the middle, for a second
-   * before the first moment. Read at a spot on the logo's gold kite — 70% across
-   * and 60% down the logo, which starts at 60% of the shorter side, centred.
-   * The camera films green and the frame before the first moment would be
-   * black, so gold there can only be the logo. Beside it, the frame is black:
-   * the logo is alone, not laid over the first moment.
+   * The saved video ends on the full logo, alone in the middle of a black
+   * frame, for its last second. Read at a spot on the logo's gold kite — 70%
+   * across and 60% down the logo, which ends at 60% of the shorter side,
+   * centred. The camera films green and the frame after the last moment is
+   * black, so gold there can only be the logo; beside it, the frame is black.
    */
-  test('opens on the full gold logo in the middle', async ({ onTestFinished }) => {
+  test('ends on the full gold logo in the middle', async ({ onTestFinished }) => {
+    const app = await freshApp(onTestFinished);
+    await filmBout(app, 1, { spacingMs: 1500 });
+
+    const saved = await app.save();
+    const { width, height } = await app.colourAlong(saved.path, 0.5, 0.5, 1e9);
+    const size = 0.6 * Math.min(width, height);
+    const fx = ((width - size) / 2 + 0.7 * size) / width;
+    const fy = ((height - size) / 2 + 0.6 * size) / height;
+    const { lengthMs, samples } = await app.colourAlong(saved.path, fx, fy, 100);
+    const beside = await app.colourAlong(saved.path, 0.05, 0.5, 100);
+
+    const endCard = ({ atMs }) => atMs >= lengthMs - 800 && atMs <= lengthMs - 200;
+    const card = samples.filter(endCard);
+    expect(card.length).toBeGreaterThan(3);
+    expect(card.filter(({ r, g, b }) => !(r > 150 && r > g && b < 100))).toEqual([]);
+    expect(beside.samples.filter(endCard).filter(({ r, g, b }) => Math.max(r, g, b) > 30)).toEqual([]);
+  });
+
+  /**
+   * And it opens straight on the action: within half a second of the start,
+   * the same spot in the middle is the camera's green, not a logo — viewers
+   * of a short video decide in its first second.
+   */
+  test('opens straight on the action', async ({ onTestFinished }) => {
     const app = await freshApp(onTestFinished);
     await filmBout(app, 1, { spacingMs: 1500 });
 
@@ -1013,21 +1038,14 @@ describe('saving the bout', () => {
     const fy = ((height - size) / 2 + 0.6 * size) / height;
     const { samples } = await app.colourAlong(saved.path, fx, fy, 100);
 
-    const hold = samples.filter(({ atMs }) => atMs >= 200 && atMs <= 800);
-    expect(hold.length).toBeGreaterThan(3);
-    expect(hold.filter(({ r, g, b }) => !(r > 150 && r > g && b < 100))).toEqual([]);
-
-    // And alone: beside it, well clear of the logo, the frame is black — the
-    // first moment has not started underneath yet.
-    const beside = await app.colourAlong(saved.path, 0.05, 0.5, 100);
-    const besideHold = beside.samples.filter(({ atMs }) => atMs >= 200 && atMs <= 800);
-    expect(besideHold.filter(({ r, g, b }) => Math.max(r, g, b) > 30)).toEqual([]);
+    const opening = samples.filter(({ atMs }) => atMs >= 400 && atMs <= 900);
+    expect(opening.length).toBeGreaterThan(3);
+    expect(opening.filter(({ r, g }) => !(g > 100 && g > r + 50))).toEqual([]);
   });
 
   /**
    * The SBA's logo in the bottom-left corner of every saved video, from the
-   * moment it has settled there after the opening (a second and a half in) to
-   * the end. Read at the middle of the logo — 3% + 6% of the shorter side
+   * start until it leaves for the end card. Read at the middle of the logo — 3% + 6% of the shorter side
    * in from the left and up from the bottom — which is the hawk's black body.
    * The test camera films that corner a bright green, near full; with the logo
    * over it at 85% it reads dark.
@@ -1039,11 +1057,11 @@ describe('saving the bout', () => {
     const saved = await app.save();
     const { width, height } = await app.colourAlong(saved.path, 0.5, 0.5, 1e9);
     const middle = 0.09 * Math.min(width, height);
-    const { samples } = await app.colourAlong(saved.path, middle / width, 1 - middle / height, 200);
+    const { lengthMs, samples } = await app.colourAlong(saved.path, middle / width, 1 - middle / height, 200);
 
-    // From the logo settling in its corner to before the last frames, which
-    // are faded to black, logo or not.
-    const inside = samples.slice(0, -2).filter(({ atMs }) => atMs >= 1600);
+    // From just after the first fade up to before the logo leaves its corner
+    // for the end card, half a second before the end card's second.
+    const inside = samples.filter(({ atMs }) => atMs >= 400 && atMs <= lengthMs - 1700);
     expect(inside.length).toBeGreaterThan(3);
     expect(inside.map(({ g }) => g).filter((g) => g > 120)).toEqual([]);
   });
