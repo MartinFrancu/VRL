@@ -8,6 +8,12 @@ One entry per chunk, newest first, marked with the chunk's own letter:
 
 See `.claude/skills/chunks/SKILL.md` for the agreement these letters come from.
 
+## 1.1.29
+
+- **R** — A test pins down that the saved video has no soundtrack at all, as it
+  never has: the camera is opened without the microphone. Nothing changes;
+  sound, when it comes, will be a decision rather than an accident.
+
 ## 1.1.28
 
 - **D** — The turned-phone warning is pictures only: the huge red **!** over a

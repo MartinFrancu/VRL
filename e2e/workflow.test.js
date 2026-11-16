@@ -980,6 +980,21 @@ describe('saving the bout', () => {
   });
 
   /**
+   * No sound at all: the camera is opened without the microphone, and the
+   * saved video is drawn frame by frame with nothing alongside it. Kept that
+   * way on purpose — a phone's microphone in a training hall is mostly noise —
+   * until something better is chosen to go there.
+   */
+  test('saves a video with no soundtrack', async ({ onTestFinished }) => {
+    const app = await freshApp(onTestFinished);
+    await filmBout(app, 1);
+
+    const saved = await app.save();
+
+    expect(await app.hasSoundtrack(saved.path)).toBe(false);
+  });
+
+  /**
    * The saved video opens on the full logo, alone in the middle, for a second
    * before the first moment. Read at a spot on the logo's gold kite — 70% across
    * and 60% down the logo, which starts at 60% of the shorter side, centred.

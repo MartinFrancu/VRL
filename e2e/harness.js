@@ -672,6 +672,25 @@ export async function openApp(browser, { url, shareSheet = false }) {
       );
     },
 
+    /**
+     * Whether a video file on disk has any soundtrack at all — even a silent
+     * one. Asks the browser to decode its audio: a file with no audio track has
+     * none to decode and is refused, where one with a soundtrack decodes.
+     */
+    async hasSoundtrack(path) {
+      const base64 = readFileSync(path).toString('base64');
+      return page.evaluate(async (data) => {
+        const bytes = Uint8Array.from(atob(data), (c) => c.charCodeAt(0));
+        const context = new OfflineAudioContext(1, 1, 44_100);
+        try {
+          const sound = await context.decodeAudioData(bytes.buffer);
+          return sound.length > 0;
+        } catch {
+          return false;
+        }
+      }, base64);
+    },
+
     /** How long a video file on disk actually runs, in ms. */
     async lengthOfVideo(path) {
       const base64 = readFileSync(path).toString('base64');
