@@ -18,10 +18,10 @@
  * two marks a second apart really do put that second in the file twice. That
  * is the next chunk; this one is about getting a file out at all.
  */
-export function reelLengthMs(cut, introMs = 0) {
+export function reelLengthMs(cut, endMs = 0) {
     if (cut.spans.length === 0)
         return 0;
-    return introMs + cut.spans.reduce((total, span) => total + Math.max(0, span.toMs - span.fromMs), 0);
+    return endMs + cut.spans.reduce((total, span) => total + Math.max(0, span.toMs - span.fromMs), 0);
 }
 /** What a browser will call the container this device recorded. */
 function extensionFor(mimeType) {
@@ -50,52 +50,121 @@ export const WATERMARK_MARGIN = 0.03;
 /** Slightly see-through, so it never hides what is behind it outright. */
 export const WATERMARK_OPACITY = 0.85;
 /**
- * Where the logo goes in a saved video of this size: the bottom-left corner,
- * sized by the shorter side so portrait and landscape get the same logo.
- * `aspect` is the logo's own width over its height.
+ * Where the logo goes in a saved video of this size: the top-left corner, clear
+ * of the caption, account name and buttons that cover the bottom of a Short
+ * or a Reel (and of the camera and search icons at their top-right). Sized by
+ * the shorter side so portrait and landscape get the same logo. `aspect` is
+ * the logo's own width over its height.
  */
 export function watermarkBox(width, height, aspect = 1) {
     const shorter = Math.min(width, height);
     const size = shorter * WATERMARK_SIZE;
     const margin = shorter * WATERMARK_MARGIN;
-    return { left: margin, top: height - margin - size, width: size * aspect, height: size };
+    return { left: margin, top: margin, width: size * aspect, height: size };
 }
-/** How long the full logo holds alone in the middle before the first moment. */
-export const INTRO_HOLD_MS = 1000;
-/** How long it then takes to shrink into its corner, over the first moment. */
-export const INTRO_GLIDE_MS = 500;
-/** How big it starts, as a share of the picture's shorter side. */
-export const INTRO_SIZE = 0.6;
+/** How long the full logo holds alone in the middle after the last moment. */
+export const END_HOLD_MS = 1000;
+/** How long it takes to grow there from its corner, over the last moment. */
+export const END_GLIDE_MS = 500;
+/** How big it ends, as a share of the picture's shorter side. */
+export const END_SIZE = 0.6;
 /**
- * Where the logo is, and how solid, this long after the saved video starts.
- *
- * Alone in the middle, large and solid, for the hold; then gliding — eased, so
- * it settles rather than stops — into the corner `watermarkBox` gives, where it
- * stays for the rest of the video at its usual see-through strength.
+ * Where the logo is, and how solid, this far from its corner towards the end
+ * card: 0 is the corner `watermarkBox` gives, at its see-through strength; 1 is
+ * the middle, large and solid. Eased, so it arrives rather than stops.
  */
-export function logoAt(sinceStartMs, width, height, aspect = 1) {
+export function logoAt(towardsEnd, width, height, aspect = 1) {
     const corner = watermarkBox(width, height, aspect);
-    const size = Math.min(width, height) * INTRO_SIZE;
+    const through = Math.min(1, Math.max(0, towardsEnd));
+    if (through === 0)
+        return { ...corner, opacity: WATERMARK_OPACITY };
+    const size = Math.min(width, height) * END_SIZE;
     const middle = {
         left: (width - size * aspect) / 2,
         top: (height - size) / 2,
         width: size * aspect,
         height: size,
     };
-    const through = Math.min(1, Math.max(0, (sinceStartMs - INTRO_HOLD_MS) / INTRO_GLIDE_MS));
-    if (through === 0)
-        return { ...middle, opacity: 1 };
     if (through === 1)
-        return { ...corner, opacity: WATERMARK_OPACITY };
+        return { ...middle, opacity: 1 };
     const eased = 1 - (1 - through) ** 3;
     const between = (from, to) => from + (to - from) * eased;
     return {
-        left: between(middle.left, corner.left),
-        top: between(middle.top, corner.top),
-        width: between(middle.width, corner.width),
-        height: between(middle.height, corner.height),
-        opacity: between(1, WATERMARK_OPACITY),
+        left: between(corner.left, middle.left),
+        top: between(corner.top, middle.top),
+        width: between(corner.width, middle.width),
+        height: between(corner.height, middle.height),
+        opacity: between(WATERMARK_OPACITY, 1),
     };
+}
+/**
+ * How far the logo has gone towards the end card at this moment of the last
+ * stretch: nothing until its final `END_GLIDE_MS`, then evenly all the way.
+ */
+export function endGlideAt(nowMs, last) {
+    return Math.min(1, Math.max(0, (nowMs - (last.toMs - END_GLIDE_MS)) / END_GLIDE_MS));
+}
+/** How long the title stays over the start of the saved video. */
+export const TITLE_MS = 2000;
+/** How long it takes to fade out, at the end of that. */
+export const TITLE_FADE_MS = 300;
+/**
+ * How solid the title is this long after the saved video starts: fully from
+ * the first frame — it is the hook — then fading out over the end of its time.
+ */
+export function titleStrengthAt(sinceStartMs) {
+    if (sinceStartMs >= TITLE_MS)
+        return 0;
+    return Math.min(1, (TITLE_MS - sinceStartMs) / TITLE_FADE_MS);
+}
+/**
+ * Where the title goes: centred, just below the logo — so in the top third on
+ * either shape — at a size taken from the shorter side, as the logo's is.
+ * `maxWidth` is how wide it may get before it has to be drawn smaller.
+ */
+export function titleLayout(width, height) {
+    const shorter = Math.min(width, height);
+    return { x: width / 2, y: shorter * 0.24, fontPx: shorter * 0.08, maxWidth: width * 0.9 };
+}
+/**
+ * How many hits each side landed in this saved video, for its end card.
+ *
+ * A hit inside two overlapping moments is in both of their stretches, and is
+ * still one hit: told apart by its recording, moment and spot.
+ */
+export function hitTally(cut) {
+    const seen = new Set();
+    const tally = { red: 0, blue: 0 };
+    for (const span of cut.spans) {
+        for (const hit of span.hits ?? []) {
+            const key = `${span.takes[0] ?? ''}|${hit.atMs}|${hit.x}|${hit.y}|${hit.side}`;
+            if (seen.has(key))
+                continue;
+            seen.add(key);
+            tally[hit.side] += 1;
+        }
+    }
+    return tally;
+}
+/** Where the hit count goes on the end card: centred, just below its logo. */
+export function tallyLayout(width, height) {
+    const shorter = Math.min(width, height);
+    const logoBottom = height / 2 + (shorter * END_SIZE) / 2;
+    const fontPx = shorter * 0.08;
+    return { x: width / 2, y: logoBottom + shorter * 0.04 + fontPx / 2, fontPx };
+}
+/** How long an exchange's label stays over its first moment. */
+export const LABEL_MS = 1500;
+/** How solid the label is this long into its moment: fully, then fading out. */
+export function labelStrengthAt(sinceMomentStartMs) {
+    if (sinceMomentStartMs >= LABEL_MS)
+        return 0;
+    return Math.min(1, (LABEL_MS - sinceMomentStartMs) / TITLE_FADE_MS);
+}
+/** Where the label goes: centred, just below where a title would be, smaller. */
+export function labelLayout(width, height) {
+    const shorter = Math.min(width, height);
+    return { x: width / 2, y: shorter * 0.36, fontPx: shorter * 0.055 };
 }
 /** How long each fade takes. Quick: a dip, not a scene change. */
 export const FADE_MS = 200;

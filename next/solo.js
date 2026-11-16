@@ -31,9 +31,9 @@ import {
   shortfallLabel,
 } from './app/render/playhead.js';
 import { canRecordReel, recordReel } from './app/render/record-reel.js';
-import { INTRO_HOLD_MS, reelFilename, reelLengthMs } from './app/render/reel.js';
+import { END_HOLD_MS, reelFilename, reelLengthMs } from './app/render/reel.js';
 
-const VERSION = '1.1.28';
+const VERSION = '1.1.34';
 
 const el = (id) => document.getElementById(id);
 const preview = el('preview');
@@ -409,6 +409,8 @@ function endBout() {
     for (const take of each.takes) media.release(take.media);
   }
   bout = null;
+  // A title belongs to its bout.
+  el('export-title').value = '';
   el('toReview').disabled = true;
   el('elapsed').textContent = '0:00';
   el('live-note').textContent = 'Point it at the fight, then press START.';
@@ -706,10 +708,15 @@ let watermark = null;
     .catch(() => {});
 }
 
-/** The saved video opens on the logo, when there is a logo to open on. */
-function openingMs() {
-  return watermark ? INTRO_HOLD_MS : 0;
+/** The saved video ends on the logo, when there is a logo to end on. */
+function endCardMs() {
+  return watermark ? END_HOLD_MS : 0;
 }
+
+// Done on a phone's keyboard means done typing: put the keyboard away.
+el('export-title').addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') event.target.blur();
+});
 
 const behind = el('behind');
 let selection = null;
@@ -874,7 +881,7 @@ function renderPicks() {
   const plan = cutBout(bout, selection.chosen, { leadMs, tailMs });
   el('export-length').textContent =
     (chosen
-      ? `${chosen} of ${total} mark${total === 1 ? '' : 's'} · ${(reelLengthMs(plan, openingMs()) / 1000).toFixed(1)}s`
+      ? `${chosen} of ${total} mark${total === 1 ? '' : 's'} · ${(reelLengthMs(plan, endCardMs()) / 1000).toFixed(1)}s`
       : 'Nothing chosen') + ` · ${(boutBytes() / 1e6).toFixed(0)} MB held`;
   el('export-save').disabled = chosen === 0 || !canRecordReel();
 }
@@ -1039,7 +1046,7 @@ async function saveReel() {
   const plan = cutBout(bout, chosen, { leadMs, tailMs });
   // The background would be decoding alongside the recording for nothing.
   stopBehind();
-  const totalMs = reelLengthMs(plan, openingMs());
+  const totalMs = reelLengthMs(plan, endCardMs());
 
   saving = new AbortController();
   const stopped = saving.signal;
@@ -1062,7 +1069,12 @@ async function saveReel() {
         },
         ...(watermark ? { watermark } : {}),
       },
-      { onProgress: showSavingProgress, signal: stopped }
+      {
+        onProgress: showSavingProgress,
+        signal: stopped,
+        // Typed on the Save screen; blank means no title on the video at all.
+        ...(el('export-title').value.trim() ? { title: el('export-title').value } : {}),
+      }
     );
   } catch (error) {
     saving = null;
