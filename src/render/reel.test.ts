@@ -4,12 +4,14 @@ import type { Cut, Hit, Span, TakeId } from '../contracts.js';
 import {
   CROSS_MS,
   END_HOLD_MS,
+  LOOP_MS,
   CARD_MS,
   SPOTLIGHT,
   LABEL_MS,
   endCardAt,
   endLogoBox,
   endingMs,
+  loopLogoAt,
   fadeAt,
   hitTally,
   labelLayout,
@@ -239,25 +241,44 @@ describe('the hit count on the end card', () => {
  * spotlight, so the end does not flash white in a dark-mode feed.
  */
 describe('the ending of the saved video', () => {
-  test('is the logo card, plus the words card when there is one', () => {
-    expect(endingMs(true, false)).toBe(END_HOLD_MS);
-    expect(endingMs(true, true)).toBe(CARD_MS + END_HOLD_MS);
+  test('is the logo card and the way back, plus the words card when there is one', () => {
+    expect(endingMs(true, false)).toBe(END_HOLD_MS + LOOP_MS);
+    expect(endingMs(true, true)).toBe(CARD_MS + END_HOLD_MS + LOOP_MS);
     expect(endingMs(false, true)).toBe(CARD_MS);
     expect(endingMs(false, false)).toBe(0);
   });
 
   test('shows the words first, then crosses quickly to the logo', () => {
-    expect(endCardAt(0, true)).toEqual({ card: 1, logo: 0 });
-    expect(endCardAt(CARD_MS - 1, true)).toEqual({ card: 1, logo: 0 });
+    expect(endCardAt(0, true)).toEqual({ card: 1, logo: 0, back: 0 });
+    expect(endCardAt(CARD_MS - 1, true)).toEqual({ card: 1, logo: 0, back: 0 });
     const crossing = endCardAt(CARD_MS + CROSS_MS / 2, true);
     expect(crossing.card).toBeCloseTo(0.5, 5);
     expect(crossing.logo).toBeCloseTo(0.5, 5);
-    expect(endCardAt(CARD_MS + CROSS_MS, true)).toEqual({ card: 0, logo: 1 });
-    expect(endCardAt(CARD_MS + END_HOLD_MS, true)).toEqual({ card: 0, logo: 1 });
+    expect(endCardAt(CARD_MS + CROSS_MS, true)).toEqual({ card: 0, logo: 1, back: 0 });
   });
 
   test('is the logo straight away, with no words to show', () => {
-    expect(endCardAt(0, false)).toEqual({ card: 0, logo: 1 });
+    expect(endCardAt(0, false)).toEqual({ card: 0, logo: 1, back: 0 });
+  });
+
+  /**
+   * After the logo's second, a split-second way back to the start: the first
+   * picture comes up as the logo shrinks into its corner, so the last frame is
+   * the first and a Short or a Reel loops without a cut.
+   */
+  test('goes back to the start over the last split second', () => {
+    expect(endCardAt(END_HOLD_MS, false).back).toBe(0);
+    expect(endCardAt(END_HOLD_MS + LOOP_MS / 2, false).back).toBeCloseTo(0.5, 5);
+    expect(endCardAt(END_HOLD_MS + LOOP_MS, false).back).toBe(1);
+    expect(endCardAt(CARD_MS + END_HOLD_MS + LOOP_MS / 2, true).back).toBeCloseTo(0.5, 5);
+  });
+
+  test('takes the logo from the middle back to its corner, and its corner strength', () => {
+    expect(loopLogoAt(0, 1920, 1080)).toEqual({ ...endLogoBox(1920, 1080), opacity: 1 });
+    expect(loopLogoAt(1, 1920, 1080)).toEqual({ ...watermarkBox(1920, 1080), opacity: 0.85 });
+    const half = loopLogoAt(0.5, 1920, 1080);
+    expect(half.height).toBeLessThan(endLogoBox(1920, 1080).height);
+    expect(half.height).toBeGreaterThan(watermarkBox(1920, 1080).height);
   });
 
   test('puts the title big in the middle, kept inside the picture', () => {

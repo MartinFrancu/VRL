@@ -8,6 +8,14 @@ One entry per chunk, newest first, marked with the chunk's own letter:
 
 See `.claude/skills/chunks/SKILL.md` for the agreement these letters come from.
 
+## 1.1.37
+
+- **D** — The saved video loops back to its start. It opens on its first
+  picture, with no fade up from black; and after the logo's second, over a
+  split second, that first picture comes back as the logo shrinks into its
+  corner — so the last frame is the first, and a Short or a Reel replays
+  without a cut. The video is 0.4s longer for it.
+
 ## 1.1.36
 
 - **D** — The title moves to the end: whatever is typed in the title field goes

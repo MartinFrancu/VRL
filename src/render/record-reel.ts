@@ -26,6 +26,7 @@ import {
   endTitleLayout,
   endLogoBox,
   endingMs,
+  loopLogoAt,
   fadeAt,
   hitTally,
   labelLayout,
@@ -135,6 +136,7 @@ export async function recordReel(
   const hasCard = words !== '' || hasNumbers;
   const endMs = endingMs(hasLogo, hasCard);
   const totalMs = reelLengthMs(cut, endMs);
+  const first = cut.spans[0];
   const last = cut.spans[cut.spans.length - 1];
 
   canvas.width = video.videoWidth || 1280;
@@ -153,6 +155,13 @@ export async function recordReel(
   let playing: Span | null = null;
   /** When the ending began, once the last moment has played; null before. */
   let endingSince: number | null = null;
+  // The video's first picture, kept without the corner logo: the way back at
+  // the very end comes up on it, so the last frame is the first.
+  const firstFrame = document.createElement('canvas');
+  firstFrame.width = canvas.width;
+  firstFrame.height = canvas.height;
+  let keptFirst: (() => void) | null = null;
+  const firstKept = new Promise<void>((resolve) => (keptFirst = resolve));
   const paint = () => {
     if (!painting) return;
     paper.globalAlpha = 1;
@@ -168,7 +177,10 @@ export async function recordReel(
     }
     let strength = 1;
     if (playing) {
-      strength = fadeAt(nowMs, playing, fadeMs);
+      // The very first moment does not fade up: the video opens on its first
+      // picture, which is also where it ends.
+      const opening = playing === first && nowMs < (playing.fromMs + playing.toMs) / 2;
+      strength = opening ? 1 : fadeAt(nowMs, playing, fadeMs);
       paper.globalAlpha = strength;
       paper.drawImage(video, 0, 0, canvas.width, canvas.height);
       paper.globalAlpha = 1;
@@ -184,6 +196,11 @@ export async function recordReel(
         const { x, y, fontPx } = labelLayout(canvas.width, canvas.height);
         drawCaption(paper, playing.label, { x, y, fontPx, maxWidth: canvas.width * 0.9 }, strength * labelStrengthAt(nowMs - playing.fromMs));
       }
+    }
+    if (keptFirst && playing === first && video.readyState >= 2) {
+      firstFrame.getContext('2d')?.drawImage(canvas, 0, 0);
+      keptFirst();
+      keptFirst = null;
     }
     if (watermark?.naturalWidth) {
       const aspect = watermark.naturalWidth / watermark.naturalHeight;
@@ -203,9 +220,20 @@ export async function recordReel(
         else if (hasNumbers) drawNumbers(paper, tally, cards.card);
       }
       if (watermark && hasLogo && cards.logo > 0) {
-        const box = endLogoBox(canvas.width, canvas.height, watermark.naturalWidth / watermark.naturalHeight);
-        paper.globalAlpha = cards.logo;
-        paper.drawImage(watermark, box.left, box.top, box.width, box.height);
+        const aspect = watermark.naturalWidth / watermark.naturalHeight;
+        if (cards.back > 0) {
+          // The way back: the first picture comes up as the logo shrinks into
+          // its corner, arriving exactly as the first frame has it.
+          paper.globalAlpha = cards.back;
+          paper.drawImage(firstFrame, 0, 0);
+          const logo = loopLogoAt(cards.back, canvas.width, canvas.height, aspect);
+          paper.globalAlpha = logo.opacity;
+          paper.drawImage(watermark, logo.left, logo.top, logo.width, logo.height);
+        } else {
+          const box = endLogoBox(canvas.width, canvas.height, aspect);
+          paper.globalAlpha = cards.logo;
+          paper.drawImage(watermark, box.left, box.top, box.width, box.height);
+        }
         paper.globalAlpha = 1;
       }
     }
@@ -219,28 +247,48 @@ export async function recordReel(
   /** Which recording the player holds; unknown until the first is loaded. */
   let loaded: TakeId | null = null;
 
-  const stream = canvas.captureStream(fps);
   paint();
-  const recording = record(stream, { bitsPerSecond: 6_000_000 });
+  /** Taken from the canvas only once the first picture is on it — see below. */
+  let stream: MediaStream | null = null;
+  let recording: ReturnType<typeof record> | null = null;
   let handedOver = false;
 
+  /** Load the recording a stretch is from, if it is not loaded, and find its start. */
+  const findStart = async (span: Span) => {
+    const take = span.takes[0];
+    if (urlFor && take && take !== loaded) {
+      // Moving to another exchange's recording. The frame stays black while
+      // it loads, the same as during any seek, so the switch is just a
+      // slightly longer dip.
+      const url = urlFor(take);
+      if (!url) throw new Error(`no footage for recording ${take}`);
+      await loadInto(video, url);
+      loaded = take;
+    }
+    await seekTo(video, span.fromMs / 1000);
+  };
+
   try {
+    // Stand on the first picture before recording starts, so the video opens
+    // on it rather than on black, and keep a copy of it for the end.
+    if (first) {
+      await findStart(first);
+      playing = first;
+      await Promise.race([firstKept, new Promise((resolve) => setTimeout(resolve, 2_000))]);
+    }
+    // The stream only now: one taken earlier holds the canvas as it was when
+    // taken — empty — and that would be the file's first frame.
+    stream = canvas.captureStream(fps);
+    recording = record(stream, { bitsPerSecond: 6_000_000 });
+
     let doneMs = 0;
     for (const span of cut.spans) {
       if (signal?.aborted) throw new Error('saving was stopped');
 
-      playing = null;
-      const take = span.takes[0];
-      if (urlFor && take && take !== loaded) {
-        // Moving to another exchange's recording. The frame stays black while
-        // it loads, the same as during any seek, so the switch is just a
-        // slightly longer dip.
-        const url = urlFor(take);
-        if (!url) throw new Error(`no footage for recording ${take}`);
-        await loadInto(video, url);
-        loaded = take;
+      if (span !== first) {
+        playing = null;
+        await findStart(span);
       }
-      await seekTo(video, span.fromMs / 1000);
       playing = span;
       await video.play();
 
@@ -259,7 +307,7 @@ export async function recordReel(
       if (signal?.aborted) throw new Error('saving was stopped');
     }
 
-    // The ending: the numbers card, then the logo card.
+    // The ending: the words card, then the logo card and the way back.
     if (endMs) {
       endingSince = performance.now();
       await new Promise((resolve) => setTimeout(resolve, endMs));
@@ -273,14 +321,14 @@ export async function recordReel(
     // A recorder left running holds the stream and keeps filling memory with
     // footage nobody asked for, and the half-written file behind it is a blob
     // URL that would never be given back.
-    if (!handedOver) {
+    if (!handedOver && recording) {
       await recording
         .stop()
         .then(release)
         .catch(() => {});
     }
     painting = false;
-    for (const track of stream.getTracks()) track.stop();
+    for (const track of stream?.getTracks() ?? []) track.stop();
     video.pause();
     video.muted = wasMuted;
     // Put the player back as it was — the recording it held, and where its

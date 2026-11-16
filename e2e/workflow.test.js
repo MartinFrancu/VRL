@@ -837,8 +837,8 @@ describe('annotating from the summary', () => {
 describe('saving the bout', () => {
   const leadMs = 500;
   const tailMs = 200;
-  /** The full logo alone at the end of every saved video. */
-  const endCardMs = 1000;
+  /** The logo's card and the way back to the start, at the end of every saved video. */
+  const endCardMs = 1400;
 
   /** One exchange of `first` marks reviewed, then one of `second` marks. */
   async function twoExchanges(onCleanup, first = 2, second = 1, { spacingMs = 700 } = {}) {
@@ -1018,7 +1018,7 @@ describe('saving the bout', () => {
     const { lengthMs, samples } = await app.rowAlong(saved.path, 0.5, 50);
     const top = await app.rowAlong(saved.path, (0.24 * Math.min(width, height)) / height);
 
-    const card = samples.filter(({ atMs }) => atMs >= lengthMs - 1700 && atMs <= lengthMs - 1100);
+    const card = samples.filter(({ atMs }) => atMs >= lengthMs - 2100 && atMs <= lengthMs - 1500);
     expect(card.length).toBeGreaterThan(5);
     expect(card.filter(({ white, red, blue }) => white < 10 || red + blue > 0)).toEqual([]);
     const start = top.samples.filter(({ atMs }) => atMs >= 200 && atMs <= 1500);
@@ -1086,8 +1086,8 @@ describe('saving the bout', () => {
     const { lengthMs, samples } = await app.rowAlong(saved.path, 0.5, 50);
     const beside = await app.colourAlong(saved.path, 0.05, 0.5, 50);
 
-    // The numbers card is the 0.8s before the logo's last second.
-    const card = ({ atMs }) => atMs >= lengthMs - 1700 && atMs <= lengthMs - 1100;
+    // The numbers card is the 0.8s before the logo's second and the way back.
+    const card = ({ atMs }) => atMs >= lengthMs - 2100 && atMs <= lengthMs - 1500;
     const numbers = samples.filter(card);
     expect(numbers.length).toBeGreaterThan(5);
     expect(numbers.filter(({ red, blue }) => red < 3 || blue < 3)).toEqual([]);
@@ -1102,7 +1102,7 @@ describe('saving the bout', () => {
     const saved = await app.save();
     const { lengthMs, samples } = await app.rowAlong(saved.path, 0.5, 50);
 
-    const ending = samples.filter(({ atMs }) => atMs >= lengthMs - 1800);
+    const ending = samples.filter(({ atMs }) => atMs >= lengthMs - 2200);
     expect(ending.length).toBeGreaterThan(5);
     expect(ending.filter(({ red, blue }) => red + blue > 0)).toEqual([]);
   });
@@ -1126,7 +1126,8 @@ describe('saving the bout', () => {
     const { lengthMs, samples } = await app.colourAlong(saved.path, fx, fy, 100);
     const beside = await app.colourAlong(saved.path, 0.05, 0.5, 100);
 
-    const endCard = ({ atMs }) => atMs >= lengthMs - 800 && atMs <= lengthMs - 200;
+    // The logo's second, before the split-second way back to the start.
+    const endCard = ({ atMs }) => atMs >= lengthMs - 1300 && atMs <= lengthMs - 500;
     const card = samples.filter(endCard);
     expect(card.length).toBeGreaterThan(3);
     expect(card.filter(({ r, g, b }) => !(r > 150 && r > g && b < 100))).toEqual([]);
@@ -1138,8 +1139,8 @@ describe('saving the bout', () => {
   });
 
   /**
-   * And it opens straight on the action: within half a second of the start,
-   * the same spot in the middle is the camera's green, not a logo — viewers
+   * And it opens straight on the action: from its very first frame, the same
+   * spot in the middle is the camera's green, not a logo nor black — viewers
    * of a short video decide in its first second.
    */
   test('opens straight on the action', async ({ onTestFinished }) => {
@@ -1153,9 +1154,36 @@ describe('saving the bout', () => {
     const fy = ((height - size) / 2 + 0.6 * size) / height;
     const { samples } = await app.colourAlong(saved.path, fx, fy, 100);
 
-    const opening = samples.filter(({ atMs }) => atMs >= 400 && atMs <= 900);
-    expect(opening.length).toBeGreaterThan(3);
+    // From the very first frame: no fade up from black.
+    const opening = samples.filter(({ atMs }) => atMs <= 900);
+    expect(opening.length).toBeGreaterThan(5);
     expect(opening.filter(({ r, g }) => !(g > 100 && g > r + 50))).toEqual([]);
+  });
+
+  /**
+   * The last frame is the first: over the final split second the first
+   * picture comes back as the logo shrinks into its corner, so a Short or a
+   * Reel loops without a cut. Compared at the corner logo, at the middle and
+   * near a corner of the picture.
+   */
+  test('ends on its own first picture, so it loops without a cut', async ({ onTestFinished }) => {
+    const app = await freshApp(onTestFinished);
+    await filmBout(app, 1, { spacingMs: 1500 });
+
+    const saved = await app.save();
+    const { width, height } = await app.colourAlong(saved.path, 0.5, 0.5, 1e9);
+    const logo = 0.09 * Math.min(width, height);
+    for (const [fx, fy] of [
+      [logo / width, logo / height],
+      [0.5, 0.5],
+      [0.8, 0.8],
+    ]) {
+      const { samples } = await app.colourAlong(saved.path, fx, fy, 40);
+      const first = samples[0];
+      const last = samples[samples.length - 1];
+      const apart = Math.max(Math.abs(first.r - last.r), Math.abs(first.g - last.g), Math.abs(first.b - last.b));
+      expect(apart).toBeLessThan(40);
+    }
   });
 
   /**

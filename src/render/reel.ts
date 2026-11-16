@@ -81,6 +81,12 @@ export const END_HOLD_MS = 1000;
  * Save screen, or else each side's hit count.
  */
 export const CARD_MS = 800;
+/**
+ * How long the way back to the start takes, at the very end: the first
+ * picture comes up as the logo shrinks into its corner, so the last frame is
+ * the first and a Short or a Reel loops without a cut.
+ */
+export const LOOP_MS = 400;
 /** How quickly the words give way to the logo. */
 export const CROSS_MS = 150;
 /** How big the logo is on its card, as a share of the picture's shorter side. */
@@ -92,19 +98,28 @@ export const END_SIZE = 0.6;
  */
 export const SPOTLIGHT = { centre: '#4a5057', edge: '#1c1f22' } as const;
 
-/** How long the ending adds, after the last moment: words card, logo card. */
+/**
+ * How long the ending adds, after the last moment: the words card, then the
+ * logo card and the way back to the start — which is the logo's to make.
+ */
 export function endingMs(hasLogo: boolean, hasCard: boolean): number {
-  return (hasCard ? CARD_MS : 0) + (hasLogo ? END_HOLD_MS : 0);
+  return (hasCard ? CARD_MS : 0) + (hasLogo ? END_HOLD_MS + LOOP_MS : 0);
 }
 
 /**
- * How solid each end card is this long after the last moment has gone: the
- * words first, if there are any, then a quick cross to the logo.
+ * How far along the ending is this long after the last moment has gone: the
+ * words first, if there are any, then a quick cross to the logo, then — after
+ * the logo's time — the way `back` to the start, from 0 to 1.
  */
-export function endCardAt(sinceFootageMs: number, hasCard: boolean): { card: number; logo: number } {
-  if (!hasCard) return { card: 0, logo: 1 };
+export function endCardAt(
+  sinceFootageMs: number,
+  hasCard: boolean
+): { card: number; logo: number; back: number } {
+  const logoFrom = hasCard ? CARD_MS : 0;
+  const back = Math.min(1, Math.max(0, (sinceFootageMs - logoFrom - END_HOLD_MS) / LOOP_MS));
+  if (!hasCard) return { card: 0, logo: 1, back };
   const crossed = Math.min(1, Math.max(0, (sinceFootageMs - CARD_MS) / CROSS_MS));
-  return { card: 1 - crossed, logo: crossed };
+  return { card: 1 - crossed, logo: crossed, back };
 }
 
 /** Where the logo goes on its card: large, in the middle. */
@@ -171,6 +186,32 @@ export function hitTally(cut: Cut): { red: number; blue: number } {
     }
   }
   return tally;
+}
+
+/**
+ * Where the logo is, and how solid, on the way back: from large in the middle
+ * (0) to its corner at its usual strength (1), eased so it settles there.
+ */
+export function loopLogoAt(
+  back: number,
+  width: number,
+  height: number,
+  aspect = 1
+): { left: number; top: number; width: number; height: number; opacity: number } {
+  const from = endLogoBox(width, height, aspect);
+  const to = watermarkBox(width, height, aspect);
+  const through = Math.min(1, Math.max(0, back));
+  if (through === 0) return { ...from, opacity: 1 };
+  if (through === 1) return { ...to, opacity: WATERMARK_OPACITY };
+  const eased = 1 - (1 - through) ** 3;
+  const between = (a: number, b: number) => a + (b - a) * eased;
+  return {
+    left: between(from.left, to.left),
+    top: between(from.top, to.top),
+    width: between(from.width, to.width),
+    height: between(from.height, to.height),
+    opacity: between(1, WATERMARK_OPACITY),
+  };
 }
 
 /** Where the hit count goes on its card: big, in the middle. */
