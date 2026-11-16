@@ -64,9 +64,18 @@ export function watermarkBox(width, height, aspect = 1) {
 }
 /** How long the logo card holds at the very end. */
 export const END_HOLD_MS = 1000;
-/** How long each side's hit count shows, on its own card, before the logo. */
-export const NUMBERS_MS = 800;
-/** How quickly the numbers give way to the logo. */
+/**
+ * How long the card of words shows before the logo: the title typed on the
+ * Save screen, or else each side's hit count.
+ */
+export const CARD_MS = 800;
+/**
+ * How long the way back to the start takes, at the very end: the first
+ * picture comes up as the logo shrinks into its corner, so the last frame is
+ * the first and a Short or a Reel loops without a cut.
+ */
+export const LOOP_MS = 400;
+/** How quickly the words give way to the logo. */
 export const CROSS_MS = 150;
 /** How big the logo is on its card, as a share of the picture's shorter side. */
 export const END_SIZE = 0.6;
@@ -76,46 +85,61 @@ export const END_SIZE = 0.6;
  * one, and that lifts the logo's black disc without a ring around it.
  */
 export const SPOTLIGHT = { centre: '#4a5057', edge: '#1c1f22' };
-/** How long the ending adds, after the last moment: numbers card, logo card. */
-export function endingMs(hasLogo, hasNumbers) {
-    return (hasNumbers ? NUMBERS_MS : 0) + (hasLogo ? END_HOLD_MS : 0);
+/**
+ * How long the ending adds, after the last moment: the words card, then the
+ * logo card and the way back to the start — which is the logo's to make.
+ */
+export function endingMs(hasLogo, hasCard) {
+    return (hasCard ? CARD_MS : 0) + (hasLogo ? END_HOLD_MS + LOOP_MS : 0);
 }
 /**
- * How solid each end card is this long after the last moment has gone: the
- * numbers first, if there are any, then a quick cross to the logo.
+ * How far along the ending is this long after the last moment has gone: the
+ * words first, if there are any, then a quick cross to the logo, then — after
+ * the logo's time — the way `back` to the start, from 0 to 1.
  */
-export function endCardAt(sinceFootageMs, hasNumbers) {
-    if (!hasNumbers)
-        return { numbers: 0, logo: 1 };
-    const crossed = Math.min(1, Math.max(0, (sinceFootageMs - NUMBERS_MS) / CROSS_MS));
-    return { numbers: 1 - crossed, logo: crossed };
+export function endCardAt(sinceFootageMs, hasCard) {
+    const logoFrom = hasCard ? CARD_MS : 0;
+    const back = Math.min(1, Math.max(0, (sinceFootageMs - logoFrom - END_HOLD_MS) / LOOP_MS));
+    if (!hasCard)
+        return { card: 0, logo: 1, back };
+    const crossed = Math.min(1, Math.max(0, (sinceFootageMs - CARD_MS) / CROSS_MS));
+    return { card: 1 - crossed, logo: crossed, back };
 }
 /** Where the logo goes on its card: large, in the middle. */
 export function endLogoBox(width, height, aspect = 1) {
     const size = Math.min(width, height) * END_SIZE;
     return { left: (width - size * aspect) / 2, top: (height - size) / 2, width: size * aspect, height: size };
 }
-/** How long the title stays over the start of the saved video. */
-export const TITLE_MS = 2000;
-/** How long it takes to fade out, at the end of that. */
-export const TITLE_FADE_MS = 300;
-/**
- * How solid the title is this long after the saved video starts: fully from
- * the first frame — it is the hook — then fading out over the end of its time.
- */
-export function titleStrengthAt(sinceStartMs) {
-    if (sinceStartMs >= TITLE_MS)
-        return 0;
-    return Math.min(1, (TITLE_MS - sinceStartMs) / TITLE_FADE_MS);
+/** How long a caption takes to fade out at the end of its time. */
+export const CAPTION_FADE_MS = 300;
+/** Where the title goes on the end card: big, in the middle. */
+export function endTitleLayout(width, height) {
+    const shorter = Math.min(width, height);
+    return { x: width / 2, y: height / 2, fontPx: shorter * 0.12, maxWidth: width * 0.9 };
 }
 /**
- * Where the title goes: centred, just below the logo — so in the top third on
- * either shape — at a size taken from the shorter side, as the logo's is.
- * `maxWidth` is how wide it may get before it has to be drawn smaller.
+ * The title as one line, or two when one would be too wide — split between
+ * words where the longer of the two comes out shortest. A title that is still
+ * too wide is the drawing's to shrink; a single word is never broken.
  */
-export function titleLayout(width, height) {
-    const shorter = Math.min(width, height);
-    return { x: width / 2, y: shorter * 0.24, fontPx: shorter * 0.08, maxWidth: width * 0.9 };
+export function titleLines(words, measure, maxWidth) {
+    const text = words.trim().replace(/\s+/g, ' ');
+    if (measure(text) <= maxWidth)
+        return [text];
+    const parts = text.split(' ');
+    if (parts.length < 2)
+        return [text];
+    let best = [text];
+    let bestWidest = Infinity;
+    for (let at = 1; at < parts.length; at++) {
+        const lines = [parts.slice(0, at).join(' '), parts.slice(at).join(' ')];
+        const widest = Math.max(...lines.map(measure));
+        if (widest < bestWidest) {
+            best = lines;
+            bestWidest = widest;
+        }
+    }
+    return best;
 }
 /**
  * How many hits each side landed in this saved video, for its end card.
@@ -137,6 +161,28 @@ export function hitTally(cut) {
     }
     return tally;
 }
+/**
+ * Where the logo is, and how solid, on the way back: from large in the middle
+ * (0) to its corner at its usual strength (1), eased so it settles there.
+ */
+export function loopLogoAt(back, width, height, aspect = 1) {
+    const from = endLogoBox(width, height, aspect);
+    const to = watermarkBox(width, height, aspect);
+    const through = Math.min(1, Math.max(0, back));
+    if (through === 0)
+        return { ...from, opacity: 1 };
+    if (through === 1)
+        return { ...to, opacity: WATERMARK_OPACITY };
+    const eased = 1 - (1 - through) ** 3;
+    const between = (a, b) => a + (b - a) * eased;
+    return {
+        left: between(from.left, to.left),
+        top: between(from.top, to.top),
+        width: between(from.width, to.width),
+        height: between(from.height, to.height),
+        opacity: between(1, WATERMARK_OPACITY),
+    };
+}
 /** Where the hit count goes on its card: big, in the middle. */
 export function numbersLayout(width, height) {
     return { x: width / 2, y: height / 2, fontPx: Math.min(width, height) * 0.22 };
@@ -147,9 +193,9 @@ export const LABEL_MS = 1500;
 export function labelStrengthAt(sinceMomentStartMs) {
     if (sinceMomentStartMs >= LABEL_MS)
         return 0;
-    return Math.min(1, (LABEL_MS - sinceMomentStartMs) / TITLE_FADE_MS);
+    return Math.min(1, (LABEL_MS - sinceMomentStartMs) / CAPTION_FADE_MS);
 }
-/** Where the label goes: centred, just below where a title would be, smaller. */
+/** Where the label goes: centred, just below the logo, in the top half. */
 export function labelLayout(width, height) {
     const shorter = Math.min(width, height);
     return { x: width / 2, y: shorter * 0.36, fontPx: shorter * 0.055 };
