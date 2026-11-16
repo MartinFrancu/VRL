@@ -31,9 +31,9 @@ import {
   shortfallLabel,
 } from './app/render/playhead.js';
 import { canRecordReel, recordReel } from './app/render/record-reel.js';
-import { END_HOLD_MS, reelFilename, reelLengthMs } from './app/render/reel.js';
+import { endingMs, hitTally, reelFilename, reelLengthMs } from './app/render/reel.js';
 
-const VERSION = '1.1.34';
+const VERSION = '1.1.35';
 
 const el = (id) => document.getElementById(id);
 const preview = el('preview');
@@ -708,9 +708,13 @@ let watermark = null;
     .catch(() => {});
 }
 
-/** The saved video ends on the logo, when there is a logo to end on. */
-function endCardMs() {
-  return watermark ? END_HOLD_MS : 0;
+/**
+ * How long the saved video's ending adds: each side's hit count, when anything
+ * in it was annotated, then the logo, when there is a logo.
+ */
+function endCardMs(plan) {
+  const tally = hitTally(plan);
+  return endingMs(Boolean(watermark), tally.red + tally.blue > 0);
 }
 
 // Done on a phone's keyboard means done typing: put the keyboard away.
@@ -881,7 +885,7 @@ function renderPicks() {
   const plan = cutBout(bout, selection.chosen, { leadMs, tailMs });
   el('export-length').textContent =
     (chosen
-      ? `${chosen} of ${total} mark${total === 1 ? '' : 's'} · ${(reelLengthMs(plan, endCardMs()) / 1000).toFixed(1)}s`
+      ? `${chosen} of ${total} mark${total === 1 ? '' : 's'} · ${(reelLengthMs(plan, endCardMs(plan)) / 1000).toFixed(1)}s`
       : 'Nothing chosen') + ` · ${(boutBytes() / 1e6).toFixed(0)} MB held`;
   el('export-save').disabled = chosen === 0 || !canRecordReel();
 }
@@ -1046,7 +1050,7 @@ async function saveReel() {
   const plan = cutBout(bout, chosen, { leadMs, tailMs });
   // The background would be decoding alongside the recording for nothing.
   stopBehind();
-  const totalMs = reelLengthMs(plan, endCardMs());
+  const totalMs = reelLengthMs(plan, endCardMs(plan));
 
   saving = new AbortController();
   const stopped = saving.signal;

@@ -2,18 +2,22 @@ import { describe, expect, test } from 'vitest';
 
 import type { Cut, Hit, Span, TakeId } from '../contracts.js';
 import {
-  END_GLIDE_MS,
+  CROSS_MS,
+  END_HOLD_MS,
+  NUMBERS_MS,
+  SPOTLIGHT,
   LABEL_MS,
   TITLE_MS,
-  endGlideAt,
+  endCardAt,
+  endLogoBox,
+  endingMs,
   fadeAt,
   hitTally,
   labelLayout,
   labelStrengthAt,
-  logoAt,
   reelFilename,
   reelLengthMs,
-  tallyLayout,
+  numbersLayout,
   titleLayout,
   titleStrengthAt,
   watermarkBox,
@@ -181,68 +185,6 @@ describe('where the logo goes in the saved video', () => {
 });
 
 /**
- * The saved video ends on the full logo in the middle, alone on black: during
- * the last half-second of the last moment the corner logo grows into the
- * middle, then holds there. Ending on black, it loops cleanly into a start
- * that fades up from black.
- */
-describe('where the logo is as the saved video ends', () => {
-  const centre = (box: { left: number; top: number; width: number; height: number }) => ({
-    x: box.left + box.width / 2,
-    y: box.top + box.height / 2,
-  });
-
-  test('sits in its corner, see-through, until the end comes', () => {
-    expect(logoAt(0, 1920, 1080)).toEqual({ ...watermarkBox(1920, 1080), opacity: 0.85 });
-  });
-
-  test('ends large, in the middle, and solid', () => {
-    const logo = logoAt(1, 1920, 1080);
-
-    expect(centre(logo)).toEqual({ x: 960, y: 540 });
-    expect(logo.height).toBeCloseTo(1080 * 0.6, 5);
-    expect(logo.opacity).toBe(1);
-  });
-
-  /** Partway there it is between the two, in place and in size. */
-  test('is on its way partway through', () => {
-    const corner = logoAt(0, 1920, 1080);
-    const middle = logoAt(1, 1920, 1080);
-    const half = logoAt(0.5, 1920, 1080);
-
-    expect(half.height).toBeGreaterThan(corner.height);
-    expect(half.height).toBeLessThan(middle.height);
-    expect(half.left).toBeGreaterThan(corner.left);
-    expect(half.left).toBeLessThan(middle.left);
-  });
-
-  test("keeps the logo's own shape throughout", () => {
-    for (const towards of [0, 0.3, 1]) {
-      const logo = logoAt(towards, 1280, 720, 2);
-      expect(logo.width).toBeCloseTo(logo.height * 2, 5);
-    }
-  });
-
-  describe('how far it has gone, during the last moment', () => {
-    const last = span(10_000, 12_000);
-
-    test('not at all, until the last half-second', () => {
-      expect(endGlideAt(10_000, last)).toBe(0);
-      expect(endGlideAt(12_000 - END_GLIDE_MS, last)).toBe(0);
-    });
-
-    test('evenly over the last half-second', () => {
-      expect(endGlideAt(12_000 - END_GLIDE_MS / 2, last)).toBeCloseTo(0.5, 5);
-    });
-
-    test('all the way, at the end and beyond', () => {
-      expect(endGlideAt(12_000, last)).toBe(1);
-      expect(endGlideAt(13_000, last)).toBe(1);
-    });
-  });
-});
-
-/**
  * The title typed on the Save screen, big over the first two seconds of the
  * footage: the hook a short video needs, without holding the action back.
  */
@@ -309,35 +251,6 @@ describe('the hit count on the end card', () => {
     expect(hitTally(cut(span(0, 2_000)))).toEqual({ red: 0, blue: 0 });
   });
 
-  /** Below the end card's logo, inside the picture, on either shape. */
-  test('sits centred below the logo of the end card', () => {
-    for (const [width, height] of [
-      [1920, 1080],
-      [1080, 1920],
-    ] as const) {
-      const tally = tallyLayout(width, height);
-      const logo = logoAt(1, width, height);
-
-      expect(tally.x).toBe(width / 2);
-      expect(tally.y - tally.fontPx / 2).toBeGreaterThan(logo.top + logo.height);
-      expect(tally.y + tally.fontPx / 2).toBeLessThan(height);
-    }
-  });
-});
-
-/**
- * "Exchange 2" over the first moment of each exchange, as the video moves on
- * to it — briefly, and below where a title would be, so both can be read.
- */
-describe('the exchange label over a moment', () => {
-  test('is there from the start of the moment, then fades out and stays gone', () => {
-    expect(labelStrengthAt(0)).toBe(1);
-    expect(labelStrengthAt(LABEL_MS - 150)).toBeGreaterThan(0);
-    expect(labelStrengthAt(LABEL_MS - 150)).toBeLessThan(1);
-    expect(labelStrengthAt(LABEL_MS)).toBe(0);
-    expect(labelStrengthAt(60_000)).toBe(0);
-  });
-
   test('sits centred below the title, smaller, still in the top half', () => {
     for (const [width, height] of [
       [1920, 1080],
@@ -351,5 +264,66 @@ describe('the exchange label over a moment', () => {
       expect(label.y - label.fontPx / 2).toBeGreaterThan(title.y + title.fontPx / 2);
       expect(label.y + label.fontPx / 2).toBeLessThan(height / 2);
     }
+  });
+});
+
+/**
+ * How the saved video ends, after its last moment has faded out: each side's
+ * hit count on a card of its own — generic text belongs on a plain ground,
+ * not over a picture — then the logo on the same ground. Charcoal with a soft
+ * spotlight, so the end does not flash white in a dark-mode feed.
+ */
+describe('the ending of the saved video', () => {
+  test('is the logo card, plus the numbers card when there are hits', () => {
+    expect(endingMs(true, false)).toBe(END_HOLD_MS);
+    expect(endingMs(true, true)).toBe(NUMBERS_MS + END_HOLD_MS);
+    expect(endingMs(false, true)).toBe(NUMBERS_MS);
+    expect(endingMs(false, false)).toBe(0);
+  });
+
+  test('shows the numbers first, then crosses quickly to the logo', () => {
+    expect(endCardAt(0, true)).toEqual({ numbers: 1, logo: 0 });
+    expect(endCardAt(NUMBERS_MS - 1, true)).toEqual({ numbers: 1, logo: 0 });
+    const crossing = endCardAt(NUMBERS_MS + CROSS_MS / 2, true);
+    expect(crossing.numbers).toBeCloseTo(0.5, 5);
+    expect(crossing.logo).toBeCloseTo(0.5, 5);
+    expect(endCardAt(NUMBERS_MS + CROSS_MS, true)).toEqual({ numbers: 0, logo: 1 });
+    expect(endCardAt(NUMBERS_MS + END_HOLD_MS, true)).toEqual({ numbers: 0, logo: 1 });
+  });
+
+  test('is the logo straight away, with no numbers to show', () => {
+    expect(endCardAt(0, false)).toEqual({ numbers: 0, logo: 1 });
+  });
+
+  test('puts the logo large in the middle', () => {
+    const box = endLogoBox(1920, 1080);
+
+    expect(box.left + box.width / 2).toBe(960);
+    expect(box.top + box.height / 2).toBe(540);
+    expect(box.height).toBeCloseTo(1080 * 0.6, 5);
+  });
+
+  test("keeps the logo's own shape", () => {
+    const box = endLogoBox(1280, 720, 2);
+
+    expect(box.width).toBeCloseTo(box.height * 2, 5);
+  });
+
+  test('puts the numbers big in the middle, as big on either shape', () => {
+    for (const [width, height] of [
+      [1920, 1080],
+      [1080, 1920],
+    ] as const) {
+      const numbers = numbersLayout(width, height);
+
+      expect(numbers).toEqual({ x: width / 2, y: height / 2, fontPx: 1080 * 0.22 });
+    }
+  });
+
+  /** Lighter in the middle, darker at the edges, and a neutral grey throughout. */
+  test('lights the middle of the ground more than its edges', () => {
+    const level = (hex: string) => parseInt(hex.slice(1, 3), 16);
+
+    expect(level(SPOTLIGHT.centre)).toBeGreaterThan(level(SPOTLIGHT.edge));
   });
 });

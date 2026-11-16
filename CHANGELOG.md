@@ -8,6 +8,16 @@ One entry per chunk, newest first, marked with the chunk's own letter:
 
 See `.claude/skills/chunks/SKILL.md` for the agreement these letters come from.
 
+## 1.1.35
+
+- **D** — A new ending for the saved video. The last moment fades out onto a
+  charcoal card with a soft spotlight — a neutral grey, so it neither flashes
+  in a dark-mode feed nor sinks in a light one. On it, for 0.8s, each side's
+  hit count, big, red and blue — on a card of its own rather than over the
+  footage; then, after a quick cross, the full logo for a second. No hits, no
+  numbers card. The corner logo no longer glides into the middle: it fades
+  out with the footage.
+
 ## 1.1.34
 
 - **D** — When the saved video has moments from more than one exchange, the

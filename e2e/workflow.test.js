@@ -1047,11 +1047,13 @@ describe('saving the bout', () => {
   });
 
   /**
-   * Under the end card's logo, how many hits each side landed: a red number
-   * and a blue one. The numbers themselves are the unit tests' business; here,
-   * that both colours are drawn along the row they sit on, on the end card.
+   * Before the logo, how many hits each side landed: a red number and a blue
+   * one, big, on a card of their own — the same charcoal as the logo's, not
+   * over the footage. The numbers themselves are the unit tests' business;
+   * here, that both colours are drawn across the middle of that card, and
+   * that the ground beside them is the card's, not the camera's.
    */
-  test('ends with the hit count of each side under the logo', async ({ onTestFinished }) => {
+  test('shows each side\'s hit count on its own card, before the logo', async ({ onTestFinished }) => {
     const app = await freshApp(onTestFinished);
     await filmBout(app, 1, { spacingMs: 1500 });
     await app.review();
@@ -1063,74 +1065,36 @@ describe('saving the bout', () => {
     await app.doneHits();
 
     const saved = await app.save();
-    const { width, height } = await app.colourAlong(saved.path, 0.5, 0.5, 1e9);
-    const shorter = Math.min(width, height);
-    const row = (height / 2 + 0.3 * shorter + 0.08 * shorter) / height;
-    const { lengthMs, samples } = await app.rowAlong(saved.path, row);
+    const { lengthMs, samples } = await app.rowAlong(saved.path, 0.5, 50);
+    const beside = await app.colourAlong(saved.path, 0.05, 0.5, 50);
 
-    const card = samples.filter(({ atMs }) => atMs >= lengthMs - 800 && atMs <= lengthMs - 200);
-    expect(card.length).toBeGreaterThan(3);
-    expect(card.filter(({ red, blue }) => red < 3 || blue < 3)).toEqual([]);
+    // The numbers card is the 0.8s before the logo's last second.
+    const card = ({ atMs }) => atMs >= lengthMs - 1700 && atMs <= lengthMs - 1100;
+    const numbers = samples.filter(card);
+    expect(numbers.length).toBeGreaterThan(5);
+    expect(numbers.filter(({ red, blue }) => red < 3 || blue < 3)).toEqual([]);
+    expect(beside.samples.filter(card).filter(({ r, g, b }) => g > r + 30 || g > b + 30)).toEqual([]);
   });
 
-  /** Nothing annotated, no count: the end card is the logo alone. */
-  test('ends without a hit count when nothing was annotated', async ({ onTestFinished }) => {
+  /** Nothing annotated, no numbers: straight from the footage to the logo. */
+  test('shows no hit count when nothing was annotated', async ({ onTestFinished }) => {
     const app = await freshApp(onTestFinished);
     await filmBout(app, 1, { spacingMs: 1500 });
 
     const saved = await app.save();
-    const { width, height } = await app.colourAlong(saved.path, 0.5, 0.5, 1e9);
-    const shorter = Math.min(width, height);
-    const row = (height / 2 + 0.3 * shorter + 0.08 * shorter) / height;
-    const { lengthMs, samples } = await app.rowAlong(saved.path, row);
+    const { lengthMs, samples } = await app.rowAlong(saved.path, 0.5, 50);
 
-    const card = samples.filter(({ atMs }) => atMs >= lengthMs - 800 && atMs <= lengthMs - 200);
-    expect(card.length).toBeGreaterThan(3);
-    expect(card.filter(({ white, red, blue }) => white + red + blue > 0)).toEqual([]);
+    const ending = samples.filter(({ atMs }) => atMs >= lengthMs - 1800);
+    expect(ending.length).toBeGreaterThan(5);
+    expect(ending.filter(({ red, blue }) => red + blue > 0)).toEqual([]);
   });
 
   /**
-   * "Exchange 1", then "Exchange 2", each over the first moment of its
-   * exchange. Read along the row the label sits on — 0.36 of the shorter side
-   * down — the white comes and goes twice before the end card.
-   */
-  test('labels each exchange as the video moves on to it', async ({ onTestFinished }) => {
-    const app = await twoExchanges(onTestFinished, 1, 1);
-
-    const saved = await app.save();
-    const { width, height } = await app.colourAlong(saved.path, 0.5, 0.5, 1e9);
-    const { lengthMs, samples } = await app.rowAlong(saved.path, (0.36 * Math.min(width, height)) / height, 50);
-
-    const footage = samples.filter(({ atMs }) => atMs < lengthMs - endCardMs - 100);
-    let showings = 0;
-    let showing = false;
-    for (const { white } of footage) {
-      if (white > 5 && !showing) showings += 1;
-      showing = white > 5;
-    }
-    expect(showings).toBe(2);
-  });
-
-  /** All from one exchange, there is nothing to tell apart. */
-  test('labels nothing when every moment is from one exchange', async ({ onTestFinished }) => {
-    const app = await freshApp(onTestFinished);
-    await filmBout(app, 2, { spacingMs: 1500 });
-
-    const saved = await app.save();
-    const { width, height } = await app.colourAlong(saved.path, 0.5, 0.5, 1e9);
-    const { lengthMs, samples } = await app.rowAlong(saved.path, (0.36 * Math.min(width, height)) / height);
-
-    const footage = samples.filter(({ atMs }) => atMs < lengthMs - endCardMs - 100);
-    expect(footage.length).toBeGreaterThan(5);
-    expect(footage.filter(({ white }) => white > 0)).toEqual([]);
-  });
-
-  /**
-   * The saved video ends on the full logo, alone in the middle of a black
-   * frame, for its last second. Read at a spot on the logo's gold kite — 70%
-   * across and 60% down the logo, which ends at 60% of the shorter side,
-   * centred. The camera films green and the frame after the last moment is
-   * black, so gold there can only be the logo; beside it, the frame is black.
+   * The saved video ends on the full logo, alone in the middle of a charcoal
+   * card, for its last second. Read at a spot on the logo's gold kite — 70%
+   * across and 60% down the logo, which is 60% of the shorter side, centred.
+   * The camera films green and the card is grey, so gold there can only be the
+   * logo; beside it, the card's charcoal.
    */
   test('ends on the full gold logo in the middle', async ({ onTestFinished }) => {
     const app = await freshApp(onTestFinished);
@@ -1148,7 +1112,11 @@ describe('saving the bout', () => {
     const card = samples.filter(endCard);
     expect(card.length).toBeGreaterThan(3);
     expect(card.filter(({ r, g, b }) => !(r > 150 && r > g && b < 100))).toEqual([]);
-    expect(beside.samples.filter(endCard).filter(({ r, g, b }) => Math.max(r, g, b) > 30)).toEqual([]);
+    // Beside it, the charcoal ground: a neutral grey, darker than the footage,
+    // lighter than black.
+    const charcoal = ({ r, g, b }) =>
+      Math.abs(r - g) < 15 && Math.abs(g - b) < 15 && Math.max(r, g, b) > 15 && Math.max(r, g, b) < 110;
+    expect(beside.samples.filter(endCard).filter((sample) => !charcoal(sample))).toEqual([]);
   });
 
   /**

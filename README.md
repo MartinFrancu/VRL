@@ -63,10 +63,9 @@ comes back with the ticks as they were and that mark ticked; tick or untick any 
 ticked or unticked loops behind the list at double speed, with its hits, so
 you can see what you are choosing. **SAVE** makes one short video of the whole bout — the ticked
 moments, exchange by exchange, dipping briefly to black between each, with the
-SBA logo in the top-left corner; it opens straight on the action and ends on the full
-logo in the middle for a second, so it loops cleanly on Shorts and Reels —
-with each side's hits under it, a red number and a blue one, when anything
-was annotated.
+SBA logo in the top-left corner; it opens straight on the action. After the last
+moment it fades onto a charcoal card: each side's hits, a big red number and a
+blue one, when anything was annotated, then the full logo for a second.
 Anything typed in the **title** field goes over its first two seconds, big;
 left empty, there is no title. With moments from more than one exchange, each
 exchange's first moment says which it is — "Exchange 2" — and
