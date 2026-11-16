@@ -132,13 +132,17 @@ describe('fading between the moments', () => {
  * same size of picture, rather than one of them getting a tiny one.
  */
 describe('where the logo goes in the saved video', () => {
-  test('is in the bottom-left corner, clear of both edges', () => {
+  /**
+   * Top-left: the bottom of a Short or a Reel is covered by its caption, the
+   * account name and the buttons, and the top-right by the camera and search.
+   */
+  test('is in the top-left corner, clear of both edges', () => {
     const box = watermarkBox(1280, 720);
 
     expect(box.left).toBeGreaterThan(0);
     expect(box.left).toBeLessThan(1280 * 0.1);
-    expect(box.top + box.height).toBeLessThan(720);
-    expect(box.top + box.height).toBeGreaterThan(720 * 0.9);
+    expect(box.top).toBeGreaterThan(0);
+    expect(box.top).toBeLessThan(720 * 0.1);
   });
 
   test('is 12% of the shorter side, landscape or portrait', () => {
@@ -146,10 +150,10 @@ describe('where the logo goes in the saved video', () => {
     expect(watermarkBox(720, 1280).height).toBeCloseTo(720 * 0.12, 5);
   });
 
-  test('keeps the same margin from the left as from the bottom', () => {
+  test('keeps the same margin from the left as from the top', () => {
     const box = watermarkBox(720, 1280);
 
-    expect(box.left).toBeCloseTo(1280 - (box.top + box.height), 5);
+    expect(box.left).toBeCloseTo(box.top, 5);
   });
 
   test("keeps the logo's own shape", () => {

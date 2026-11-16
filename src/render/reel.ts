@@ -57,9 +57,11 @@ export const WATERMARK_MARGIN = 0.03;
 export const WATERMARK_OPACITY = 0.85;
 
 /**
- * Where the logo goes in a saved video of this size: the bottom-left corner,
- * sized by the shorter side so portrait and landscape get the same logo.
- * `aspect` is the logo's own width over its height.
+ * Where the logo goes in a saved video of this size: the top-left corner, clear
+ * of the caption, account name and buttons that cover the bottom of a Short
+ * or a Reel (and of the camera and search icons at their top-right). Sized by
+ * the shorter side so portrait and landscape get the same logo. `aspect` is
+ * the logo's own width over its height.
  */
 export function watermarkBox(
   width: number,
@@ -69,7 +71,7 @@ export function watermarkBox(
   const shorter = Math.min(width, height);
   const size = shorter * WATERMARK_SIZE;
   const margin = shorter * WATERMARK_MARGIN;
-  return { left: margin, top: height - margin - size, width: size * aspect, height: size };
+  return { left: margin, top: margin, width: size * aspect, height: size };
 }
 
 /** How long the full logo holds alone in the middle after the last moment. */

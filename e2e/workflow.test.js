@@ -1044,26 +1044,31 @@ describe('saving the bout', () => {
   });
 
   /**
-   * The SBA's logo in the bottom-left corner of every saved video, from the
-   * start until it leaves for the end card. Read at the middle of the logo — 3% + 6% of the shorter side
-   * in from the left and up from the bottom — which is the hawk's black body.
-   * The test camera films that corner a bright green, near full; with the logo
-   * over it at 85% it reads dark.
+   * The SBA's logo in the top-left corner of every saved video, from the start
+   * until it leaves for the end card — clear of the caption and buttons that
+   * cover the bottom of a Short or a Reel. Read at the middle of the logo — 3%
+   * + 6% of the shorter side in from the left and down from the top — which is
+   * the hawk's black body. The test camera films the corners a bright green,
+   * near full; with the logo over it at 85% it reads dark. The bottom-left,
+   * where it used to be, is the camera's green.
    */
-  test('stamps the logo in the bottom-left corner of the saved video', async ({ onTestFinished }) => {
+  test('stamps the logo in the top-left corner of the saved video', async ({ onTestFinished }) => {
     const app = await freshApp(onTestFinished);
     await filmBout(app, 1, { spacingMs: 1500 });
 
     const saved = await app.save();
     const { width, height } = await app.colourAlong(saved.path, 0.5, 0.5, 1e9);
     const middle = 0.09 * Math.min(width, height);
-    const { lengthMs, samples } = await app.colourAlong(saved.path, middle / width, 1 - middle / height, 200);
+    const { lengthMs, samples } = await app.colourAlong(saved.path, middle / width, middle / height, 200);
+    const below = await app.colourAlong(saved.path, middle / width, 1 - middle / height, 200);
 
     // From just after the first fade up to before the logo leaves its corner
     // for the end card, half a second before the end card's second.
-    const inside = samples.filter(({ atMs }) => atMs >= 400 && atMs <= lengthMs - 1700);
+    const between = ({ atMs }) => atMs >= 400 && atMs <= lengthMs - 1700;
+    const inside = samples.filter(between);
     expect(inside.length).toBeGreaterThan(3);
     expect(inside.map(({ g }) => g).filter((g) => g > 120)).toEqual([]);
+    expect(below.samples.filter(between).map(({ g }) => g).filter((g) => g < 120)).toEqual([]);
   });
 });
 

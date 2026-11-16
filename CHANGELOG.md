@@ -8,6 +8,12 @@ One entry per chunk, newest first, marked with the chunk's own letter:
 
 See `.claude/skills/chunks/SKILL.md` for the agreement these letters come from.
 
+## 1.1.31
+
+- **D** — The logo in the saved video moves to the top-left corner. The bottom
+  of a Short or a Reel is covered by its caption, the account name and the
+  buttons, which is exactly where it was.
+
 ## 1.1.30
 
 - **D** — The full logo moves from the start of the saved video to its end. It
