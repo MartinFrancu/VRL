@@ -4,10 +4,9 @@ import type { Cut, Hit, Span, TakeId } from '../contracts.js';
 import {
   CROSS_MS,
   END_HOLD_MS,
-  NUMBERS_MS,
+  CARD_MS,
   SPOTLIGHT,
   LABEL_MS,
-  TITLE_MS,
   endCardAt,
   endLogoBox,
   endingMs,
@@ -18,8 +17,8 @@ import {
   reelFilename,
   reelLengthMs,
   numbersLayout,
-  titleLayout,
-  titleStrengthAt,
+  endTitleLayout,
+  titleLines,
   watermarkBox,
 } from './reel.js';
 
@@ -185,41 +184,6 @@ describe('where the logo goes in the saved video', () => {
 });
 
 /**
- * The title typed on the Save screen, big over the first two seconds of the
- * footage: the hook a short video needs, without holding the action back.
- */
-describe('the title over the start of the saved video', () => {
-  test('is fully there from the very first frame', () => {
-    expect(titleStrengthAt(0)).toBe(1);
-    expect(titleStrengthAt(TITLE_MS / 2)).toBe(1);
-  });
-
-  test('fades out by the end of its time, and stays gone', () => {
-    expect(titleStrengthAt(TITLE_MS - 150)).toBeGreaterThan(0);
-    expect(titleStrengthAt(TITLE_MS - 150)).toBeLessThan(1);
-    expect(titleStrengthAt(TITLE_MS)).toBe(0);
-    expect(titleStrengthAt(60_000)).toBe(0);
-  });
-
-  /** In the top third, below the logo, centred, and as big on either shape. */
-  test('sits centred in the top third, below the logo', () => {
-    for (const [width, height] of [
-      [1920, 1080],
-      [1080, 1920],
-    ] as const) {
-      const title = titleLayout(width, height);
-      const logo = watermarkBox(width, height);
-
-      expect(title.x).toBe(width / 2);
-      expect(title.y - title.fontPx / 2).toBeGreaterThan(logo.top + logo.height);
-      expect(title.y + title.fontPx / 2).toBeLessThan(height / 3);
-      expect(title.fontPx).toBeCloseTo(1080 * 0.08, 5);
-      expect(title.maxWidth).toBeCloseTo(width * 0.9, 5);
-    }
-  });
-});
-
-/**
  * How many hits each side landed in the saved video, for its end card. Counted
  * from what is in the video — the moments ticked — not from the whole bout.
  */
@@ -251,48 +215,79 @@ describe('the hit count on the end card', () => {
     expect(hitTally(cut(span(0, 2_000)))).toEqual({ red: 0, blue: 0 });
   });
 
-  test('sits centred below the title, smaller, still in the top half', () => {
+  test('sits centred below the logo, in the top half', () => {
     for (const [width, height] of [
       [1920, 1080],
       [1080, 1920],
     ] as const) {
       const label = labelLayout(width, height);
-      const title = titleLayout(width, height);
+      const logo = watermarkBox(width, height);
 
       expect(label.x).toBe(width / 2);
-      expect(label.fontPx).toBeLessThan(title.fontPx);
-      expect(label.y - label.fontPx / 2).toBeGreaterThan(title.y + title.fontPx / 2);
+      expect(label.fontPx).toBeCloseTo(1080 * 0.055, 5);
+      expect(label.y - label.fontPx / 2).toBeGreaterThan(logo.top + logo.height);
       expect(label.y + label.fontPx / 2).toBeLessThan(height / 2);
     }
   });
 });
 
 /**
- * How the saved video ends, after its last moment has faded out: each side's
- * hit count on a card of its own — generic text belongs on a plain ground,
- * not over a picture — then the logo on the same ground. Charcoal with a soft
+ * How the saved video ends, after its last moment has faded out: a card of
+ * words — the title typed on the Save screen, or else each side's hit count —
+ * on a plain ground rather than over a picture, then the logo on the same
+ * ground. Charcoal with a soft
  * spotlight, so the end does not flash white in a dark-mode feed.
  */
 describe('the ending of the saved video', () => {
-  test('is the logo card, plus the numbers card when there are hits', () => {
+  test('is the logo card, plus the words card when there is one', () => {
     expect(endingMs(true, false)).toBe(END_HOLD_MS);
-    expect(endingMs(true, true)).toBe(NUMBERS_MS + END_HOLD_MS);
-    expect(endingMs(false, true)).toBe(NUMBERS_MS);
+    expect(endingMs(true, true)).toBe(CARD_MS + END_HOLD_MS);
+    expect(endingMs(false, true)).toBe(CARD_MS);
     expect(endingMs(false, false)).toBe(0);
   });
 
-  test('shows the numbers first, then crosses quickly to the logo', () => {
-    expect(endCardAt(0, true)).toEqual({ numbers: 1, logo: 0 });
-    expect(endCardAt(NUMBERS_MS - 1, true)).toEqual({ numbers: 1, logo: 0 });
-    const crossing = endCardAt(NUMBERS_MS + CROSS_MS / 2, true);
-    expect(crossing.numbers).toBeCloseTo(0.5, 5);
+  test('shows the words first, then crosses quickly to the logo', () => {
+    expect(endCardAt(0, true)).toEqual({ card: 1, logo: 0 });
+    expect(endCardAt(CARD_MS - 1, true)).toEqual({ card: 1, logo: 0 });
+    const crossing = endCardAt(CARD_MS + CROSS_MS / 2, true);
+    expect(crossing.card).toBeCloseTo(0.5, 5);
     expect(crossing.logo).toBeCloseTo(0.5, 5);
-    expect(endCardAt(NUMBERS_MS + CROSS_MS, true)).toEqual({ numbers: 0, logo: 1 });
-    expect(endCardAt(NUMBERS_MS + END_HOLD_MS, true)).toEqual({ numbers: 0, logo: 1 });
+    expect(endCardAt(CARD_MS + CROSS_MS, true)).toEqual({ card: 0, logo: 1 });
+    expect(endCardAt(CARD_MS + END_HOLD_MS, true)).toEqual({ card: 0, logo: 1 });
   });
 
-  test('is the logo straight away, with no numbers to show', () => {
-    expect(endCardAt(0, false)).toEqual({ numbers: 0, logo: 1 });
+  test('is the logo straight away, with no words to show', () => {
+    expect(endCardAt(0, false)).toEqual({ card: 0, logo: 1 });
+  });
+
+  test('puts the title big in the middle, kept inside the picture', () => {
+    for (const [width, height] of [
+      [1920, 1080],
+      [1080, 1920],
+    ] as const) {
+      expect(endTitleLayout(width, height)).toEqual({ x: width / 2, y: height / 2, fontPx: 1080 * 0.12, maxWidth: width * 0.9 });
+    }
+  });
+
+  /**
+   * A title too wide for one line goes on two, split between words where the
+   * two lines come out most even — rather than one line shrunk until it is
+   * unreadable on an upright phone. Measured by whatever draws it.
+   */
+  describe('breaking a long title', () => {
+    const measure = (text: string) => text.length * 10;
+
+    test('keeps a title that fits on one line', () => {
+      expect(titleLines('Spring camp', measure, 200)).toEqual(['Spring camp']);
+    });
+
+    test('splits one too wide between words, as evenly as it can', () => {
+      expect(titleLines('Spring camp sparring night', measure, 200)).toEqual(['Spring camp', 'sparring night']);
+    });
+
+    test('leaves a single long word whole', () => {
+      expect(titleLines('Supercalifragilistic', measure, 100)).toEqual(['Supercalifragilistic']);
+    });
   });
 
   test('puts the logo large in the middle', () => {

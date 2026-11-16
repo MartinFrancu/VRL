@@ -64,11 +64,11 @@ ticked or unticked loops behind the list at double speed, with its hits, so
 you can see what you are choosing. **SAVE** makes one short video of the whole bout — the ticked
 moments, exchange by exchange, dipping briefly to black between each, with the
 SBA logo in the top-left corner; it opens straight on the action. After the last
-moment it fades onto a charcoal card: each side's hits, a big red number and a
-blue one, when anything was annotated, then the full logo for a second.
-Anything typed in the **title** field goes over its first two seconds, big;
-left empty, there is no title. With moments from more than one exchange, each
-exchange's first moment says which it is — "Exchange 2" — and
+moment it fades onto a charcoal card: whatever is typed in the **title** field,
+big — or, with no title, each side's hits as a big red number and a blue one,
+when anything was annotated — then the full logo for a second. With moments
+from more than one exchange, each exchange's first moment says which it is —
+"Exchange 2". It then
 offers it to the phone's share sheet (a download link on a laptop). It records
 by playing the moments through, so it takes as long as they last. **BACK**
 carries on the same bout, and **Discard** throws it away, asking first. Once a

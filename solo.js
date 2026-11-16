@@ -33,7 +33,7 @@ import {
 import { canRecordReel, recordReel } from './app/render/record-reel.js';
 import { endingMs, hitTally, reelFilename, reelLengthMs } from './app/render/reel.js';
 
-const VERSION = '1.1.35';
+const VERSION = '1.1.36';
 
 const el = (id) => document.getElementById(id);
 const preview = el('preview');
@@ -709,14 +709,17 @@ let watermark = null;
 }
 
 /**
- * How long the saved video's ending adds: each side's hit count, when anything
- * in it was annotated, then the logo, when there is a logo.
+ * How long the saved video's ending adds: a card of words — the title typed,
+ * or else each side's hit count when anything was annotated — then the logo,
+ * when there is a logo.
  */
 function endCardMs(plan) {
   const tally = hitTally(plan);
-  return endingMs(Boolean(watermark), tally.red + tally.blue > 0);
+  const card = el('export-title').value.trim() !== '' || tally.red + tally.blue > 0;
+  return endingMs(Boolean(watermark), card);
 }
 
+el('export-title').addEventListener('input', renderLength);
 // Done on a phone's keyboard means done typing: put the keyboard away.
 el('export-title').addEventListener('keydown', (event) => {
   if (event.key === 'Enter') event.target.blur();
@@ -880,6 +883,15 @@ function renderPicks() {
     picks.append(item);
   });
 
+  renderLength();
+}
+
+/**
+ * How long the saved video will be, under the list — which a title changes
+ * too, since a title gets a card of its own at the end.
+ */
+function renderLength() {
+  if (!bout || !selection) return;
   const chosen = selection.chosen.length;
   const total = bout.exchanges.reduce((sum, each) => sum + each.marks.length, 0);
   const plan = cutBout(bout, selection.chosen, { leadMs, tailMs });

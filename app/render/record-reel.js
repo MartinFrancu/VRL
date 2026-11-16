@@ -16,7 +16,7 @@
 // for only if this disappoints.
 import { measureDurationMs, record, release } from '../media/media.js';
 import { SIDE_COLOURS, drawHits } from './hits.js';
-import { FADE_MS, SPOTLIGHT, WATERMARK_OPACITY, endCardAt, endLogoBox, endingMs, fadeAt, hitTally, labelLayout, labelStrengthAt, numbersLayout, reelLengthMs, titleLayout, titleStrengthAt, watermarkBox, } from './reel.js';
+import { FADE_MS, SPOTLIGHT, WATERMARK_OPACITY, endCardAt, endTitleLayout, endLogoBox, endingMs, fadeAt, hitTally, labelLayout, labelStrengthAt, numbersLayout, reelLengthMs, titleLines, watermarkBox, } from './reel.js';
 /**
  * Whether this device can save a video at all.
  *
@@ -67,7 +67,10 @@ export async function recordReel(cut, { video, canvas, urlFor, watermark }, { on
     const hasLogo = Boolean(watermark?.naturalWidth);
     const tally = hitTally(cut);
     const hasNumbers = tally.red + tally.blue > 0;
-    const endMs = endingMs(hasLogo, hasNumbers);
+    const words = title?.trim() ?? '';
+    // The words card: the title if one was typed, or else the hit count.
+    const hasCard = words !== '' || hasNumbers;
+    const endMs = endingMs(hasLogo, hasCard);
     const totalMs = reelLengthMs(cut, endMs);
     const last = cut.spans[cut.spans.length - 1];
     canvas.width = video.videoWidth || 1280;
@@ -86,9 +89,6 @@ export async function recordReel(cut, { video, canvas, urlFor, watermark }, { on
     let playing = null;
     /** When the ending began, once the last moment has played; null before. */
     let endingSince = null;
-    /** When the recording began, which is what the title is timed by. */
-    let startedAt = performance.now();
-    const words = title?.trim() ?? '';
     const paint = () => {
         if (!painting)
             return;
@@ -134,18 +134,19 @@ export async function recordReel(cut, { video, canvas, urlFor, watermark }, { on
             }
         }
         if (endingSince !== null) {
-            const cards = endCardAt(performance.now() - endingSince, hasNumbers);
-            if (hasNumbers && cards.numbers > 0)
-                drawNumbers(paper, tally, cards.numbers);
+            const cards = endCardAt(performance.now() - endingSince, hasCard);
+            if (cards.card > 0) {
+                if (words)
+                    drawEndTitle(paper, words, cards.card);
+                else if (hasNumbers)
+                    drawNumbers(paper, tally, cards.card);
+            }
             if (watermark && hasLogo && cards.logo > 0) {
                 const box = endLogoBox(canvas.width, canvas.height, watermark.naturalWidth / watermark.naturalHeight);
                 paper.globalAlpha = cards.logo;
                 paper.drawImage(watermark, box.left, box.top, box.width, box.height);
                 paper.globalAlpha = 1;
             }
-        }
-        if (words) {
-            drawCaption(paper, words, titleLayout(canvas.width, canvas.height), titleStrengthAt(performance.now() - startedAt));
         }
         requestAnimationFrame(paint);
     };
@@ -158,7 +159,6 @@ export async function recordReel(cut, { video, canvas, urlFor, watermark }, { on
     const stream = canvas.captureStream(fps);
     paint();
     const recording = record(stream, { bitsPerSecond: 6_000_000 });
-    startedAt = performance.now();
     let handedOver = false;
     try {
         let doneMs = 0;
@@ -268,6 +268,27 @@ function drawSpotlight(paper) {
     light.addColorStop(1, SPOTLIGHT.edge);
     paper.fillStyle = light;
     paper.fillRect(0, 0, width, height);
+}
+/**
+ * The title on the end card, white, on one line or two, made smaller only if
+ * even two lines would not fit across the picture.
+ */
+function drawEndTitle(paper, words, strength) {
+    const { width, height } = paper.canvas;
+    const { x, y, fontPx, maxWidth } = endTitleLayout(width, height);
+    const font = (px) => `800 ${px}px system-ui, -apple-system, "Segoe UI", sans-serif`;
+    paper.font = font(fontPx);
+    const lines = titleLines(words, (text) => paper.measureText(text).width, maxWidth);
+    const widest = Math.max(...lines.map((line) => paper.measureText(line).width));
+    const px = widest > maxWidth ? (fontPx * maxWidth) / widest : fontPx;
+    paper.font = font(px);
+    paper.textAlign = 'center';
+    paper.textBaseline = 'middle';
+    paper.fillStyle = '#fff';
+    paper.globalAlpha = Math.min(1, Math.max(0, strength));
+    const lineHeight = px * 1.15;
+    lines.forEach((line, at) => paper.fillText(line, x, y + (at - (lines.length - 1) / 2) * lineHeight));
+    paper.globalAlpha = 1;
 }
 /** Each side's hits as a big number in its own colour — red, a dot, blue. */
 function drawNumbers(paper, tally, strength) {

@@ -564,6 +564,10 @@ export async function openApp(browser, { url, shareSheet = false }) {
       await page.locator('#export-title').fill(text);
     },
 
+    /** How long the summary says the saved video will be, in seconds. */
+    lengthShown: () =>
+      read(() => Number(/([\d.]+)s/.exec(document.getElementById('export-length').textContent)?.[1] ?? NaN)),
+
     /** What the title field on the Save screen holds. */
     titleTyped: () => read(() => document.getElementById('export-title').value),
 

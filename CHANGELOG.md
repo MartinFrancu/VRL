@@ -8,6 +8,15 @@ One entry per chunk, newest first, marked with the chunk's own letter:
 
 See `.claude/skills/chunks/SKILL.md` for the agreement these letters come from.
 
+## 1.1.36
+
+- **D** — The title moves to the end: whatever is typed in the title field goes
+  on the charcoal card after the last moment, big and white, on two lines if
+  one would be too wide — in place of the hit count, which shows there only
+  when there is no title. Nothing is written over the start of the video any
+  more; that is the action's. The length on the summary counts the title's
+  card as soon as one is typed.
+
 ## 1.1.35
 
 - **D** — A new ending for the saved video. The last moment fades out onto a

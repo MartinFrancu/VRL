@@ -997,26 +997,32 @@ describe('saving the bout', () => {
   });
 
   /**
-   * The title typed on the Save screen, over the first two seconds of the
-   * video, big and white — the hook. Read along the row it sits on, a quarter
-   * of the shorter side down: white there early on, none once it has gone.
+   * The title typed on the Save screen goes on the end card, big and white
+   * across its middle — in place of the hit count, which is there below only
+   * when no title is. And not over the start of the video: that is the
+   * action's.
    */
-  test('puts the title typed on the Save screen over the start of the video', async ({ onTestFinished }) => {
+  test('puts the title typed on the Save screen on the end card, in place of the hit count', async ({ onTestFinished }) => {
     const app = await freshApp(onTestFinished);
-    // Two moments, so the video runs on well past the title before its end card.
-    await filmBout(app, 2, { spacingMs: 1500 });
+    await filmBout(app, 1, { spacingMs: 1500 });
+    await app.review();
+    await app.annotate('red');
+    await app.tapPictureAt(0.3, 0.4);
+    await app.chooseHitSide('blue');
+    await app.tapPictureAt(0.6, 0.4);
+    await app.doneHits();
     await app.typeTitle('Spring camp');
 
     const saved = await app.save();
     const { width, height } = await app.colourAlong(saved.path, 0.5, 0.5, 1e9);
-    const { lengthMs, samples } = await app.rowAlong(saved.path, (0.24 * Math.min(width, height)) / height);
+    const { lengthMs, samples } = await app.rowAlong(saved.path, 0.5, 50);
+    const top = await app.rowAlong(saved.path, (0.24 * Math.min(width, height)) / height);
 
-    const early = samples.filter(({ atMs }) => atMs >= 200 && atMs <= 1500);
-    expect(early.length).toBeGreaterThan(3);
-    expect(early.filter(({ white }) => white < 10)).toEqual([]);
-    const later = samples.filter(({ atMs }) => atMs >= 2400 && atMs <= lengthMs - 1700);
-    expect(later.length).toBeGreaterThan(0);
-    expect(later.filter(({ white }) => white > 0)).toEqual([]);
+    const card = samples.filter(({ atMs }) => atMs >= lengthMs - 1700 && atMs <= lengthMs - 1100);
+    expect(card.length).toBeGreaterThan(5);
+    expect(card.filter(({ white, red, blue }) => white < 10 || red + blue > 0)).toEqual([]);
+    const start = top.samples.filter(({ atMs }) => atMs >= 200 && atMs <= 1500);
+    expect(start.filter(({ white }) => white > 0)).toEqual([]);
   });
 
   /** Nothing typed, nothing there. */
@@ -1031,6 +1037,18 @@ describe('saving the bout', () => {
     const early = samples.filter(({ atMs }) => atMs >= 200 && atMs <= 1500);
     expect(early.length).toBeGreaterThan(3);
     expect(early.filter(({ white }) => white > 0)).toEqual([]);
+  });
+
+  /** A title gets a card of its own at the end, so it makes the video longer. */
+  test('counts the title\'s card in the length it shows', async ({ onTestFinished }) => {
+    const app = await freshApp(onTestFinished);
+    await filmBout(app, 1);
+    await app.openSummary();
+    const before = await app.lengthShown();
+
+    await app.typeTitle('Spring camp');
+
+    expect(await app.lengthShown()).toBeCloseTo(before + 0.8, 1);
   });
 
   /** A title belongs to its bout: the next one starts without it. */

@@ -23,6 +23,7 @@ import {
   SPOTLIGHT,
   WATERMARK_OPACITY,
   endCardAt,
+  endTitleLayout,
   endLogoBox,
   endingMs,
   fadeAt,
@@ -31,8 +32,7 @@ import {
   labelStrengthAt,
   numbersLayout,
   reelLengthMs,
-  titleLayout,
-  titleStrengthAt,
+  titleLines,
   watermarkBox,
 } from './reel.js';
 
@@ -64,8 +64,8 @@ export interface ReelOptions {
   readonly fps?: number;
   readonly signal?: AbortSignal;
   /**
-   * Words over the start of the video, big, for its first two seconds. Left
-   * out or blank, there is no title.
+   * Words for the end card, big on the charcoal before the logo — in place of
+   * each side's hit count. Left out or blank, there is no title.
    */
   readonly title?: string;
   /** How long each dip to black at a join takes. Zero for hard cuts. */
@@ -130,7 +130,10 @@ export async function recordReel(
   const hasLogo = Boolean(watermark?.naturalWidth);
   const tally = hitTally(cut);
   const hasNumbers = tally.red + tally.blue > 0;
-  const endMs = endingMs(hasLogo, hasNumbers);
+  const words = title?.trim() ?? '';
+  // The words card: the title if one was typed, or else the hit count.
+  const hasCard = words !== '' || hasNumbers;
+  const endMs = endingMs(hasLogo, hasCard);
   const totalMs = reelLengthMs(cut, endMs);
   const last = cut.spans[cut.spans.length - 1];
 
@@ -150,9 +153,6 @@ export async function recordReel(
   let playing: Span | null = null;
   /** When the ending began, once the last moment has played; null before. */
   let endingSince: number | null = null;
-  /** When the recording began, which is what the title is timed by. */
-  let startedAt = performance.now();
-  const words = title?.trim() ?? '';
   const paint = () => {
     if (!painting) return;
     paper.globalAlpha = 1;
@@ -197,17 +197,17 @@ export async function recordReel(
       }
     }
     if (endingSince !== null) {
-      const cards = endCardAt(performance.now() - endingSince, hasNumbers);
-      if (hasNumbers && cards.numbers > 0) drawNumbers(paper, tally, cards.numbers);
+      const cards = endCardAt(performance.now() - endingSince, hasCard);
+      if (cards.card > 0) {
+        if (words) drawEndTitle(paper, words, cards.card);
+        else if (hasNumbers) drawNumbers(paper, tally, cards.card);
+      }
       if (watermark && hasLogo && cards.logo > 0) {
         const box = endLogoBox(canvas.width, canvas.height, watermark.naturalWidth / watermark.naturalHeight);
         paper.globalAlpha = cards.logo;
         paper.drawImage(watermark, box.left, box.top, box.width, box.height);
         paper.globalAlpha = 1;
       }
-    }
-    if (words) {
-      drawCaption(paper, words, titleLayout(canvas.width, canvas.height), titleStrengthAt(performance.now() - startedAt));
     }
     requestAnimationFrame(paint);
   };
@@ -222,7 +222,6 @@ export async function recordReel(
   const stream = canvas.captureStream(fps);
   paint();
   const recording = record(stream, { bitsPerSecond: 6_000_000 });
-  startedAt = performance.now();
   let handedOver = false;
 
   try {
@@ -344,6 +343,28 @@ function drawSpotlight(paper: CanvasRenderingContext2D): void {
   light.addColorStop(1, SPOTLIGHT.edge);
   paper.fillStyle = light;
   paper.fillRect(0, 0, width, height);
+}
+
+/**
+ * The title on the end card, white, on one line or two, made smaller only if
+ * even two lines would not fit across the picture.
+ */
+function drawEndTitle(paper: CanvasRenderingContext2D, words: string, strength: number): void {
+  const { width, height } = paper.canvas;
+  const { x, y, fontPx, maxWidth } = endTitleLayout(width, height);
+  const font = (px: number) => `800 ${px}px system-ui, -apple-system, "Segoe UI", sans-serif`;
+  paper.font = font(fontPx);
+  const lines = titleLines(words, (text) => paper.measureText(text).width, maxWidth);
+  const widest = Math.max(...lines.map((line) => paper.measureText(line).width));
+  const px = widest > maxWidth ? (fontPx * maxWidth) / widest : fontPx;
+  paper.font = font(px);
+  paper.textAlign = 'center';
+  paper.textBaseline = 'middle';
+  paper.fillStyle = '#fff';
+  paper.globalAlpha = Math.min(1, Math.max(0, strength));
+  const lineHeight = px * 1.15;
+  lines.forEach((line, at) => paper.fillText(line, x, y + (at - (lines.length - 1) / 2) * lineHeight));
+  paper.globalAlpha = 1;
 }
 
 /** Each side's hits as a big number in its own colour — red, a dot, blue. */
