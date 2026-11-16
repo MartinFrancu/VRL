@@ -1,7 +1,18 @@
 import { describe, expect, test } from 'vitest';
 
 import type { Cut, Span, TakeId } from '../contracts.js';
-import { END_GLIDE_MS, endGlideAt, fadeAt, logoAt, reelFilename, reelLengthMs, watermarkBox } from './reel.js';
+import {
+  END_GLIDE_MS,
+  TITLE_MS,
+  endGlideAt,
+  fadeAt,
+  logoAt,
+  reelFilename,
+  reelLengthMs,
+  titleLayout,
+  titleStrengthAt,
+  watermarkBox,
+} from './reel.js';
 
 const span = (fromMs: number, toMs: number): Span => ({
   fromMs,
@@ -223,5 +234,40 @@ describe('where the logo is as the saved video ends', () => {
       expect(endGlideAt(12_000, last)).toBe(1);
       expect(endGlideAt(13_000, last)).toBe(1);
     });
+  });
+});
+
+/**
+ * The title typed on the Save screen, big over the first two seconds of the
+ * footage: the hook a short video needs, without holding the action back.
+ */
+describe('the title over the start of the saved video', () => {
+  test('is fully there from the very first frame', () => {
+    expect(titleStrengthAt(0)).toBe(1);
+    expect(titleStrengthAt(TITLE_MS / 2)).toBe(1);
+  });
+
+  test('fades out by the end of its time, and stays gone', () => {
+    expect(titleStrengthAt(TITLE_MS - 150)).toBeGreaterThan(0);
+    expect(titleStrengthAt(TITLE_MS - 150)).toBeLessThan(1);
+    expect(titleStrengthAt(TITLE_MS)).toBe(0);
+    expect(titleStrengthAt(60_000)).toBe(0);
+  });
+
+  /** In the top third, below the logo, centred, and as big on either shape. */
+  test('sits centred in the top third, below the logo', () => {
+    for (const [width, height] of [
+      [1920, 1080],
+      [1080, 1920],
+    ] as const) {
+      const title = titleLayout(width, height);
+      const logo = watermarkBox(width, height);
+
+      expect(title.x).toBe(width / 2);
+      expect(title.y - title.fontPx / 2).toBeGreaterThan(logo.top + logo.height);
+      expect(title.y + title.fontPx / 2).toBeLessThan(height / 3);
+      expect(title.fontPx).toBeCloseTo(1080 * 0.08, 5);
+      expect(title.maxWidth).toBeCloseTo(width * 0.9, 5);
+    }
   });
 });

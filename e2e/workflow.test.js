@@ -997,6 +997,56 @@ describe('saving the bout', () => {
   });
 
   /**
+   * The title typed on the Save screen, over the first two seconds of the
+   * video, big and white — the hook. Read along the row it sits on, a quarter
+   * of the shorter side down: white there early on, none once it has gone.
+   */
+  test('puts the title typed on the Save screen over the start of the video', async ({ onTestFinished }) => {
+    const app = await freshApp(onTestFinished);
+    // Two moments, so the video runs on well past the title before its end card.
+    await filmBout(app, 2, { spacingMs: 1500 });
+    await app.typeTitle('Spring camp');
+
+    const saved = await app.save();
+    const { width, height } = await app.colourAlong(saved.path, 0.5, 0.5, 1e9);
+    const { lengthMs, samples } = await app.whiteAlong(saved.path, (0.24 * Math.min(width, height)) / height);
+
+    const early = samples.filter(({ atMs }) => atMs >= 200 && atMs <= 1500);
+    expect(early.length).toBeGreaterThan(3);
+    expect(early.filter(({ white }) => white < 10)).toEqual([]);
+    const later = samples.filter(({ atMs }) => atMs >= 2400 && atMs <= lengthMs - 1700);
+    expect(later.length).toBeGreaterThan(0);
+    expect(later.filter(({ white }) => white > 0)).toEqual([]);
+  });
+
+  /** Nothing typed, nothing there. */
+  test('puts no title on the video when none was typed', async ({ onTestFinished }) => {
+    const app = await freshApp(onTestFinished);
+    await filmBout(app, 1, { spacingMs: 1500 });
+
+    const saved = await app.save();
+    const { width, height } = await app.colourAlong(saved.path, 0.5, 0.5, 1e9);
+    const { samples } = await app.whiteAlong(saved.path, (0.24 * Math.min(width, height)) / height);
+
+    const early = samples.filter(({ atMs }) => atMs >= 200 && atMs <= 1500);
+    expect(early.length).toBeGreaterThan(3);
+    expect(early.filter(({ white }) => white > 0)).toEqual([]);
+  });
+
+  /** A title belongs to its bout: the next one starts without it. */
+  test('forgets the title when the bout is let go of', async ({ onTestFinished }) => {
+    const app = await freshApp(onTestFinished);
+    await filmBout(app, 1);
+    await app.typeTitle('Spring camp');
+    await app.endBout();
+
+    await filmBout(app, 1);
+    await app.openSummary();
+
+    expect(await app.titleTyped()).toBe('');
+  });
+
+  /**
    * The saved video ends on the full logo, alone in the middle of a black
    * frame, for its last second. Read at a spot on the logo's gold kite — 70%
    * across and 60% down the logo, which ends at 60% of the shorter side,

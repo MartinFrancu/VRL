@@ -18,7 +18,7 @@
 import type { Cut, MediaHandle, Span, TakeId } from '../contracts.js';
 import { measureDurationMs, record, release } from '../media/media.js';
 import { drawHits } from './hits.js';
-import { END_HOLD_MS, FADE_MS, endGlideAt, fadeAt, logoAt, reelLengthMs } from './reel.js';
+import { END_HOLD_MS, FADE_MS, endGlideAt, fadeAt, logoAt, reelLengthMs, titleLayout, titleStrengthAt } from './reel.js';
 
 export interface ReelSources {
   /** Plays the footage. Left paused afterwards, on what it held before. */
@@ -47,6 +47,11 @@ export interface ReelOptions {
   /** How often the canvas is sampled. 30 is plenty for a replay. */
   readonly fps?: number;
   readonly signal?: AbortSignal;
+  /**
+   * Words over the start of the video, big, for its first two seconds. Left
+   * out or blank, there is no title.
+   */
+  readonly title?: string;
   /** How long each dip to black at a join takes. Zero for hard cuts. */
   readonly fadeMs?: number;
 }
@@ -99,7 +104,7 @@ function seekTo(video: HTMLVideoElement, seconds: number): Promise<void> {
 export async function recordReel(
   cut: Cut,
   { video, canvas, urlFor, watermark }: ReelSources,
-  { onProgress, fps = 30, signal, fadeMs = FADE_MS }: ReelOptions = {}
+  { onProgress, fps = 30, signal, fadeMs = FADE_MS, title }: ReelOptions = {}
 ): Promise<MediaHandle> {
   if (cut.spans.length === 0) throw new Error('nothing was marked, so there is nothing to save');
   if (!canRecordReel()) throw new Error('this device cannot record video from a canvas');
@@ -126,6 +131,9 @@ export async function recordReel(
   let playing: Span | null = null;
   /** How far the logo has gone from its corner towards the end card. */
   let towardsEnd = 0;
+  /** When the recording began, which is what the title is timed by. */
+  let startedAt = performance.now();
+  const words = title?.trim() ?? '';
   const paint = () => {
     if (!painting) return;
     paper.globalAlpha = 1;
@@ -156,6 +164,7 @@ export async function recordReel(
       paper.drawImage(watermark, logo.left, logo.top, logo.width, logo.height);
       paper.globalAlpha = 1;
     }
+    if (words) drawTitle(paper, words, titleStrengthAt(performance.now() - startedAt));
     requestAnimationFrame(paint);
   };
 
@@ -169,6 +178,7 @@ export async function recordReel(
   const stream = canvas.captureStream(fps);
   paint();
   const recording = record(stream, { bitsPerSecond: 6_000_000 });
+  startedAt = performance.now();
   let handedOver = false;
 
   try {
@@ -241,4 +251,29 @@ export async function recordReel(
     }
     if (wasSource) await seekTo(video, wasAt).catch(() => {});
   }
+}
+
+/**
+ * The title, white with a dark edge so it reads over any footage, made smaller
+ * if it would not otherwise fit across the picture.
+ */
+function drawTitle(paper: CanvasRenderingContext2D, words: string, strength: number): void {
+  if (strength <= 0) return;
+  const { width, height } = paper.canvas;
+  const { x, y, fontPx, maxWidth } = titleLayout(width, height);
+  const font = (px: number) => `800 ${px}px system-ui, -apple-system, "Segoe UI", sans-serif`;
+  paper.font = font(fontPx);
+  const natural = paper.measureText(words).width;
+  const px = natural > maxWidth ? (fontPx * maxWidth) / natural : fontPx;
+  paper.font = font(px);
+  paper.textAlign = 'center';
+  paper.textBaseline = 'middle';
+  paper.lineJoin = 'round';
+  paper.globalAlpha = strength;
+  paper.lineWidth = px * 0.14;
+  paper.strokeStyle = 'rgba(0, 0, 0, 0.75)';
+  paper.strokeText(words, x, y);
+  paper.fillStyle = '#fff';
+  paper.fillText(words, x, y);
+  paper.globalAlpha = 1;
 }

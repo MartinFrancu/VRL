@@ -558,6 +558,15 @@ export async function openApp(browser, { url, shareSheet = false }) {
      * file goes to the share sheet; with no share sheet there is a Download link
      * instead, which is what a desktop browser gets and what can be caught.
      */
+    /** Type a title for the saved video, on the Save screen. */
+    async typeTitle(text) {
+      if ((await screen()) !== 'export') await app.openSummary();
+      await page.locator('#export-title').fill(text);
+    },
+
+    /** What the title field on the Save screen holds. */
+    titleTyped: () => read(() => document.getElementById('export-title').value),
+
     async save() {
       if ((await screen()) !== 'export') await app.openSummary();
       await page.locator('#export-save').click();
@@ -689,6 +698,57 @@ export async function openApp(browser, { url, shareSheet = false }) {
           return false;
         }
       }, base64);
+    },
+
+    /**
+     * How many near-white pixels there are along one row of the video, frame
+     * by frame, `fy` down from the top as a fraction of its height. Read at
+     * 480 pixels across. The test camera films no white at all, so white
+     * along a row is something drawn over the footage — text, for one.
+     */
+    async whiteAlong(path, fy, stepMs = 100) {
+      const base64 = readFileSync(path).toString('base64');
+      return page.evaluate(
+        async ({ data, fy, stepMs }) => {
+          const bytes = Uint8Array.from(atob(data), (c) => c.charCodeAt(0));
+          const url = URL.createObjectURL(new Blob([bytes]));
+          const probe = document.createElement('video');
+          probe.muted = true;
+          probe.preload = 'auto';
+          probe.src = url;
+          await new Promise((resolve) => probe.addEventListener('loadedmetadata', resolve, { once: true }));
+          if (!Number.isFinite(probe.duration)) {
+            await new Promise((resolve) => {
+              probe.addEventListener('durationchange', () => Number.isFinite(probe.duration) && resolve());
+              probe.currentTime = 1e6;
+            });
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = 480;
+          canvas.height = Math.round((480 * probe.videoHeight) / probe.videoWidth);
+          const paper = canvas.getContext('2d', { willReadFrequently: true });
+          const seek = (seconds) =>
+            new Promise((resolve) => {
+              probe.addEventListener('seeked', resolve, { once: true });
+              probe.currentTime = seconds;
+            });
+          const samples = [];
+          const lengthMs = probe.duration * 1000;
+          for (let atMs = 0; atMs < lengthMs; atMs += stepMs) {
+            await seek(atMs / 1000);
+            paper.drawImage(probe, 0, 0, canvas.width, canvas.height);
+            const row = paper.getImageData(0, Math.round(fy * canvas.height), canvas.width, 1).data;
+            let white = 0;
+            for (let at = 0; at < row.length; at += 4) {
+              if (row[at] > 200 && row[at + 1] > 200 && row[at + 2] > 200) white += 1;
+            }
+            samples.push({ atMs, white });
+          }
+          URL.revokeObjectURL(url);
+          return { lengthMs, samples, width: probe.videoWidth, height: probe.videoHeight };
+        },
+        { data: base64, fy, stepMs }
+      );
     },
 
     /** How long a video file on disk actually runs, in ms. */

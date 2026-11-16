@@ -124,6 +124,33 @@ export function endGlideAt(nowMs: number, last: Span): number {
   return Math.min(1, Math.max(0, (nowMs - (last.toMs - END_GLIDE_MS)) / END_GLIDE_MS));
 }
 
+/** How long the title stays over the start of the saved video. */
+export const TITLE_MS = 2000;
+/** How long it takes to fade out, at the end of that. */
+export const TITLE_FADE_MS = 300;
+
+/**
+ * How solid the title is this long after the saved video starts: fully from
+ * the first frame — it is the hook — then fading out over the end of its time.
+ */
+export function titleStrengthAt(sinceStartMs: number): number {
+  if (sinceStartMs >= TITLE_MS) return 0;
+  return Math.min(1, (TITLE_MS - sinceStartMs) / TITLE_FADE_MS);
+}
+
+/**
+ * Where the title goes: centred, just below the logo — so in the top third on
+ * either shape — at a size taken from the shorter side, as the logo's is.
+ * `maxWidth` is how wide it may get before it has to be drawn smaller.
+ */
+export function titleLayout(
+  width: number,
+  height: number
+): { x: number; y: number; fontPx: number; maxWidth: number } {
+  const shorter = Math.min(width, height);
+  return { x: width / 2, y: shorter * 0.24, fontPx: shorter * 0.08, maxWidth: width * 0.9 };
+}
+
 /** How long each fade takes. Quick: a dip, not a scene change. */
 export const FADE_MS = 200;
 

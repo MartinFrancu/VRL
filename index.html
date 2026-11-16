@@ -99,6 +99,11 @@
       #picks .at { color: var(--faded); font-size: 14px; margin-left: auto; }
       #export-length { margin: 0; color: var(--faded); text-align: center; }
       #export .actions-row { display: flex; gap: 10px; }
+      /* 16px, because iOS zooms the page into any field smaller than that. */
+      #export-title {
+        font: inherit; font-size: 16px; padding: 12px 14px; border-radius: 10px;
+        border: 1px solid var(--faded); background: rgba(11, 15, 18, 0.7); color: #fff;
+      }
       #export-save { flex: 2; font-size: 18px; padding: 16px; border-color: var(--accent); color: var(--accent); }
       #export-discard { flex: 1; font-size: 16px; padding: 16px; border-color: var(--mark); color: var(--mark); }
       #export-save[disabled] { opacity: 0.35; }
@@ -599,6 +604,9 @@
         </nav>
         <ul id="picks"></ul>
         <p id="export-length"></p>
+        <!-- Optional. Left empty, the video has no title at all. -->
+        <input id="export-title" type="text" maxlength="40" placeholder="Title on the video (optional)"
+          aria-label="Title on the video" autocomplete="off" enterkeyhint="done" />
         <div class="actions-row">
           <button id="export-discard">Discard</button>
           <button id="export-save" disabled>SAVE</button>

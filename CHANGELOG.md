@@ -8,6 +8,13 @@ One entry per chunk, newest first, marked with the chunk's own letter:
 
 See `.claude/skills/chunks/SKILL.md` for the agreement these letters come from.
 
+## 1.1.32
+
+- **D** — A title field on the summary. Whatever is typed there goes over the
+  first two seconds of the saved video, big and white in the top third, then
+  fades out; left empty, the video has no title at all. It belongs to the
+  bout, so the next bout starts with the field empty.
+
 ## 1.1.31
 
 - **D** — The logo in the saved video moves to the top-left corner. The bottom

@@ -33,7 +33,7 @@ import {
 import { canRecordReel, recordReel } from './app/render/record-reel.js';
 import { END_HOLD_MS, reelFilename, reelLengthMs } from './app/render/reel.js';
 
-const VERSION = '1.1.31';
+const VERSION = '1.1.32';
 
 const el = (id) => document.getElementById(id);
 const preview = el('preview');
@@ -409,6 +409,8 @@ function endBout() {
     for (const take of each.takes) media.release(take.media);
   }
   bout = null;
+  // A title belongs to its bout.
+  el('export-title').value = '';
   el('toReview').disabled = true;
   el('elapsed').textContent = '0:00';
   el('live-note').textContent = 'Point it at the fight, then press START.';
@@ -710,6 +712,11 @@ let watermark = null;
 function endCardMs() {
   return watermark ? END_HOLD_MS : 0;
 }
+
+// Done on a phone's keyboard means done typing: put the keyboard away.
+el('export-title').addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') event.target.blur();
+});
 
 const behind = el('behind');
 let selection = null;
@@ -1062,7 +1069,12 @@ async function saveReel() {
         },
         ...(watermark ? { watermark } : {}),
       },
-      { onProgress: showSavingProgress, signal: stopped }
+      {
+        onProgress: showSavingProgress,
+        signal: stopped,
+        // Typed on the Save screen; blank means no title on the video at all.
+        ...(el('export-title').value.trim() ? { title: el('export-title').value } : {}),
+      }
     );
   } catch (error) {
     saving = null;

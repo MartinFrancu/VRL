@@ -64,7 +64,9 @@ ticked or unticked loops behind the list at double speed, with its hits, so
 you can see what you are choosing. **SAVE** makes one short video of the whole bout — the ticked
 moments, exchange by exchange, dipping briefly to black between each, with the
 SBA logo in the top-left corner; it opens straight on the action and ends on the full
-logo in the middle for a second, so it loops cleanly on Shorts and Reels — and
+logo in the middle for a second, so it loops cleanly on Shorts and Reels.
+Anything typed in the **title** field goes over its first two seconds, big;
+left empty, there is no title — and
 offers it to the phone's share sheet (a download link on a laptop). It records
 by playing the moments through, so it takes as long as they last. **BACK**
 carries on the same bout, and **Discard** throws it away, asking first. Once a
