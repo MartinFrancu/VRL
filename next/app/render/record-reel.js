@@ -16,7 +16,7 @@
 // for only if this disappoints.
 import { measureDurationMs, record, release } from '../media/media.js';
 import { SIDE_COLOURS, drawHits } from './hits.js';
-import { END_HOLD_MS, FADE_MS, endGlideAt, fadeAt, hitTally, labelLayout, labelStrengthAt, logoAt, reelLengthMs, tallyLayout, titleLayout, titleStrengthAt, } from './reel.js';
+import { FADE_MS, SPOTLIGHT, WATERMARK_OPACITY, endCardAt, endLogoBox, endingMs, fadeAt, hitTally, labelLayout, labelStrengthAt, numbersLayout, reelLengthMs, titleLayout, titleStrengthAt, watermarkBox, } from './reel.js';
 /**
  * Whether this device can save a video at all.
  *
@@ -62,15 +62,14 @@ export async function recordReel(cut, { video, canvas, urlFor, watermark }, { on
         throw new Error('nothing was marked, so there is nothing to save');
     if (!canRecordReel())
         throw new Error('this device cannot record video from a canvas');
-    // The end card only when there is a logo to end on: a second of plain black
-    // would be a second of nothing.
-    const endMs = watermark?.naturalWidth ? END_HOLD_MS : 0;
+    // The ending: each side's hit count on a card of its own, when anything was
+    // annotated, then the logo on the same ground, when there is a logo.
+    const hasLogo = Boolean(watermark?.naturalWidth);
+    const tally = hitTally(cut);
+    const hasNumbers = tally.red + tally.blue > 0;
+    const endMs = endingMs(hasLogo, hasNumbers);
     const totalMs = reelLengthMs(cut, endMs);
     const last = cut.spans[cut.spans.length - 1];
-    // Each side's hits, under the end card's logo — only with an end card, and
-    // only when something was annotated.
-    const tally = hitTally(cut);
-    const showTally = endMs > 0 && tally.red + tally.blue > 0;
     canvas.width = video.videoWidth || 1280;
     canvas.height = video.videoHeight || 720;
     const paper = canvas.getContext('2d');
@@ -85,8 +84,8 @@ export async function recordReel(cut, { video, canvas, urlFor, watermark }, { on
     // otherwise the seek would show up as a flash of wherever the clip landed.
     let painting = true;
     let playing = null;
-    /** How far the logo has gone from its corner towards the end card. */
-    let towardsEnd = 0;
+    /** When the ending began, once the last moment has played; null before. */
+    let endingSince = null;
     /** When the recording began, which is what the title is timed by. */
     let startedAt = performance.now();
     const words = title?.trim() ?? '';
@@ -94,13 +93,19 @@ export async function recordReel(cut, { video, canvas, urlFor, watermark }, { on
         if (!painting)
             return;
         paper.globalAlpha = 1;
-        paper.fillStyle = '#000';
-        paper.fillRect(0, 0, canvas.width, canvas.height);
+        const nowMs = video.currentTime * 1000;
+        // The last moment fades out into the ending's ground rather than black,
+        // so footage gives way to the cards without a dip in between.
+        const leaving = endMs > 0 && playing !== null && playing === last && nowMs >= (playing.fromMs + playing.toMs) / 2;
+        if (endingSince !== null || leaving)
+            drawSpotlight(paper);
+        else {
+            paper.fillStyle = '#000';
+            paper.fillRect(0, 0, canvas.width, canvas.height);
+        }
+        let strength = 1;
         if (playing) {
-            const nowMs = video.currentTime * 1000;
-            const strength = fadeAt(nowMs, playing, fadeMs);
-            if (endMs && playing === last)
-                towardsEnd = endGlideAt(nowMs, playing);
+            strength = fadeAt(nowMs, playing, fadeMs);
             paper.globalAlpha = strength;
             paper.drawImage(video, 0, 0, canvas.width, canvas.height);
             paper.globalAlpha = 1;
@@ -118,16 +123,30 @@ export async function recordReel(cut, { video, canvas, urlFor, watermark }, { on
             }
         }
         if (watermark?.naturalWidth) {
-            const logo = logoAt(towardsEnd, canvas.width, canvas.height, watermark.naturalWidth / watermark.naturalHeight);
-            paper.globalAlpha = logo.opacity;
-            paper.drawImage(watermark, logo.left, logo.top, logo.width, logo.height);
-            paper.globalAlpha = 1;
+            const aspect = watermark.naturalWidth / watermark.naturalHeight;
+            if (endingSince === null) {
+                // In its corner through the whole of the footage, through the dips at
+                // the joins too — and out with the footage at the very end.
+                const corner = watermarkBox(canvas.width, canvas.height, aspect);
+                paper.globalAlpha = WATERMARK_OPACITY * (leaving ? strength : 1);
+                paper.drawImage(watermark, corner.left, corner.top, corner.width, corner.height);
+                paper.globalAlpha = 1;
+            }
+        }
+        if (endingSince !== null) {
+            const cards = endCardAt(performance.now() - endingSince, hasNumbers);
+            if (hasNumbers && cards.numbers > 0)
+                drawNumbers(paper, tally, cards.numbers);
+            if (watermark && hasLogo && cards.logo > 0) {
+                const box = endLogoBox(canvas.width, canvas.height, watermark.naturalWidth / watermark.naturalHeight);
+                paper.globalAlpha = cards.logo;
+                paper.drawImage(watermark, box.left, box.top, box.width, box.height);
+                paper.globalAlpha = 1;
+            }
         }
         if (words) {
             drawCaption(paper, words, titleLayout(canvas.width, canvas.height), titleStrengthAt(performance.now() - startedAt));
         }
-        if (showTally && towardsEnd > 0)
-            drawTally(paper, tally, towardsEnd);
         requestAnimationFrame(paint);
     };
     const wasMuted = video.muted;
@@ -175,9 +194,9 @@ export async function recordReel(cut, { video, canvas, urlFor, watermark }, { on
             if (signal?.aborted)
                 throw new Error('saving was stopped');
         }
-        // The end card: the logo alone in the middle of a black frame.
+        // The ending: the numbers card, then the logo card.
         if (endMs) {
-            towardsEnd = 1;
+            endingSince = performance.now();
             await new Promise((resolve) => setTimeout(resolve, endMs));
             doneMs += endMs;
             onProgress?.(doneMs, totalMs);
@@ -239,18 +258,27 @@ function drawCaption(paper, words, { x, y, fontPx, maxWidth }, strength) {
     paper.globalAlpha = 1;
 }
 /**
- * Each side's hits as a number in its own colour — red, a dot, blue — centred
- * under the end card's logo, coming up as the logo arrives.
+ * The ending's ground: charcoal, lit softly in the middle. Neutral, so it
+ * neither flashes in a dark-mode feed nor sinks in a light one.
  */
-function drawTally(paper, tally, strength) {
+function drawSpotlight(paper) {
     const { width, height } = paper.canvas;
-    const { x, y, fontPx } = tallyLayout(width, height);
+    const light = paper.createRadialGradient(width / 2, height / 2, Math.min(width, height) * 0.02, width / 2, height / 2, Math.max(width, height) * 0.6);
+    light.addColorStop(0, SPOTLIGHT.centre);
+    light.addColorStop(1, SPOTLIGHT.edge);
+    paper.fillStyle = light;
+    paper.fillRect(0, 0, width, height);
+}
+/** Each side's hits as a big number in its own colour — red, a dot, blue. */
+function drawNumbers(paper, tally, strength) {
+    const { width, height } = paper.canvas;
+    const { x, y, fontPx } = numbersLayout(width, height);
     const parts = [
         { text: String(tally.red), colour: SIDE_COLOURS.red },
-        { text: '  ·  ', colour: '#fff' },
+        { text: '  ·  ', colour: '#8a9298' },
         { text: String(tally.blue), colour: SIDE_COLOURS.blue },
     ];
-    paper.font = `800 ${fontPx}px system-ui, -apple-system, "Segoe UI", sans-serif`;
+    paper.font = `900 ${fontPx}px system-ui, -apple-system, "Segoe UI", sans-serif`;
     paper.textAlign = 'left';
     paper.textBaseline = 'middle';
     const total = parts.reduce((sum, part) => sum + paper.measureText(part.text).width, 0);

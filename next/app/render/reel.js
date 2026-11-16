@@ -62,47 +62,38 @@ export function watermarkBox(width, height, aspect = 1) {
     const margin = shorter * WATERMARK_MARGIN;
     return { left: margin, top: margin, width: size * aspect, height: size };
 }
-/** How long the full logo holds alone in the middle after the last moment. */
+/** How long the logo card holds at the very end. */
 export const END_HOLD_MS = 1000;
-/** How long it takes to grow there from its corner, over the last moment. */
-export const END_GLIDE_MS = 500;
-/** How big it ends, as a share of the picture's shorter side. */
+/** How long each side's hit count shows, on its own card, before the logo. */
+export const NUMBERS_MS = 800;
+/** How quickly the numbers give way to the logo. */
+export const CROSS_MS = 150;
+/** How big the logo is on its card, as a share of the picture's shorter side. */
 export const END_SIZE = 0.6;
 /**
- * Where the logo is, and how solid, this far from its corner towards the end
- * card: 0 is the corner `watermarkBox` gives, at its see-through strength; 1 is
- * the middle, large and solid. Eased, so it arrives rather than stops.
+ * The ground both end cards stand on: charcoal, lit softly in the middle — a
+ * neutral grey that neither flashes in a dark-mode feed nor sinks in a light
+ * one, and that lifts the logo's black disc without a ring around it.
  */
-export function logoAt(towardsEnd, width, height, aspect = 1) {
-    const corner = watermarkBox(width, height, aspect);
-    const through = Math.min(1, Math.max(0, towardsEnd));
-    if (through === 0)
-        return { ...corner, opacity: WATERMARK_OPACITY };
-    const size = Math.min(width, height) * END_SIZE;
-    const middle = {
-        left: (width - size * aspect) / 2,
-        top: (height - size) / 2,
-        width: size * aspect,
-        height: size,
-    };
-    if (through === 1)
-        return { ...middle, opacity: 1 };
-    const eased = 1 - (1 - through) ** 3;
-    const between = (from, to) => from + (to - from) * eased;
-    return {
-        left: between(corner.left, middle.left),
-        top: between(corner.top, middle.top),
-        width: between(corner.width, middle.width),
-        height: between(corner.height, middle.height),
-        opacity: between(WATERMARK_OPACITY, 1),
-    };
+export const SPOTLIGHT = { centre: '#4a5057', edge: '#1c1f22' };
+/** How long the ending adds, after the last moment: numbers card, logo card. */
+export function endingMs(hasLogo, hasNumbers) {
+    return (hasNumbers ? NUMBERS_MS : 0) + (hasLogo ? END_HOLD_MS : 0);
 }
 /**
- * How far the logo has gone towards the end card at this moment of the last
- * stretch: nothing until its final `END_GLIDE_MS`, then evenly all the way.
+ * How solid each end card is this long after the last moment has gone: the
+ * numbers first, if there are any, then a quick cross to the logo.
  */
-export function endGlideAt(nowMs, last) {
-    return Math.min(1, Math.max(0, (nowMs - (last.toMs - END_GLIDE_MS)) / END_GLIDE_MS));
+export function endCardAt(sinceFootageMs, hasNumbers) {
+    if (!hasNumbers)
+        return { numbers: 0, logo: 1 };
+    const crossed = Math.min(1, Math.max(0, (sinceFootageMs - NUMBERS_MS) / CROSS_MS));
+    return { numbers: 1 - crossed, logo: crossed };
+}
+/** Where the logo goes on its card: large, in the middle. */
+export function endLogoBox(width, height, aspect = 1) {
+    const size = Math.min(width, height) * END_SIZE;
+    return { left: (width - size * aspect) / 2, top: (height - size) / 2, width: size * aspect, height: size };
 }
 /** How long the title stays over the start of the saved video. */
 export const TITLE_MS = 2000;
@@ -146,12 +137,9 @@ export function hitTally(cut) {
     }
     return tally;
 }
-/** Where the hit count goes on the end card: centred, just below its logo. */
-export function tallyLayout(width, height) {
-    const shorter = Math.min(width, height);
-    const logoBottom = height / 2 + (shorter * END_SIZE) / 2;
-    const fontPx = shorter * 0.08;
-    return { x: width / 2, y: logoBottom + shorter * 0.04 + fontPx / 2, fontPx };
+/** Where the hit count goes on its card: big, in the middle. */
+export function numbersLayout(width, height) {
+    return { x: width / 2, y: height / 2, fontPx: Math.min(width, height) * 0.22 };
 }
 /** How long an exchange's label stays over its first moment. */
 export const LABEL_MS = 1500;
