@@ -1090,6 +1090,42 @@ describe('saving the bout', () => {
   });
 
   /**
+   * "Exchange 1", then "Exchange 2", each over the first moment of its
+   * exchange. Read along the row the label sits on — 0.36 of the shorter side
+   * down — the white comes and goes twice before the end card.
+   */
+  test('labels each exchange as the video moves on to it', async ({ onTestFinished }) => {
+    const app = await twoExchanges(onTestFinished, 1, 1);
+
+    const saved = await app.save();
+    const { width, height } = await app.colourAlong(saved.path, 0.5, 0.5, 1e9);
+    const { lengthMs, samples } = await app.rowAlong(saved.path, (0.36 * Math.min(width, height)) / height, 50);
+
+    const footage = samples.filter(({ atMs }) => atMs < lengthMs - endCardMs - 100);
+    let showings = 0;
+    let showing = false;
+    for (const { white } of footage) {
+      if (white > 5 && !showing) showings += 1;
+      showing = white > 5;
+    }
+    expect(showings).toBe(2);
+  });
+
+  /** All from one exchange, there is nothing to tell apart. */
+  test('labels nothing when every moment is from one exchange', async ({ onTestFinished }) => {
+    const app = await freshApp(onTestFinished);
+    await filmBout(app, 2, { spacingMs: 1500 });
+
+    const saved = await app.save();
+    const { width, height } = await app.colourAlong(saved.path, 0.5, 0.5, 1e9);
+    const { lengthMs, samples } = await app.rowAlong(saved.path, (0.36 * Math.min(width, height)) / height);
+
+    const footage = samples.filter(({ atMs }) => atMs < lengthMs - endCardMs - 100);
+    expect(footage.length).toBeGreaterThan(5);
+    expect(footage.filter(({ white }) => white > 0)).toEqual([]);
+  });
+
+  /**
    * The saved video ends on the full logo, alone in the middle of a black
    * frame, for its last second. Read at a spot on the logo's gold kite — 70%
    * across and 60% down the logo, which ends at 60% of the shorter side,

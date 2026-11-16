@@ -179,6 +179,21 @@ export function tallyLayout(width: number, height: number): { x: number; y: numb
   return { x: width / 2, y: logoBottom + shorter * 0.04 + fontPx / 2, fontPx };
 }
 
+/** How long an exchange's label stays over its first moment. */
+export const LABEL_MS = 1500;
+
+/** How solid the label is this long into its moment: fully, then fading out. */
+export function labelStrengthAt(sinceMomentStartMs: number): number {
+  if (sinceMomentStartMs >= LABEL_MS) return 0;
+  return Math.min(1, (LABEL_MS - sinceMomentStartMs) / TITLE_FADE_MS);
+}
+
+/** Where the label goes: centred, just below where a title would be, smaller. */
+export function labelLayout(width: number, height: number): { x: number; y: number; fontPx: number } {
+  const shorter = Math.min(width, height);
+  return { x: width / 2, y: shorter * 0.36, fontPx: shorter * 0.055 };
+}
+
 /** How long each fade takes. Quick: a dip, not a scene change. */
 export const FADE_MS = 200;
 

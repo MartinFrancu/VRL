@@ -68,7 +68,8 @@ logo in the middle for a second, so it loops cleanly on Shorts and Reels —
 with each side's hits under it, a red number and a blue one, when anything
 was annotated.
 Anything typed in the **title** field goes over its first two seconds, big;
-left empty, there is no title — and
+left empty, there is no title. With moments from more than one exchange, each
+exchange's first moment says which it is — "Exchange 2" — and
 offers it to the phone's share sheet (a download link on a laptop). It records
 by playing the moments through, so it takes as long as they last. **BACK**
 carries on the same bout, and **Discard** throws it away, asking first. Once a

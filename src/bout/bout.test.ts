@@ -98,4 +98,22 @@ describe('cutting a whole bout down to its moments', () => {
   test('refuses a mark the bout does not have', () => {
     expect(() => cutBout(bout, ids('nope'), spec)).toThrow(/nope/);
   });
+
+  /**
+   * Which exchange the video has moved on to, written over the first moment
+   * of each — numbered as the bout numbers them, so as on the summary, not by
+   * how many made it into the video.
+   */
+  test('labels the first moment of each exchange with its number in the bout', () => {
+    const { spans } = cutBout(bout, ids('e1m1', 'e1m2', 'e3m1'), spec);
+
+    expect(spans.map((span) => span.label)).toEqual(['Exchange 1', undefined, 'Exchange 3']);
+  });
+
+  /** All from one exchange, there is nothing to tell apart. */
+  test('labels nothing when every moment is from the same exchange', () => {
+    const { spans } = cutBout(bout, ids('e1m1', 'e1m2'), spec);
+
+    expect(spans.every((span) => !('label' in span))).toBe(true);
+  });
 });

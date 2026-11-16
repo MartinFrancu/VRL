@@ -33,7 +33,7 @@ import {
 import { canRecordReel, recordReel } from './app/render/record-reel.js';
 import { END_HOLD_MS, reelFilename, reelLengthMs } from './app/render/reel.js';
 
-const VERSION = '1.1.33';
+const VERSION = '1.1.34';
 
 const el = (id) => document.getElementById(id);
 const preview = el('preview');

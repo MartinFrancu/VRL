@@ -16,7 +16,7 @@
 // for only if this disappoints.
 import { measureDurationMs, record, release } from '../media/media.js';
 import { SIDE_COLOURS, drawHits } from './hits.js';
-import { END_HOLD_MS, FADE_MS, endGlideAt, fadeAt, hitTally, logoAt, reelLengthMs, tallyLayout, titleLayout, titleStrengthAt, } from './reel.js';
+import { END_HOLD_MS, FADE_MS, endGlideAt, fadeAt, hitTally, labelLayout, labelStrengthAt, logoAt, reelLengthMs, tallyLayout, titleLayout, titleStrengthAt, } from './reel.js';
 /**
  * Whether this device can save a video at all.
  *
@@ -110,6 +110,12 @@ export async function recordReel(cut, { video, canvas, urlFor, watermark }, { on
             if (playing.hits?.length) {
                 drawHits(paper, playing.hits, nowMs, { left: 0, top: 0, width: canvas.width, height: canvas.height }, strength);
             }
+            // Which exchange this is, over the first moment of each — as faded as
+            // the moment, so it dips at the join with everything else.
+            if (playing.label) {
+                const { x, y, fontPx } = labelLayout(canvas.width, canvas.height);
+                drawCaption(paper, playing.label, { x, y, fontPx, maxWidth: canvas.width * 0.9 }, strength * labelStrengthAt(nowMs - playing.fromMs));
+            }
         }
         if (watermark?.naturalWidth) {
             const logo = logoAt(towardsEnd, canvas.width, canvas.height, watermark.naturalWidth / watermark.naturalHeight);
@@ -117,8 +123,9 @@ export async function recordReel(cut, { video, canvas, urlFor, watermark }, { on
             paper.drawImage(watermark, logo.left, logo.top, logo.width, logo.height);
             paper.globalAlpha = 1;
         }
-        if (words)
-            drawTitle(paper, words, titleStrengthAt(performance.now() - startedAt));
+        if (words) {
+            drawCaption(paper, words, titleLayout(canvas.width, canvas.height), titleStrengthAt(performance.now() - startedAt));
+        }
         if (showTally && towardsEnd > 0)
             drawTally(paper, tally, towardsEnd);
         requestAnimationFrame(paint);
@@ -208,14 +215,13 @@ export async function recordReel(cut, { video, canvas, urlFor, watermark }, { on
     }
 }
 /**
- * The title, white with a dark edge so it reads over any footage, made smaller
- * if it would not otherwise fit across the picture.
+ * Words over the footage — the title, an exchange's label — white with a dark
+ * edge so they read over anything, made smaller if they would not otherwise
+ * fit across the picture.
  */
-function drawTitle(paper, words, strength) {
+function drawCaption(paper, words, { x, y, fontPx, maxWidth }, strength) {
     if (strength <= 0)
         return;
-    const { width, height } = paper.canvas;
-    const { x, y, fontPx, maxWidth } = titleLayout(width, height);
     const font = (px) => `800 ${px}px system-ui, -apple-system, "Segoe UI", sans-serif`;
     paper.font = font(fontPx);
     const natural = paper.measureText(words).width;

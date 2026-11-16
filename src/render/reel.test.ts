@@ -3,10 +3,13 @@ import { describe, expect, test } from 'vitest';
 import type { Cut, Hit, Span, TakeId } from '../contracts.js';
 import {
   END_GLIDE_MS,
+  LABEL_MS,
   TITLE_MS,
   endGlideAt,
   fadeAt,
   hitTally,
+  labelLayout,
+  labelStrengthAt,
   logoAt,
   reelFilename,
   reelLengthMs,
@@ -318,6 +321,35 @@ describe('the hit count on the end card', () => {
       expect(tally.x).toBe(width / 2);
       expect(tally.y - tally.fontPx / 2).toBeGreaterThan(logo.top + logo.height);
       expect(tally.y + tally.fontPx / 2).toBeLessThan(height);
+    }
+  });
+});
+
+/**
+ * "Exchange 2" over the first moment of each exchange, as the video moves on
+ * to it — briefly, and below where a title would be, so both can be read.
+ */
+describe('the exchange label over a moment', () => {
+  test('is there from the start of the moment, then fades out and stays gone', () => {
+    expect(labelStrengthAt(0)).toBe(1);
+    expect(labelStrengthAt(LABEL_MS - 150)).toBeGreaterThan(0);
+    expect(labelStrengthAt(LABEL_MS - 150)).toBeLessThan(1);
+    expect(labelStrengthAt(LABEL_MS)).toBe(0);
+    expect(labelStrengthAt(60_000)).toBe(0);
+  });
+
+  test('sits centred below the title, smaller, still in the top half', () => {
+    for (const [width, height] of [
+      [1920, 1080],
+      [1080, 1920],
+    ] as const) {
+      const label = labelLayout(width, height);
+      const title = titleLayout(width, height);
+
+      expect(label.x).toBe(width / 2);
+      expect(label.fontPx).toBeLessThan(title.fontPx);
+      expect(label.y - label.fontPx / 2).toBeGreaterThan(title.y + title.fontPx / 2);
+      expect(label.y + label.fontPx / 2).toBeLessThan(height / 2);
     }
   });
 });

@@ -8,6 +8,14 @@ One entry per chunk, newest first, marked with the chunk's own letter:
 
 See `.claude/skills/chunks/SKILL.md` for the agreement these letters come from.
 
+## 1.1.34
+
+- **D** — When the saved video has moments from more than one exchange, the
+  first moment of each says which it is — "Exchange 2" — for a second and a
+  half, below where a title would be, dipping to black at the join with
+  everything else. Numbered as on the summary. From a single exchange there
+  is nothing to tell apart, and no labels.
+
 ## 1.1.33
 
 - **D** — The end card counts the hits: under the logo, a red number and a blue
