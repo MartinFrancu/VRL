@@ -8,6 +8,12 @@ One entry per chunk, newest first, marked with the chunk's own letter:
 
 See `.claude/skills/chunks/SKILL.md` for the agreement these letters come from.
 
+## 1.1.28
+
+- **D** — The turned-phone warning is pictures only: the huge red **!** over a
+  phone with turning arrows, in place of the sentence, which was one more
+  thing to read mid-exchange. Screen readers still get "Turn the phone back".
+
 ## 1.1.27
 
 - **D** — The saved video opens on the full SBA logo, large and solid in the

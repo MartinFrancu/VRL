@@ -81,7 +81,8 @@ describe('getting a bout filmed', () => {
 
   /**
    * The recording keeps the shape it started in, so a phone turned halfway
-   * through films the rest sideways. Said so huge it cannot be missed.
+   * through films the rest sideways. Shown so huge it cannot be missed: a
+   * red ! over a phone with a turning arrow.
    *
    * Each starts with the phone held upright, as a referee would: left alone,
    * the test browser reports a desktop's landscape screen whatever shape its
@@ -97,7 +98,8 @@ describe('getting a bout filmed', () => {
 
     await app.page.waitForFunction(() => getComputedStyle(document.getElementById('turned')).display !== 'none');
     expect(await app.turnedWarningShowing()).toBe(true);
-    expect(await app.turnedWarningText()).toBe('! Turn the phone back — this is being filmed sideways');
+    // Pictures, not words: a sentence is one more thing to read mid-exchange.
+    expect(await app.turnedWarningLooks()).toEqual({ text: '!', icon: true, label: 'Turn the phone back' });
   });
 
   /** The warning is over the picture, and the picture is what takes the marks. */

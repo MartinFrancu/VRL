@@ -212,8 +212,22 @@ export async function openApp(browser, { url, shareSheet = false }) {
         return !!warning && getComputedStyle(warning).display !== 'none' && warning.offsetWidth > 0;
       }),
 
-    /** The words under the warning. */
-    turnedWarningText: () => read(() => document.getElementById('turned').textContent.replace(/\s+/g, ' ').trim()),
+    /**
+     * What the warning shows: every bit of visible text in it, whether it has
+     * a drawn icon that is actually on screen, and what it says to a screen
+     * reader instead of words.
+     */
+    turnedWarningLooks: () =>
+      read(() => {
+        const warning = document.getElementById('turned');
+        const icon = warning.querySelector('svg');
+        const box = icon?.getBoundingClientRect();
+        return {
+          text: warning.innerText.replace(/\s+/g, ' ').trim(),
+          icon: !!box && box.width > 40 && box.height > 40,
+          label: warning.getAttribute('aria-label'),
+        };
+      }),
 
     /** Let the bout run. The only wait here that is actually about time. */
     film: (ms) => page.waitForTimeout(ms),
