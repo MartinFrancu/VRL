@@ -13,7 +13,7 @@
 
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 
-import { filmBout, launchBrowser, openApp, startServer, versionInManifest } from './harness.js';
+import { filmBout, launchBrowser, openApp, startServer, uprightCamera, versionInManifest } from './harness.js';
 
 let server;
 let browser;
@@ -1313,3 +1313,87 @@ describe('handing a saved video to a phone', () => {
     expect(await app.screen()).toBe('export');
   });
 });
+
+/**
+ * A phone held upright films an upright picture, and the saved video has to
+ * come out upright too — whatever recording the review screen last had in it,
+ * or whether it had any. The built-in fake camera is landscape, so these film
+ * from a camera that is taller than it is wide.
+ */
+describe('saving what an upright phone filmed', () => {
+  let upright;
+
+  beforeAll(async () => {
+    upright = await launchBrowser({ camera: uprightCamera() });
+  });
+
+  afterAll(async () => {
+    await upright?.close();
+  });
+
+  async function uprightApp(onCleanup) {
+    const app = await openApp(upright, { url: server.url });
+    onCleanup(() => app.close());
+    return app;
+  }
+
+  test('films upright, to begin with', async ({ onTestFinished }) => {
+    const app = await uprightApp(onTestFinished);
+    await filmBout(app, 1);
+    await app.review();
+
+    const shape = await app.page.evaluate(() => {
+      const clip = document.getElementById('clip');
+      return { width: clip.videoWidth, height: clip.videoHeight };
+    });
+    expect(shape.height).toBeGreaterThan(shape.width);
+  });
+
+  /** END straight from filming: the summary's first way in. */
+  test('saves upright, saved straight from filming', async ({ onTestFinished }) => {
+    const app = await uprightApp(onTestFinished);
+    await filmBout(app, 1);
+    await app.openSummary();
+
+    const saved = await app.save();
+    const shape = await app.shapeOfVideo(saved.path);
+
+    expect(shape.height).toBeGreaterThan(shape.width);
+  });
+
+  /**
+   * Reviewed, BACK, END — the review screen's player is empty by then. And
+   * the right way up, not merely the right shape: the camera's lighter band
+   * is still along the top, brighter there than lower down.
+   */
+  test('saves upright, saved after reviewing', async ({ onTestFinished }) => {
+    const app = await uprightApp(onTestFinished);
+    await filmBout(app, 1);
+    await app.review();
+
+    const saved = await app.save();
+    const shape = await app.shapeOfVideo(saved.path);
+    const top = await app.colourAlong(saved.path, 0.5, 0.04, 200);
+    const lower = await app.colourAlong(saved.path, 0.5, 0.6, 200);
+
+    expect(shape.height).toBeGreaterThan(shape.width);
+    const middle = (samples) => samples[Math.floor(samples.length / 3)];
+    expect(middle(top.samples).g).toBeGreaterThan(middle(lower.samples).g + 20);
+  });
+
+  /** Annotated from the summary and come back — the player is emptied again. */
+  test('saves upright, saved after annotating from the summary', async ({ onTestFinished }) => {
+    const app = await uprightApp(onTestFinished);
+    await filmBout(app, 1);
+    await app.openSummary();
+    await app.annotateFromSummary(1);
+    await app.tapPictureAt(0.5, 0.5);
+    await app.backToSummary();
+
+    const saved = await app.save();
+    const shape = await app.shapeOfVideo(saved.path);
+
+    expect(shape.height).toBeGreaterThan(shape.width);
+  });
+});
+

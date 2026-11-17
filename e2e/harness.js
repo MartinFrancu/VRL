@@ -17,7 +17,9 @@
 
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:net';
-import { readFileSync, statSync } from 'node:fs';
+import { mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 
@@ -69,7 +71,32 @@ export async function startServer() {
   return { url, stop: () => server.kill() };
 }
 
-export function launchBrowser() {
+/**
+ * A camera held upright, for the browser to film from: a short video file in
+ * the raw format Chromium's fake camera reads, taller than it is wide, green
+ * like the built-in fake, with a lighter band near the top so which way up it
+ * is can be told. The built-in fake camera is always landscape, and a phone
+ * held upright is not.
+ */
+export function uprightCamera({ width = 360, height = 640, frames = 15 } = {}) {
+  const path = join(mkdtempSync(join(tmpdir(), 'vrl-camera-')), 'upright.y4m');
+  const lumaSize = width * height;
+  const chromaSize = (width / 2) * (height / 2);
+  const frame = Buffer.alloc(lumaSize + 2 * chromaSize);
+  for (let y = 0; y < height; y++) {
+    frame.fill(y < height * 0.1 ? 200 : 140, y * width, (y + 1) * width);
+  }
+  frame.fill(60, lumaSize, lumaSize + chromaSize); // U: towards green
+  frame.fill(60, lumaSize + chromaSize); // V: towards green
+  const header = Buffer.from(`YUV4MPEG2 W${width} H${height} F30:1 Ip A1:1 C420jpeg\n`);
+  const marker = Buffer.from('FRAME\n');
+  const parts = [header];
+  for (let i = 0; i < frames; i++) parts.push(marker, frame);
+  writeFileSync(path, Buffer.concat(parts));
+  return path;
+}
+
+export function launchBrowser({ camera } = {}) {
   // `npm run test:e2e:headed` opens a window and slows the gestures down, which
   // is the quickest way to see what the suite actually does to the app.
   const watching = Boolean(process.env['VRL_HEADED']);
@@ -82,6 +109,8 @@ export function launchBrowser() {
       // A synthetic camera, and permission granted without a prompt to click.
       '--use-fake-device-for-media-stream',
       '--use-fake-ui-for-media-stream',
+      // A camera from a file, when a test needs one the built-in fake is not.
+      ...(camera ? [`--use-file-for-fake-video-capture=${camera}`] : []),
       // The server's certificate is self-signed. Without this the service
       // worker refuses to register, which is not the app's fault.
       '--ignore-certificate-errors',
@@ -758,6 +787,21 @@ export async function openApp(browser, { url, shareSheet = false }) {
         },
         { data: base64, fy, stepMs }
       );
+    },
+
+    /** The width and height of a video file on disk, as a player shows it. */
+    async shapeOfVideo(path) {
+      const base64 = readFileSync(path).toString('base64');
+      return page.evaluate(async (data) => {
+        const bytes = Uint8Array.from(atob(data), (c) => c.charCodeAt(0));
+        const url = URL.createObjectURL(new Blob([bytes]));
+        const probe = document.createElement('video');
+        probe.muted = true;
+        probe.src = url;
+        await new Promise((resolve) => probe.addEventListener('loadedmetadata', resolve, { once: true }));
+        URL.revokeObjectURL(url);
+        return { width: probe.videoWidth, height: probe.videoHeight };
+      }, base64);
     },
 
     /** How long a video file on disk actually runs, in ms. */

@@ -17,7 +17,7 @@
 
 import type { Cut, MediaHandle, Span, TakeId } from '../contracts.js';
 import { measureDurationMs, record, release } from '../media/media.js';
-import { SIDE_COLOURS, drawHits } from './hits.js';
+import { SIDE_COLOURS, drawHits, pictureIn } from './hits.js';
 import {
   FADE_MS,
   SPOTLIGHT,
@@ -139,6 +139,8 @@ export async function recordReel(
   const first = cut.spans[0];
   const last = cut.spans[cut.spans.length - 1];
 
+  // Sized for now from whatever the player holds; sized again, properly, from
+  // the first moment's own recording once that is loaded — see below.
   canvas.width = video.videoWidth || 1280;
   canvas.height = video.videoHeight || 720;
   const paper = canvas.getContext('2d');
@@ -181,14 +183,18 @@ export async function recordReel(
       // picture, which is also where it ends.
       const opening = playing === first && nowMs < (playing.fromMs + playing.toMs) / 2;
       strength = opening ? 1 : fadeAt(nowMs, playing, fadeMs);
+      // Fitted, not stretched: a moment filmed the other way up from the
+      // first gets bars at its sides rather than being squashed into shape.
+      const frame = { left: 0, top: 0, width: canvas.width, height: canvas.height };
+      const picture = pictureIn(frame, { width: video.videoWidth, height: video.videoHeight }) ?? frame;
       paper.globalAlpha = strength;
-      paper.drawImage(video, 0, 0, canvas.width, canvas.height);
+      paper.drawImage(video, picture.left, picture.top, picture.width, picture.height);
       paper.globalAlpha = 1;
       // The hits in this stretch, by the same drawHits the review screen uses,
-      // over the whole frame — and as faded as the stretch is, so a hit near a
+      // over the picture — and as faded as the stretch is, so a hit near a
       // join dips to black with everything else.
       if (playing.hits?.length) {
-        drawHits(paper, playing.hits, nowMs, { left: 0, top: 0, width: canvas.width, height: canvas.height }, strength);
+        drawHits(paper, playing.hits, nowMs, picture, strength);
       }
       // Which exchange this is, over the first moment of each — as faded as
       // the moment, so it dips at the join with everything else.
@@ -273,6 +279,13 @@ export async function recordReel(
     // on it rather than on black, and keep a copy of it for the end.
     if (first) {
       await findStart(first);
+      // The video takes the first moment's shape — upright if it was filmed
+      // upright. Not the shape of whatever the player held before saving,
+      // which after reviewing is nothing at all, and a landscape default.
+      canvas.width = video.videoWidth || canvas.width;
+      canvas.height = video.videoHeight || canvas.height;
+      firstFrame.width = canvas.width;
+      firstFrame.height = canvas.height;
       playing = first;
       await Promise.race([firstKept, new Promise((resolve) => setTimeout(resolve, 2_000))]);
     }

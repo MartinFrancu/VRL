@@ -8,6 +8,17 @@ One entry per chunk, newest first, marked with the chunk's own letter:
 
 See `.claude/skills/chunks/SKILL.md` for the agreement these letters come from.
 
+## 1.1.38
+
+- **B** — A bout filmed with the phone upright saved as a landscape video,
+  squashed, whenever it had been reviewed first — the usual way to the
+  summary — or annotated from the summary. The saved video took its shape
+  from whatever the review screen's player held at the time, and by then it
+  held nothing, so it fell back to a landscape default. It now takes the
+  shape of the first moment's own recording. A moment filmed the other way up
+  from the first is fitted in with bars at its sides, not squashed. The tests
+  now film from an upright camera too.
+
 ## 1.1.37
 
 - **D** — The saved video loops back to its start. It opens on its first
