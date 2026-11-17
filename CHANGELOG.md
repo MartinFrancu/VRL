@@ -8,6 +8,11 @@ One entry per chunk, newest first, marked with the chunk's own letter:
 
 See `.claude/skills/chunks/SKILL.md` for the agreement these letters come from.
 
+## 1.1.39
+
+- **D** — The logo at the end of the saved video holds for 0.7s instead of a
+  full second.
+
 ## 1.1.38
 
 - **B** — A bout filmed with the phone upright saved as a landscape video,

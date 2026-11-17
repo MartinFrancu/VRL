@@ -838,7 +838,7 @@ describe('saving the bout', () => {
   const leadMs = 500;
   const tailMs = 200;
   /** The logo's card and the way back to the start, at the end of every saved video. */
-  const endCardMs = 1400;
+  const endCardMs = 1100;
 
   /** One exchange of `first` marks reviewed, then one of `second` marks. */
   async function twoExchanges(onCleanup, first = 2, second = 1, { spacingMs = 700 } = {}) {
@@ -1018,7 +1018,7 @@ describe('saving the bout', () => {
     const { lengthMs, samples } = await app.rowAlong(saved.path, 0.5, 50);
     const top = await app.rowAlong(saved.path, (0.24 * Math.min(width, height)) / height);
 
-    const card = samples.filter(({ atMs }) => atMs >= lengthMs - 2100 && atMs <= lengthMs - 1500);
+    const card = samples.filter(({ atMs }) => atMs >= lengthMs - 1800 && atMs <= lengthMs - 1200);
     expect(card.length).toBeGreaterThan(5);
     expect(card.filter(({ white, red, blue }) => white < 10 || red + blue > 0)).toEqual([]);
     const start = top.samples.filter(({ atMs }) => atMs >= 200 && atMs <= 1500);
@@ -1087,7 +1087,7 @@ describe('saving the bout', () => {
     const beside = await app.colourAlong(saved.path, 0.05, 0.5, 50);
 
     // The numbers card is the 0.8s before the logo's second and the way back.
-    const card = ({ atMs }) => atMs >= lengthMs - 2100 && atMs <= lengthMs - 1500;
+    const card = ({ atMs }) => atMs >= lengthMs - 1800 && atMs <= lengthMs - 1200;
     const numbers = samples.filter(card);
     expect(numbers.length).toBeGreaterThan(5);
     expect(numbers.filter(({ red, blue }) => red < 3 || blue < 3)).toEqual([]);
@@ -1126,8 +1126,8 @@ describe('saving the bout', () => {
     const { lengthMs, samples } = await app.colourAlong(saved.path, fx, fy, 100);
     const beside = await app.colourAlong(saved.path, 0.05, 0.5, 100);
 
-    // The logo's second, before the split-second way back to the start.
-    const endCard = ({ atMs }) => atMs >= lengthMs - 1300 && atMs <= lengthMs - 500;
+    // The logo's moment, before the split-second way back to the start.
+    const endCard = ({ atMs }) => atMs >= lengthMs - 1000 && atMs <= lengthMs - 500;
     const card = samples.filter(endCard);
     expect(card.length).toBeGreaterThan(3);
     expect(card.filter(({ r, g, b }) => !(r > 150 && r > g && b < 100))).toEqual([]);

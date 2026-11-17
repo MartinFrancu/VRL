@@ -241,6 +241,11 @@ describe('the hit count on the end card', () => {
  * spotlight, so the end does not flash white in a dark-mode feed.
  */
 describe('the ending of the saved video', () => {
+  /** Long enough to register, short enough not to outstay the action. */
+  test('holds the logo for 0.7s', () => {
+    expect(END_HOLD_MS).toBe(700);
+  });
+
   test('is the logo card and the way back, plus the words card when there is one', () => {
     expect(endingMs(true, false)).toBe(END_HOLD_MS + LOOP_MS);
     expect(endingMs(true, true)).toBe(CARD_MS + END_HOLD_MS + LOOP_MS);

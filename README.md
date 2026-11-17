@@ -66,7 +66,7 @@ moments, exchange by exchange, dipping briefly to black between each, with the
 SBA logo in the top-left corner; it opens straight on its first picture. After the last
 moment it fades onto a charcoal card: whatever is typed in the **title** field,
 big — or, with no title, each side's hits as a big red number and a blue one,
-when anything was annotated — then the full logo for a second, which shrinks
+when anything was annotated — then the full logo for a moment, which shrinks
 back into its corner as the first picture returns, so it loops without a
 cut on Shorts and Reels. With moments
 from more than one exchange, each exchange's first moment says which it is —
