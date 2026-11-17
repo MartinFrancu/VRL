@@ -80,6 +80,13 @@ export function record(stream, { bitsPerSecond = 8_000_000 } = {}) {
         }),
     };
 }
+/**
+ * Footage that came from somewhere other than this camera — a recording in a
+ * saved bout's zip, opened again. Nothing is read: the handle is the blob.
+ */
+export function fromBlob(blob) {
+    return asHandle({ blob, url: URL.createObjectURL(blob) });
+}
 /** Where a player can load this footage from. */
 export function urlOf(handle) {
     return asFootage(handle).url;
@@ -91,6 +98,31 @@ export function sizeOf(handle) {
 /** The bytes themselves — for Store, which has to put them somewhere. */
 export function bytesOf(handle) {
     return asFootage(handle).blob;
+}
+/**
+ * The shape of a recording's picture, as a player shows it — upright if it was
+ * filmed upright, whatever the camera track said. Reads only as far as the
+ * file's header; zero by zero if even that cannot be had in time.
+ */
+export async function shapeOf(handle, { giveUpAfterMs = 3000 } = {}) {
+    const probe = document.createElement('video');
+    probe.muted = true;
+    probe.preload = 'metadata';
+    try {
+        await new Promise((resolve) => {
+            const timer = setTimeout(resolve, giveUpAfterMs);
+            probe.addEventListener('loadedmetadata', () => {
+                clearTimeout(timer);
+                resolve();
+            }, { once: true });
+            probe.src = urlOf(handle);
+        });
+        return { width: probe.videoWidth, height: probe.videoHeight };
+    }
+    finally {
+        probe.removeAttribute('src');
+        probe.load();
+    }
 }
 /** Give back the memory behind a handle. Nothing may use it afterwards. */
 export function release(handle) {

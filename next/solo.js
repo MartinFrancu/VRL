@@ -16,13 +16,16 @@
 // from the outside and the one least worth rewriting blind.
 
 import { cutBout, exchangeHolding, newBout, withExchange, withExchangeReplaced } from './app/bout/bout.js';
+import { boutFromRecord, boutRecord } from './app/bout/record.js';
 import { cut, durationOf, withHit, withoutLastHit } from './app/bout/exchange.js';
 import { drawHits, pictureIn, toFrame } from './app/render/hits.js';
-import { isChosen, showing, startingChoice, toggled } from './app/bout/selection.js';
+import { isChosen, selectionOf, showing, startingChoice, toggled } from './app/bout/selection.js';
 import { Capture } from './app/capture/capture.js';
 import { cameraClockUsable } from './app/capture/clock.js';
 import { heldDifferently } from './app/capture/held.js';
 import * as media from './app/media/media.js';
+import { markersCsv, rawFilename, readRaw, recordingName } from './app/store/raw.js';
+import { crcOfBlob, readZip, zipStored } from './app/store/zip.js';
 import {
   clampWithin,
   draggedTo,
@@ -33,7 +36,7 @@ import {
 import { canRecordReel, recordReel } from './app/render/record-reel.js';
 import { endingMs, hitTally, reelFilename, reelLengthMs } from './app/render/reel.js';
 
-const VERSION = '1.1.38';
+const VERSION = '1.1.41';
 
 const el = (id) => document.getElementById(id);
 const preview = el('preview');
@@ -743,6 +746,41 @@ function openSummary() {
   playBehind();
 }
 
+/**
+ * A bout saved with Save raw, opened again from the start screen: rebuilt from
+ * its record on the recordings in its zip — read as slices of the file picked,
+ * not into memory — and put on the summary as it was saved, ticks, title and
+ * window and all, ready to re-cut, annotate, save again or discard.
+ */
+async function openSaved(file) {
+  if (!file || bout || capture.recording) return;
+  const note = el('live-note');
+  note.textContent = 'Opening the saved bout…';
+  try {
+    const opened = await readRaw(await readZip(file));
+    const loaded = boutFromRecord(opened.record, (key) => media.fromBlob(opened.recordings.get(key)));
+    bout = loaded.bout;
+    leadMs = loaded.window.leadMs;
+    tailMs = loaded.window.tailMs;
+    for (const [input, value] of [
+      ['lead', leadMs],
+      ['tail', tailMs],
+    ]) {
+      el(input).value = String(value);
+      el(`${input}-value`).textContent = `${(value / 1000).toFixed(1)}s`;
+    }
+    el('export-title').value = loaded.title;
+    note.textContent = 'Point it at the fight, then press START.';
+    selection = selectionOf(bout, loaded.chosen);
+    folded.clear();
+    renderPicks();
+    screenIs('export');
+    playBehind();
+  } catch (error) {
+    note.textContent = `Could not open it: ${error?.message ?? String(error)}`;
+  }
+}
+
 /** BACK from the summary: the bout is not over after all. */
 function carryOn() {
   stopBehind();
@@ -900,6 +938,8 @@ function renderLength() {
       ? `${chosen} of ${total} mark${total === 1 ? '' : 's'} · ${(reelLengthMs(plan, endCardMs(plan)) / 1000).toFixed(1)}s`
       : 'Nothing chosen') + ` · ${(boutBytes() / 1e6).toFixed(0)} MB held`;
   el('export-save').disabled = chosen === 0 || !canRecordReel();
+  // The raw files are the whole bout, whatever is ticked.
+  el('export-raw').disabled = false;
 }
 
 /**
@@ -1017,7 +1057,7 @@ function closeSaving() {
   saving?.abort();
   saving = null;
   if (ready) {
-    media.release(ready.footage);
+    ready.release();
     ready = null;
   }
   el('saving-share').hidden = true;
@@ -1108,6 +1148,71 @@ async function saveReel() {
 }
 
 /**
+ * The raw files: every exchange's whole recording, untouched, with the bout
+ * written down beside them — `bout.json` and `markers.csv` — in one zip.
+ *
+ * Nothing is played through or recorded again, so it takes moments rather than
+ * as long as the footage lasts; the only reading is each recording's checksum,
+ * a piece at a time. The zip is the recordings themselves with headers between
+ * them, so the footage is never held twice.
+ */
+async function saveRaw() {
+  if (!bout || !selection || saving) return;
+  stopBehind();
+  saving = new AbortController();
+  const stopped = saving.signal;
+  el('saving-title').textContent = 'Packing the raw files';
+  el('saving-text').textContent = 'Every exchange, whole, with its marks and hits written down beside it.';
+  el('saving-stop').textContent = 'Stop';
+  el('saving').hidden = false;
+  el('saving-bar').firstElementChild.style.width = '0%';
+
+  try {
+    const files = new Map();
+    const recordings = [];
+    for (const [index, each] of bout.exchanges.entries()) {
+      for (const take of each.takes) {
+        const bytes = media.bytesOf(take.media);
+        const key = recordingName(index, bytes.type || capture.mimeType);
+        const measured = await media.shapeOf(take.media);
+        const shape = measured.width > 0 ? measured : { width: take.width, height: take.height };
+        files.set(take.id, { key, ...shape });
+        recordings.push({ name: key, data: bytes });
+      }
+    }
+    const record = boutRecord(bout, {
+      chosen: selection.chosen,
+      title: el('export-title').value,
+      window: { leadMs, tailMs },
+      app: VERSION,
+      savedAt: new Date().toISOString(),
+      files,
+    });
+    const written = [
+      { name: 'bout.json', data: new Blob([JSON.stringify(record, null, 2)], { type: 'application/json' }) },
+      { name: 'markers.csv', data: new Blob([markersCsv(record)], { type: 'text/csv' }) },
+      ...recordings,
+    ];
+    const entries = [];
+    for (const [at, entry] of written.entries()) {
+      if (stopped.aborted) throw new Error('stopped');
+      entries.push({ ...entry, crc: await crcOfBlob(entry.data) });
+      el('saving-bar').firstElementChild.style.width = `${Math.round(((at + 1) / written.length) * 100)}%`;
+    }
+    const zip = zipStored(entries, new Date());
+    saving = null;
+    const url = URL.createObjectURL(zip);
+    offerFile(zip, rawFilename(bout.startedAt), url, () => URL.revokeObjectURL(url));
+  } catch (error) {
+    saving = null;
+    if (stopped.aborted) return closeSaving();
+    el('saving-title').textContent = 'Could not save the raw files';
+    el('saving-text').textContent = error?.message ?? String(error);
+    el('saving-stop').textContent = 'Close';
+  }
+}
+
+/**
  * Offer the finished video, and wait for a tap to hand it over.
  *
  * Share where the phone has a share sheet that takes files — that is how a
@@ -1119,8 +1224,16 @@ function offerReel(footage, chosen) {
   const bytes = media.bytesOf(footage);
   // Named for when the bout started and how many moments made it in.
   const name = reelFilename(bout.startedAt, chosen.length, bytes.type);
+  offerFile(bytes, name, media.urlOf(footage), () => media.release(footage));
+}
+
+/**
+ * Offer a finished file — the cut, or the raw files — and wait for a tap to
+ * hand it over. `release` gives back what it holds once the panel is closed.
+ */
+function offerFile(bytes, name, url, release) {
   const file = new File([bytes], name, { type: bytes.type });
-  ready = { footage, file, name };
+  ready = { file, name, release };
 
   const shareable = Boolean(navigator.canShare?.({ files: [file] }));
   el('saving-title').textContent = 'Saved';
@@ -1132,7 +1245,7 @@ function offerReel(footage, chosen) {
   const download = el('saving-download');
   download.hidden = shareable;
   if (!shareable) {
-    download.href = media.urlOf(footage);
+    download.href = url;
     download.download = name;
   }
   el('saving-stop').textContent = 'Done';
@@ -1323,6 +1436,14 @@ el('saving-new').addEventListener('click', newBoutAfterSaving);
 // changes a moment later, so as not to stand in the way of it.
 el('saving-download').addEventListener('click', () => setTimeout(showSaved, 0));
 el('export-save').addEventListener('click', () => void saveReel());
+el('export-raw').addEventListener('click', () => void saveRaw());
+el('open-saved').addEventListener('click', () => el('open-file').click());
+el('open-file').addEventListener('change', (event) => {
+  const [file] = event.target.files ?? [];
+  // Cleared, so picking the same zip again still counts as a change.
+  event.target.value = '';
+  void openSaved(file);
+});
 el('saving-stop').addEventListener('click', closeSaving);
 el('saving-share').addEventListener('click', () => void shareReady());
 

@@ -63,7 +63,7 @@ export function watermarkBox(width, height, aspect = 1) {
     return { left: margin, top: margin, width: size * aspect, height: size };
 }
 /** How long the logo card holds at the very end. */
-export const END_HOLD_MS = 1000;
+export const END_HOLD_MS = 700;
 /**
  * How long the card of words shows before the logo: the title typed on the
  * Save screen, or else each side's hit count.

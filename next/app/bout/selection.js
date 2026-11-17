@@ -30,6 +30,14 @@ export function startingChoice(bout) {
         return everyMark(bout);
     return { chosen: inOrder(bout).filter((id) => annotated.has(id)), lastTouched: null };
 }
+/**
+ * The ticks a saved bout was saved with, put back — in the bout's order, and
+ * leaving out any the bout has no mark for.
+ */
+export function selectionOf(bout, chosen) {
+    const wanted = new Set(chosen);
+    return { chosen: inOrder(bout).filter((id) => wanted.has(id)), lastTouched: null };
+}
 export function isChosen(selection, id) {
     return selection.chosen.includes(id);
 }
