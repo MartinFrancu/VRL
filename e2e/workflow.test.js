@@ -152,6 +152,47 @@ describe('getting a bout filmed', () => {
     expect(await app.screen()).toBe('idle');
     expect(await app.turnedWarningShowing()).toBe(false);
   });
+
+  /**
+   * START in the middle of the camera's picture — the one thing to press, on
+   * what is about to be filmed — and gone once filming, when the picture is
+   * the mark button.
+   */
+  test('offers START in the middle of the picture', async ({ onTestFinished }) => {
+    const app = await freshApp(onTestFinished);
+
+    const start = await app.boxOf('start');
+    const camera = await app.boxOf('camera');
+    expect(Math.abs(start.x - camera.x)).toBeLessThan(2);
+    expect(Math.abs(start.y - camera.y)).toBeLessThan(2);
+    expect(start.width).toBeGreaterThan(100);
+
+    await app.start();
+    expect(await app.boxOf('start')).toBeNull();
+  });
+
+  /** Held sideways, it is still the middle of the picture. */
+  test('keeps START in the middle of the picture held sideways', async ({ onTestFinished }) => {
+    const app = await freshApp(onTestFinished);
+    await app.rotate('landscape');
+
+    const start = await app.boxOf('start');
+    const camera = await app.boxOf('camera');
+    expect(Math.abs(start.x - camera.x)).toBeLessThan(2);
+    expect(Math.abs(start.y - camera.y)).toBeLessThan(2);
+  });
+
+  /** Opening a saved bout sits with help, at the top: the same size, just before it. */
+  test('offers opening a saved bout beside help, the same size', async ({ onTestFinished }) => {
+    const app = await freshApp(onTestFinished);
+
+    const open = await app.boxOf('open-saved');
+    const help = await app.boxOf('help-open');
+    expect(open.left + open.width).toBeLessThanOrEqual(help.left);
+    expect(help.left - (open.left + open.width)).toBeLessThan(20);
+    expect(Math.abs(open.height - help.height)).toBeLessThan(1);
+    expect(Math.abs(open.y - help.y)).toBeLessThan(1);
+  });
 });
 
 /**

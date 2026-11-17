@@ -8,6 +8,14 @@ One entry per chunk, newest first, marked with the chunk's own letter:
 
 See `.claude/skills/chunks/SKILL.md` for the agreement these letters come from.
 
+## 1.1.42
+
+- **D** — The start screen: START is a big round button in the middle of the
+  camera's picture, and opening a saved bout is a 📂 button beside **?** at
+  the top, the same size. The row of buttons below the picture is gone until
+  filming starts, which gives the picture more room. Neither button shows
+  while filming.
+
 ## 1.1.41
 
 - **D** — **Open saved bout**, on the start screen (not while filming). It

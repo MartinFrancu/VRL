@@ -25,8 +25,9 @@ for that one load and never again.
 A **bout** is the whole fight. It is filmed in **exchanges**: film until the
 fight is stopped, look at what you marked, carry on.
 
-**Idle** — pointed at the fight, not recording. One button: **START**. Hold the
-phone the way you mean to film *before* you press it.
+**Idle** — pointed at the fight, not recording. One button, round, in the middle
+of the picture: **START**. Hold the phone the way you mean to film *before* you
+press it.
 
 **Filming** — **tap the picture** whenever you see something worth a second
 look. The whole picture is the button, because you are watching the fight rather
@@ -78,7 +79,7 @@ and untouched, with `bout.json` (everything about the bout: marks, hits with
 their side and x/y, ticks, the title, the window, when it was filmed) and
 `markers.csv` (every mark and hit as a table, times in each file and on the
 clock) beside them: to cut by hand in an editor, or keep — and to open again:
-**Open saved bout**, on the start screen, picks such a zip and puts the bout
+**📂** (Open saved bout), beside **?** on the start screen, picks such a zip and puts the bout
 back on the summary as it was saved (ticks, hits, title, window), to re-cut,
 annotate, save again, or carry on filming into. **BACK**
 carries on the same bout, and **Discard** throws it away, asking first. Once a

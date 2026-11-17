@@ -613,6 +613,15 @@ export async function openApp(browser, { url, shareSheet = false }) {
       );
     },
 
+    /** Where an element is on screen, or null when it is not showing. */
+    boxOf: (id) =>
+      page.evaluate((id) => {
+        const element = document.getElementById(id);
+        if (!element || element.offsetWidth === 0) return null;
+        const { left, top, width, height } = element.getBoundingClientRect();
+        return { left, top, width, height, x: left + width / 2, y: top + height / 2 };
+      }, id),
+
     /** Whether the start screen is offering to open a saved bout. */
     openSavedOffered: () => read(() => document.getElementById('open-saved').offsetWidth > 0),
 
