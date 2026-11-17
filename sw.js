@@ -12,7 +12,7 @@
 // and the next opening has the new version. A version behind is a fair price
 // for never waiting.
 
-const CACHE = 'vrl-v10';
+const CACHE = 'vrl-v11';
 
 const SHELL = [
   './',
@@ -23,6 +23,7 @@ const SHELL = [
   // the one place it has to work.
   './app/bout/bout.js',
   './app/bout/exchange.js',
+  './app/bout/record.js',
   './app/bout/selection.js',
   './app/capture/capture.js',
   './app/capture/clock.js',
@@ -32,6 +33,8 @@ const SHELL = [
   './app/render/playhead.js',
   './app/render/reel.js',
   './app/render/record-reel.js',
+  './app/store/raw.js',
+  './app/store/zip.js',
   './manifest.webmanifest',
   './qr.svg',
   // Stamped into the corner of every saved video, offline too.

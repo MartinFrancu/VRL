@@ -222,7 +222,11 @@ ones can merge them.
 4. ~~**Render**~~ — `src/render/playhead.ts`. The pure half only; the screen
    sink is still the shell seeking a `<video>` element. Done enough.
 5. ~~**Media**~~ — `src/media/media.ts`, the thinnest wrapper that works. Done.
-6. **Store** — not started.
+6. **Store** — begun: `src/store/zip.ts` (a zip written by hand so recordings
+   are referenced, never copied — checked against fflate and Python's zipfile
+   in the tests) and `src/store/raw.ts` (the raw files' names and
+   `markers.csv`). `BoutRecord` is now defined in the contracts and written by
+   `src/bout/record.ts`. Storage on the phone itself is still to come.
 7. ~~**The highlight video**~~ — `src/render/reel.ts` and `record-reel.ts`. Done,
    in its first form: the marked stretches saved as one file and handed to the
    phone's share sheet. It is the same `Cut` the screen gets, sent to a

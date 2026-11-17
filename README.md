@@ -61,7 +61,7 @@ are the ones that matter — or all of them, if nothing was annotated. **✎**
 beside a mark opens it on the review screen to annotate, and BACK or Done
 comes back with the ticks as they were and that mark ticked; tick or untick any others; whichever mark was last
 ticked or unticked loops behind the list at double speed, with its hits, so
-you can see what you are choosing. **SAVE** makes one short video of the whole bout — the ticked
+you can see what you are choosing. **Save cut** makes one short video of the whole bout — the ticked
 moments, exchange by exchange, dipping briefly to black between each, with the
 SBA logo in the top-left corner; it opens straight on its first picture. After the last
 moment it fades onto a charcoal card: whatever is typed in the **title** field,
@@ -72,7 +72,12 @@ cut on Shorts and Reels. With moments
 from more than one exchange, each exchange's first moment says which it is —
 "Exchange 2". It then
 offers it to the phone's share sheet (a download link on a laptop). It records
-by playing the moments through, so it takes as long as they last. **BACK**
+by playing the moments through, so it takes as long as they last. **Save raw**
+packs the whole bout into one zip instead — every exchange's recording, whole
+and untouched, with `bout.json` (everything about the bout: marks, hits with
+their side and x/y, ticks, the title, the window, when it was filmed) and
+`markers.csv` (every mark and hit as a table, times in each file and on the
+clock) beside them: to cut by hand in an editor, or keep. **BACK**
 carries on the same bout, and **Discard** throws it away, asking first. Once a
 video has been handed over, the panel says **✓ Saved** and offers **New bout**
 (no asking — it has just been saved) or **Back to the bout**. The line under

@@ -8,6 +8,21 @@ One entry per chunk, newest first, marked with the chunk's own letter:
 
 See `.claude/skills/chunks/SKILL.md` for the agreement these letters come from.
 
+## 1.1.40
+
+- **D** — **Save raw**, beside **Save cut** (the old SAVE) and Discard on the
+  summary. One zip, named for the day: every exchange's whole recording,
+  untouched; `bout.json`, the bout written down in full — every mark, every
+  hit with its side and its x and y, which marks were ticked, the title, the
+  lead and tail, when each exchange was filmed and the shape of its picture,
+  and which version of the app wrote it; and `markers.csv`, the same marks and
+  hits as a table, times in each file and on the clock, positions as
+  fractions and in pixels. Nothing is played through or re-encoded, so it is
+  quick. The zip is written without copying the footage — a phone holding a
+  bout twice is a phone closing the tab — and is checked in the tests against
+  a standard zip library and Python's zipfile. It works with nothing ticked:
+  the raw files are the whole bout.
+
 ## 1.1.39
 
 - **D** — The logo at the end of the saved video holds for 0.7s instead of a

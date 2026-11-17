@@ -294,3 +294,33 @@ export interface ExchangeRecord {
   readonly takes: readonly StoredTake[];
   readonly marks: readonly Mark[];
 }
+
+/**
+ * A whole bout, serialised — what the raw files' `bout.json` holds, and what a
+ * saved bout is opened again from.
+ *
+ * More than the `Bout` itself: the choices made about it on the Save screen —
+ * which marks were ticked, the window around each, the title — since opening
+ * it again should find them as they were left. And who wrote it, and when,
+ * because a file kept for training something later is only as good as what
+ * is known about where it came from.
+ *
+ * Each take's `width` and `height` here are its picture as a player shows it —
+ * what a hit's `x` and `y` are fractions of — and each take's one `media` entry
+ * names its recording's file, beside this one, and covers all of it.
+ */
+export interface BoutRecord {
+  readonly v: 1;
+  readonly id: BoutId;
+  readonly startedAt: string;
+  /** When this record was written, and by which version of the app. */
+  readonly savedAt: string;
+  readonly app: string;
+  /** The title typed on the Save screen. Absent when none was. */
+  readonly title?: string;
+  /** The run-up and tail around each mark, as set when it was saved. */
+  readonly window: { readonly leadMs: number; readonly tailMs: number };
+  /** The marks ticked for the cut, in bout order. */
+  readonly chosen: readonly MarkId[];
+  readonly exchanges: readonly ExchangeRecord[];
+}

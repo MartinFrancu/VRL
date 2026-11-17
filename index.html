@@ -106,7 +106,8 @@
       }
       #export-save { flex: 2; font-size: 18px; padding: 16px; border-color: var(--accent); color: var(--accent); }
       #export-discard { flex: 1; font-size: 16px; padding: 16px; border-color: var(--mark); color: var(--mark); }
-      #export-save[disabled] { opacity: 0.35; }
+      #export-raw { flex: 1; font-size: 16px; padding: 16px; }
+      #export-save[disabled], #export-raw[disabled] { opacity: 0.35; }
 
       video {
         display: block;
@@ -609,7 +610,10 @@
           aria-label="Title on the video" autocomplete="off" enterkeyhint="done" />
         <div class="actions-row">
           <button id="export-discard">Discard</button>
-          <button id="export-save" disabled>SAVE</button>
+          <!-- The whole recordings, untouched, with the marks and hits written
+               down beside them: to cut by hand, open again, or keep. -->
+          <button id="export-raw" disabled>Save raw</button>
+          <button id="export-save" disabled>Save cut</button>
         </div>
       </div>
     </section>

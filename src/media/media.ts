@@ -116,6 +116,35 @@ export function bytesOf(handle: MediaHandle): Blob {
   return asFootage(handle).blob;
 }
 
+/**
+ * The shape of a recording's picture, as a player shows it — upright if it was
+ * filmed upright, whatever the camera track said. Reads only as far as the
+ * file's header; zero by zero if even that cannot be had in time.
+ */
+export async function shapeOf(handle: MediaHandle, { giveUpAfterMs = 3000 } = {}): Promise<{ width: number; height: number }> {
+  const probe = document.createElement('video');
+  probe.muted = true;
+  probe.preload = 'metadata';
+  try {
+    await new Promise<void>((resolve) => {
+      const timer = setTimeout(resolve, giveUpAfterMs);
+      probe.addEventListener(
+        'loadedmetadata',
+        () => {
+          clearTimeout(timer);
+          resolve();
+        },
+        { once: true }
+      );
+      probe.src = urlOf(handle);
+    });
+    return { width: probe.videoWidth, height: probe.videoHeight };
+  } finally {
+    probe.removeAttribute('src');
+    probe.load();
+  }
+}
+
 /** Give back the memory behind a handle. Nothing may use it afterwards. */
 export function release(handle: MediaHandle): void {
   URL.revokeObjectURL(asFootage(handle).url);

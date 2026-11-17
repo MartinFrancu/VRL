@@ -600,9 +600,12 @@ export async function openApp(browser, { url, shareSheet = false }) {
     /** What the title field on the Save screen holds. */
     titleTyped: () => read(() => document.getElementById('export-title').value),
 
-    async save() {
+    /** Save raw, from the summary, and catch the zip the way `save` catches the video. */
+    saveRaw: () => app.save('#export-raw'),
+
+    async save(button = '#export-save') {
       if ((await screen()) !== 'export') await app.openSummary();
-      await page.locator('#export-save').click();
+      await page.locator(button).click();
       await page.waitForFunction(() => !document.getElementById('saving-download').hidden, undefined, {
         timeout: 60_000,
       });

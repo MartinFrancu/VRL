@@ -11,6 +11,11 @@
 // second mark is later than the first" is true every time, and "the second mark
 // is at 2.933s" is a coin toss wearing a number.
 
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 
 import { filmBout, launchBrowser, openApp, startServer, uprightCamera, versionInManifest } from './harness.js';
@@ -1394,6 +1399,77 @@ describe('saving what an upright phone filmed', () => {
     const shape = await app.shapeOfVideo(saved.path);
 
     expect(shape.height).toBeGreaterThan(shape.width);
+  });
+});
+
+/**
+ * Save raw: every exchange's whole recording, untouched, in one zip with the
+ * bout written down beside them — opened here by Python's zipfile, which
+ * checks every file in it against its checksum.
+ */
+describe('saving the raw files', () => {
+  /** Unpack a zip with Python: its names, its check, its JSON and CSV, and a recording out to disk. */
+  function unpack(path) {
+    const out = mkdtempSync(join(tmpdir(), 'vrl-raw-'));
+    const script = [
+      'import json, sys, zipfile',
+      'z = zipfile.ZipFile(sys.argv[1])',
+      'names = z.namelist()',
+      'video = next(n for n in names if n.startswith("exchange-1."))',
+      'z.extract(video, sys.argv[2])',
+      'print(json.dumps({"names": names, "check": z.testzip(), "bout": json.loads(z.read("bout.json")),',
+      '  "csv": z.read("markers.csv").decode(), "video": sys.argv[2] + "/" + video}))',
+    ].join('\n');
+    return JSON.parse(execFileSync('python3', ['-c', script, path, out]).toString());
+  }
+
+  test('packs every recording, whole, with the bout written down beside them', async ({ onTestFinished }) => {
+    const app = await freshApp(onTestFinished);
+    await filmBout(app, 1, { spacingMs: 1500 });
+    await app.review();
+    await app.annotate('red');
+    await app.tapPictureAt(0.3, 0.4);
+    await app.doneHits();
+    await app.back();
+    await app.film(1500);
+    await app.mark();
+    await app.film(1200);
+    await app.openSummary();
+    await app.typeTitle('Spring camp');
+
+    const saved = await app.saveRaw();
+    const raw = unpack(saved.path);
+
+    expect(saved.name).toMatch(/^\d{4}-\d{2}-\d{2} SBA bout raw\.zip$/);
+    expect(raw.check).toBeNull();
+    expect(raw.names.slice(0, 2)).toEqual(['bout.json', 'markers.csv']);
+    expect(raw.names.slice(2).map((name) => name.replace(/\.\w+$/, ''))).toEqual(['exchange-1', 'exchange-2']);
+
+    const bout = raw.bout;
+    expect(bout).toMatchObject({ v: 1, title: 'Spring camp', window: { leadMs: expect.any(Number) } });
+    expect(bout.exchanges).toHaveLength(2);
+    const [hit] = bout.exchanges[0].marks[0].hits;
+    expect(hit.side).toBe('red');
+    expect(hit.x).toBeCloseTo(0.3, 1);
+    expect(hit.y).toBeCloseTo(0.4, 1);
+    expect(bout.chosen).toContain(bout.exchanges[0].marks[0].id);
+    expect(raw.csv.split('\n').filter((row) => row.split(',')[2] === 'hit')).toHaveLength(1);
+
+    // The recording is the whole exchange, as filmed — not a cut of it.
+    const take = bout.exchanges[0].takes[0];
+    expect(take.media[0].key).toBe(raw.names[2]);
+    expect(Math.abs((await app.lengthOfVideo(raw.video)) - take.durationMs)).toBeLessThan(400);
+  });
+
+  /** Whatever is ticked, the raw files are the whole bout — even with nothing ticked. */
+  test('can be saved with nothing ticked', async ({ onTestFinished }) => {
+    const app = await freshApp(onTestFinished);
+    await filmBout(app, 1);
+    await app.openSummary();
+    await app.toggleMark(1, 1);
+
+    expect(await app.page.locator('#export-save').isDisabled()).toBe(true);
+    expect(await app.page.locator('#export-raw').isDisabled()).toBe(false);
   });
 });
 
