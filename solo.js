@@ -16,16 +16,16 @@
 // from the outside and the one least worth rewriting blind.
 
 import { cutBout, exchangeHolding, newBout, withExchange, withExchangeReplaced } from './app/bout/bout.js';
-import { boutRecord } from './app/bout/record.js';
+import { boutFromRecord, boutRecord } from './app/bout/record.js';
 import { cut, durationOf, withHit, withoutLastHit } from './app/bout/exchange.js';
 import { drawHits, pictureIn, toFrame } from './app/render/hits.js';
-import { isChosen, showing, startingChoice, toggled } from './app/bout/selection.js';
+import { isChosen, selectionOf, showing, startingChoice, toggled } from './app/bout/selection.js';
 import { Capture } from './app/capture/capture.js';
 import { cameraClockUsable } from './app/capture/clock.js';
 import { heldDifferently } from './app/capture/held.js';
 import * as media from './app/media/media.js';
-import { markersCsv, rawFilename, recordingName } from './app/store/raw.js';
-import { crcOfBlob, zipStored } from './app/store/zip.js';
+import { markersCsv, rawFilename, readRaw, recordingName } from './app/store/raw.js';
+import { crcOfBlob, readZip, zipStored } from './app/store/zip.js';
 import {
   clampWithin,
   draggedTo,
@@ -36,7 +36,7 @@ import {
 import { canRecordReel, recordReel } from './app/render/record-reel.js';
 import { endingMs, hitTally, reelFilename, reelLengthMs } from './app/render/reel.js';
 
-const VERSION = '1.1.40';
+const VERSION = '1.1.41';
 
 const el = (id) => document.getElementById(id);
 const preview = el('preview');
@@ -746,6 +746,41 @@ function openSummary() {
   playBehind();
 }
 
+/**
+ * A bout saved with Save raw, opened again from the start screen: rebuilt from
+ * its record on the recordings in its zip — read as slices of the file picked,
+ * not into memory — and put on the summary as it was saved, ticks, title and
+ * window and all, ready to re-cut, annotate, save again or discard.
+ */
+async function openSaved(file) {
+  if (!file || bout || capture.recording) return;
+  const note = el('live-note');
+  note.textContent = 'Opening the saved bout…';
+  try {
+    const opened = await readRaw(await readZip(file));
+    const loaded = boutFromRecord(opened.record, (key) => media.fromBlob(opened.recordings.get(key)));
+    bout = loaded.bout;
+    leadMs = loaded.window.leadMs;
+    tailMs = loaded.window.tailMs;
+    for (const [input, value] of [
+      ['lead', leadMs],
+      ['tail', tailMs],
+    ]) {
+      el(input).value = String(value);
+      el(`${input}-value`).textContent = `${(value / 1000).toFixed(1)}s`;
+    }
+    el('export-title').value = loaded.title;
+    note.textContent = 'Point it at the fight, then press START.';
+    selection = selectionOf(bout, loaded.chosen);
+    folded.clear();
+    renderPicks();
+    screenIs('export');
+    playBehind();
+  } catch (error) {
+    note.textContent = `Could not open it: ${error?.message ?? String(error)}`;
+  }
+}
+
 /** BACK from the summary: the bout is not over after all. */
 function carryOn() {
   stopBehind();
@@ -1402,6 +1437,13 @@ el('saving-new').addEventListener('click', newBoutAfterSaving);
 el('saving-download').addEventListener('click', () => setTimeout(showSaved, 0));
 el('export-save').addEventListener('click', () => void saveReel());
 el('export-raw').addEventListener('click', () => void saveRaw());
+el('open-saved').addEventListener('click', () => el('open-file').click());
+el('open-file').addEventListener('change', (event) => {
+  const [file] = event.target.files ?? [];
+  // Cleared, so picking the same zip again still counts as a change.
+  event.target.value = '';
+  void openSaved(file);
+});
 el('saving-stop').addEventListener('click', closeSaving);
 el('saving-share').addEventListener('click', () => void shareReady());
 

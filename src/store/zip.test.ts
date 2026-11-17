@@ -3,10 +3,10 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { unzipSync } from 'fflate';
+import { unzipSync, zipSync } from 'fflate';
 import { describe, expect, test } from 'vitest';
 
-import { crc32, crcOfBlob, zipStored } from './zip.js';
+import { crc32, crcOfBlob, readZip, zipStored } from './zip.js';
 
 const text = (value: string) => new TextEncoder().encode(value);
 const bytesOf = async (blob: Blob) => new Uint8Array(await blob.arrayBuffer());
@@ -86,5 +86,59 @@ describe('a zip of the raw files', () => {
     const huge = { size: 2 ** 32 } as Blob;
 
     expect(() => zipStored([{ name: 'huge.mp4', data: huge, crc: 0 }], new Date())).toThrow(/too big/);
+  });
+});
+
+/**
+ * Opening a saved bout reads the zip back — each file as a slice of the one
+ * picked, so a bout's footage is not read into memory just to be opened.
+ */
+describe('reading a zip back', () => {
+  const zipOf = async (files: Record<string, Uint8Array<ArrayBuffer>>) =>
+    zipStored(
+      await Promise.all(
+        Object.entries(files).map(async ([name, bytes]) => ({
+          name,
+          data: new Blob([bytes]),
+          crc: await crcOfBlob(new Blob([bytes])),
+        }))
+      ),
+      new Date(2026, 10, 17)
+    );
+
+  test('finds every file this app wrote, byte for byte', async () => {
+    const video = new Uint8Array(30_000).map((_, at) => (at * 3) % 256);
+    const read = await readZip(await zipOf({ 'bout.json': text('{"v":1}'), 'exchange-1.mp4': video }));
+
+    expect([...read.keys()]).toEqual(['bout.json', 'exchange-1.mp4']);
+    expect(await bytesOf(read.get('exchange-1.mp4')!)).toEqual(video);
+    expect(await read.get('bout.json')!.text()).toBe('{"v":1}');
+  });
+
+  /** A recording comes back as what it is, so a player knows what to do with it. */
+  test('gives each file the type its name says', async () => {
+    const read = await readZip(await zipOf({ 'exchange-1.mp4': text('x'), 'exchange-2.webm': text('y') }));
+
+    expect(read.get('exchange-1.mp4')?.type).toBe('video/mp4');
+    expect(read.get('exchange-2.webm')?.type).toBe('video/webm');
+  });
+
+  /** One made by a standard library, stored, opens just the same. */
+  test('reads a stored zip that a standard library wrote', async () => {
+    const zip = zipSync({ 'bout.json': text('{"v":1}') }, { level: 0 });
+    const read = await readZip(new Blob([zip.slice()]));
+
+    expect(await read.get('bout.json')!.text()).toBe('{"v":1}');
+  });
+
+  /** Unpacked and zipped up again on a computer, it is compressed — and not ours to open by slicing. */
+  test('refuses a zip that has been compressed, saying so', async () => {
+    const zip = zipSync({ 'bout.json': text('{"v":1, "padding": "' + 'x'.repeat(500) + '"}') }, { level: 9 });
+
+    await expect(readZip(new Blob([zip.slice()]))).rejects.toThrow(/compressed/);
+  });
+
+  test('refuses what is not a zip at all', async () => {
+    await expect(readZip(new Blob([text('just some text')]))).rejects.toThrow(/not a zip/);
   });
 });

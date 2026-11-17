@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 
 import type { Bout, BoutId, Exchange, ExchangeId, MarkId, TakeId } from '../contracts.js';
-import { everyMark, isChosen, showing, startingChoice, toggled } from './selection.js';
+import { everyMark, isChosen, selectionOf, showing, startingChoice, toggled } from './selection.js';
 
 const id = (value: string) => value as MarkId;
 
@@ -119,5 +119,17 @@ describe('starting the summary from what was annotated', () => {
   /** What plays first is what is going into the video. */
   test('plays the first annotated moment behind the list before anything is touched', () => {
     expect(showing(startingChoice(annotated), annotated)).toBe('b');
+  });
+});
+
+/** The ticks of a bout opened again, as they were saved — in the bout's order. */
+describe('ticks brought back with a saved bout', () => {
+  test('are the ones saved, in the order of the bout', () => {
+    expect(selectionOf(bout, [id('c'), id('a')])).toEqual({ chosen: ['a', 'c'], lastTouched: null });
+  });
+
+  /** A record naming a mark the bout has not got is not worth refusing a bout over. */
+  test('leave out any the bout has no mark for', () => {
+    expect(selectionOf(bout, [id('b'), id('gone')]).chosen).toEqual(['b']);
   });
 });

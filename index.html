@@ -61,6 +61,11 @@
       body[data-screen="recording"] #live,
       body[data-screen="review"] #review,
       body[data-screen="export"] #export { display: flex; }
+      .open-saved {
+        align-self: center; margin: 0 0 8px; padding: 8px 14px; font-size: 14px;
+        background: none; border: 1px solid var(--faded); color: var(--faded); border-radius: 999px;
+      }
+      body[data-screen="recording"] .open-saved { display: none; }
 
       /* ---- the Save screen ----
          The chosen moment loops behind a dimmed list, so what is being picked
@@ -553,6 +558,9 @@
         <p class="tapHint" id="tapHint">tap anywhere to mark</p>
       </div>
       <p class="note" id="live-note">Point it at the fight, then press START.</p>
+      <!-- A bout saved with Save raw, opened again to re-cut. Not while filming. -->
+      <button id="open-saved" class="open-saved">Open saved bout</button>
+      <input id="open-file" type="file" accept=".zip,application/zip" hidden />
       <div class="actions">
         <button id="start">START</button>
         <button id="toReview" disabled>REVIEW</button>
@@ -660,7 +668,7 @@
           <li><b>Tap the picture</b> whenever you see something worth a second look. It keeps filming, and you can mark as often as you like.</li>
           <li>Press <b>REVIEW</b> when the fight is stopped.</li>
           <li><b>Drag across the picture</b> to move through the moment. The numbers switch between your marks. <b>✎</b> annotates the mark on screen: <b>tap the picture</b> where each hit landed — choose Red or Blue for each, drag to find the moment, <b>Undo</b> takes the last one back, and <b>Done</b> when you have them all. A dot on a number means that mark has hits, and the saved video shows each hit as a ring. <b>BACK</b> keeps this exchange and goes straight back to filming the next.</li>
-          <li>When the bout is over, press <b>END</b>. Every exchange is listed with its marks, and the ones you annotated are already ticked (all of them, if you annotated none). Tick or untick any you like — the one you last touched plays behind the list, at double speed — <b>✎</b> beside a mark annotates it from there; and <b>SAVE</b> makes one short video of the whole bout, with a quick fade between each moment, and hands it to your phone. It records by playing them through, so it takes as long as they last.</li>
+          <li>When the bout is over, press <b>END</b>. Every exchange is listed with its marks, and the ones you annotated are already ticked (all of them, if you annotated none). Tick or untick any you like — the one you last touched plays behind the list, at double speed — <b>✎</b> beside a mark annotates it from there; <b>Save cut</b> makes one short video of the whole bout, with a quick fade between each moment, and hands it to your phone. It records by playing them through, so it takes as long as they last. <b>Save raw</b> hands over the whole bout instead — every recording, untouched, with its marks and hits written down — to cut by hand or keep.</li>
         </ol>
 
         <h2>Turn the phone before you start</h2>
@@ -672,9 +680,11 @@
 
         <h2>Ending a bout loses it</h2>
         <p>
-          Nothing is kept once a bout ends. On the summary, <b>BACK</b> carries on
-          the same bout, and <b>Discard</b> throws all of it away, asking first.
-          Once a video has been saved, <b>New bout</b> starts the next one.
+          Nothing is kept once a bout ends — unless it was saved with <b>Save raw</b>:
+          <b>Open saved bout</b>, on the start screen, opens that zip again, as it
+          was left, to re-cut. On the summary, <b>BACK</b> carries on the same
+          bout, and <b>Discard</b> throws all of it away, asking first. Once a
+          video has been saved, <b>New bout</b> starts the next one.
         </p>
 
         <h2>Put it on another phone</h2>

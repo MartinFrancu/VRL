@@ -44,6 +44,15 @@ export function startingChoice(bout: Bout): Selection {
   return { chosen: inOrder(bout).filter((id) => annotated.has(id)), lastTouched: null };
 }
 
+/**
+ * The ticks a saved bout was saved with, put back — in the bout's order, and
+ * leaving out any the bout has no mark for.
+ */
+export function selectionOf(bout: Bout, chosen: readonly MarkId[]): Selection {
+  const wanted = new Set<MarkId>(chosen);
+  return { chosen: inOrder(bout).filter((id) => wanted.has(id)), lastTouched: null };
+}
+
 export function isChosen(selection: Selection, id: MarkId): boolean {
   return selection.chosen.includes(id);
 }

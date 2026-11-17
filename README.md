@@ -77,7 +77,10 @@ packs the whole bout into one zip instead — every exchange's recording, whole
 and untouched, with `bout.json` (everything about the bout: marks, hits with
 their side and x/y, ticks, the title, the window, when it was filmed) and
 `markers.csv` (every mark and hit as a table, times in each file and on the
-clock) beside them: to cut by hand in an editor, or keep. **BACK**
+clock) beside them: to cut by hand in an editor, or keep — and to open again:
+**Open saved bout**, on the start screen, picks such a zip and puts the bout
+back on the summary as it was saved (ticks, hits, title, window), to re-cut,
+annotate, save again, or carry on filming into. **BACK**
 carries on the same bout, and **Discard** throws it away, asking first. Once a
 video has been handed over, the panel says **✓ Saved** and offers **New bout**
 (no asking — it has just been saved) or **Back to the bout**. The line under

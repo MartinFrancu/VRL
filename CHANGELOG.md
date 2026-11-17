@@ -8,6 +8,17 @@ One entry per chunk, newest first, marked with the chunk's own letter:
 
 See `.claude/skills/chunks/SKILL.md` for the agreement these letters come from.
 
+## 1.1.41
+
+- **D** — **Open saved bout**, on the start screen (not while filming). It
+  picks a zip saved with Save raw and puts the bout back on the summary as it
+  was saved — every exchange, mark and hit, the ticks, the title, the lead and
+  tail — to re-cut with Save cut, annotate with ✎, save raw again, discard, or
+  carry on filming into with BACK. The recordings are read as slices of the
+  file picked, not into memory. A zip that is not one the app saved — or one
+  unpacked and zipped up again, which compresses it — is refused, saying why,
+  as is a bout saved by a newer version of the app.
+
 ## 1.1.40
 
 - **D** — **Save raw**, beside **Save cut** (the old SAVE) and Discard on the

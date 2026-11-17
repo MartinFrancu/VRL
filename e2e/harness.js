@@ -600,6 +600,22 @@ export async function openApp(browser, { url, shareSheet = false }) {
     /** What the title field on the Save screen holds. */
     titleTyped: () => read(() => document.getElementById('export-title').value),
 
+    /**
+     * Open a saved bout from the start screen, as picking the zip in the
+     * phone's file picker does. Waits until it has opened, or been refused.
+     */
+    async openSaved(path) {
+      await page.setInputFiles('#open-file', path);
+      await page.waitForFunction(
+        () =>
+          document.body.dataset['screen'] === 'export' ||
+          document.getElementById('live-note').textContent.startsWith('Could not open it')
+      );
+    },
+
+    /** Whether the start screen is offering to open a saved bout. */
+    openSavedOffered: () => read(() => document.getElementById('open-saved').offsetWidth > 0),
+
     /** Save raw, from the summary, and catch the zip the way `save` catches the video. */
     saveRaw: () => app.save('#export-raw'),
 

@@ -12,10 +12,11 @@
 // is at 2.933s" is a coin toss wearing a number.
 
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { zipSync } from 'fflate';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 
 import { filmBout, launchBrowser, openApp, startServer, uprightCamera, versionInManifest } from './harness.js';
@@ -1470,6 +1471,96 @@ describe('saving the raw files', () => {
 
     expect(await app.page.locator('#export-save').isDisabled()).toBe(true);
     expect(await app.page.locator('#export-raw').isDisabled()).toBe(false);
+  });
+});
+
+/**
+ * A bout saved with Save raw, opened again from the start screen — in a fresh
+ * app, as on another day — and found as it was left: its exchanges, ticks,
+ * hits and title, ready to re-cut.
+ */
+describe('opening a saved bout', () => {
+  /**
+   * Two exchanges, a hit on the first mark, a title — and every mark ticked,
+   * which is not what the summary would choose by itself (only the annotated
+   * one), so the ticks found on opening can only be the ones saved.
+   */
+  async function savedBout(onCleanup) {
+    const app = await freshApp(onCleanup);
+    await filmBout(app, 1, { spacingMs: 1500 });
+    await app.review();
+    await app.annotate('red');
+    await app.tapPictureAt(0.3, 0.4);
+    await app.doneHits();
+    await app.back();
+    await app.film(1500);
+    await app.mark();
+    await app.film(1200);
+    await app.openSummary();
+    await app.tickAll();
+    await app.typeTitle('Spring camp');
+    return app;
+  }
+
+  test('finds it as it was left, ready to re-cut', async ({ onTestFinished }) => {
+    const before = await savedBout(onTestFinished);
+    const raw = await before.saveRaw();
+    const cut = await before.save();
+    const was = {
+      sections: await before.sections(),
+      ticked: await before.ticked(),
+      hits: await before.summaryHits(),
+    };
+
+    const app = await freshApp(onTestFinished);
+    expect(await app.openSavedOffered()).toBe(true);
+    await app.openSaved(raw.path);
+
+    expect(await app.screen()).toBe('export');
+    expect(await app.sections()).toEqual(was.sections);
+    expect(await app.ticked()).toEqual(was.ticked);
+    expect(await app.summaryHits()).toEqual(was.hits);
+    expect(await app.titleTyped()).toBe('Spring camp');
+
+    // And it cuts the same video again, from the recordings in the zip.
+    const recut = await app.save();
+    expect(await app.shapeOfVideo(recut.path)).toEqual(await before.shapeOfVideo(cut.path));
+    expect(Math.abs((await app.lengthOfVideo(recut.path)) - (await before.lengthOfVideo(cut.path)))).toBeLessThan(500);
+  });
+
+  /** BACK from the summary films on into the bout that was opened. */
+  test('carries on filming into it', async ({ onTestFinished }) => {
+    const before = await savedBout(onTestFinished);
+    const raw = await before.saveRaw();
+
+    const app = await freshApp(onTestFinished);
+    await app.openSaved(raw.path);
+    await app.leaveSummary();
+    await app.film(800);
+    await app.mark();
+    await app.film(800);
+    await app.openSummary();
+
+    expect((await app.sections()).length).toBe(3);
+  });
+
+  /** Unpacked and zipped up again elsewhere, it is compressed: refused, saying so. */
+  test('refuses a zip that is not as the app saved it, saying why', async ({ onTestFinished }) => {
+    const app = await freshApp(onTestFinished);
+    const path = join(mkdtempSync(join(tmpdir(), 'vrl-foreign-')), 'repacked.zip');
+    writeFileSync(path, zipSync({ 'bout.json': new TextEncoder().encode(`{"v":1,"pad":"${'x'.repeat(400)}"}`) }, { level: 9 }));
+
+    await app.openSaved(path);
+
+    expect(await app.screen()).toBe('idle');
+    expect(await app.note()).toMatch(/^Could not open it: .*compressed/);
+  });
+
+  test('is not offered while filming', async ({ onTestFinished }) => {
+    const app = await freshApp(onTestFinished);
+    await app.start();
+
+    expect(await app.openSavedOffered()).toBe(false);
   });
 });
 

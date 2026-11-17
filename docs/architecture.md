@@ -225,8 +225,10 @@ ones can merge them.
 6. **Store** — begun: `src/store/zip.ts` (a zip written by hand so recordings
    are referenced, never copied — checked against fflate and Python's zipfile
    in the tests) and `src/store/raw.ts` (the raw files' names and
-   `markers.csv`). `BoutRecord` is now defined in the contracts and written by
-   `src/bout/record.ts`. Storage on the phone itself is still to come.
+   `markers.csv`, and reading them back). `BoutRecord` is now defined in the
+   contracts, written and read by `src/bout/record.ts`; a saved zip is read
+   as slices of the picked file, never into memory. Storage on the phone
+   itself is still to come.
 7. ~~**The highlight video**~~ — `src/render/reel.ts` and `record-reel.ts`. Done,
    in its first form: the marked stretches saved as one file and handed to the
    phone's share sheet. It is the same `Cut` the screen gets, sent to a

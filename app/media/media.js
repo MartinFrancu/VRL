@@ -80,6 +80,13 @@ export function record(stream, { bitsPerSecond = 8_000_000 } = {}) {
         }),
     };
 }
+/**
+ * Footage that came from somewhere other than this camera — a recording in a
+ * saved bout's zip, opened again. Nothing is read: the handle is the blob.
+ */
+export function fromBlob(blob) {
+    return asHandle({ blob, url: URL.createObjectURL(blob) });
+}
 /** Where a player can load this footage from. */
 export function urlOf(handle) {
     return asFootage(handle).url;

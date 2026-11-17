@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 
 import type { Bout, BoutId, Exchange, ExchangeId, MarkId, MediaHandle, TakeId } from '../contracts.js';
-import { boutRecord } from './record.js';
+import { boutFromRecord, boutRecord } from './record.js';
 
 const exchange = (n: number, marks: Exchange['marks']): Exchange => ({
   id: `e${n}` as ExchangeId,
@@ -107,5 +107,47 @@ describe('a bout, written down', () => {
   /** A take with no file would be a record pointing at nothing. */
   test('refuses a take it has no file for', () => {
     expect(() => boutRecord(bout, { ...inputs, files: new Map([...files].slice(0, 1)) })).toThrow(/t2/);
+  });
+});
+
+/** A bout opened again from its record: the same bout, on the recordings found beside it. */
+describe('a bout, read back', () => {
+  const handles = new Map([
+    ['exchange-1.mp4', { opened: 1 } as unknown as MediaHandle],
+    ['exchange-2.mp4', { opened: 2 } as unknown as MediaHandle],
+  ]);
+  const opened = () => boutFromRecord(boutRecord(bout, inputs), (key) => handles.get(key)!);
+
+  test('is the same bout, mark for mark and hit for hit', () => {
+    const back = opened().bout;
+
+    expect(back.id).toBe(bout.id);
+    expect(back.startedAt).toBe(bout.startedAt);
+    expect(back.exchanges.map((each) => each.marks)).toEqual(bout.exchanges.map((each) => each.marks));
+    expect(back.exchanges.map((each) => [each.id, each.filmedAt, each.clock])).toEqual(
+      bout.exchanges.map((each) => [each.id, each.filmedAt, each.clock])
+    );
+  });
+
+  /** Each take on its recording, at the shape its picture was written down as. */
+  test('puts each take on the recording found for it', () => {
+    const take = opened().bout.exchanges[1]?.takes[0];
+
+    expect(take?.media).toBe(handles.get('exchange-2.mp4'));
+    expect(take).toMatchObject({ id: 't2', durationMs: 20_002, width: 1080, height: 1920 });
+  });
+
+  test('brings back the choices made on the Save screen', () => {
+    expect(opened()).toMatchObject({
+      chosen: ['m1', 'm3'],
+      title: 'Spring camp',
+      window: { leadMs: 1500, tailMs: 1000 },
+    });
+  });
+
+  test('brings back no title as an empty one', () => {
+    const untitled = boutRecord(bout, { ...inputs, title: '' });
+
+    expect(boutFromRecord(untitled, (key) => handles.get(key)!).title).toBe('');
   });
 });

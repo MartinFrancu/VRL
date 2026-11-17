@@ -66,4 +66,42 @@ export function markersCsv(record) {
     });
     return `${rows.join('\n')}\n`;
 }
+const NOT_OURS = 'this is not the raw files of a bout — open a zip the app saved with Save raw';
+/**
+ * The raw files read back from the zip's contents — refusing, saying why, a zip
+ * with no bout in it, a bout in a format this version does not know, or one
+ * whose recordings are not all there.
+ */
+export async function readRaw(files) {
+    const written = files.get('bout.json');
+    if (!written)
+        throw new Error(NOT_OURS);
+    let record;
+    try {
+        record = JSON.parse(await written.text());
+    }
+    catch {
+        throw new Error('its bout.json cannot be read');
+    }
+    if (typeof record !== 'object' || record === null || !('v' in record))
+        throw new Error(NOT_OURS);
+    if (record.v !== 1) {
+        throw new Error(`it was saved by a newer version of the app (format ${String(record.v)}) — update this one to open it`);
+    }
+    const bout = record;
+    if (!Array.isArray(bout.exchanges))
+        throw new Error(NOT_OURS);
+    const recordings = new Map();
+    for (const exchange of bout.exchanges) {
+        for (const take of exchange.takes) {
+            for (const media of take.media) {
+                const found = files.get(media.key);
+                if (!found)
+                    throw new Error(`${media.key} is missing from it`);
+                recordings.set(media.key, found);
+            }
+        }
+    }
+    return { record: bout, recordings };
+}
 //# sourceMappingURL=raw.js.map

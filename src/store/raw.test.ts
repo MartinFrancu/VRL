@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 
 import type { BoutRecord, ExchangeId, MarkId, TakeId, BoutId } from '../contracts.js';
-import { markersCsv, rawFilename, recordingName } from './raw.js';
+import { markersCsv, rawFilename, readRaw, recordingName } from './raw.js';
 
 const record: BoutRecord = {
   v: 1,
@@ -84,5 +84,43 @@ describe('the markers table', () => {
 
   test('says which marks were left out of the cut', () => {
     expect(rows[4]?.endsWith(',no')).toBe(true);
+  });
+});
+
+/** The raw files read back: the record, and the recordings it points at. */
+describe('the raw files, opened again', () => {
+  const files = (overrides: Record<string, Blob | undefined> = {}) => {
+    const all: Record<string, Blob | undefined> = {
+      'bout.json': new Blob([JSON.stringify(record)]),
+      'markers.csv': new Blob(['']),
+      'exchange-1.mp4': new Blob(['video'], { type: 'video/mp4' }),
+      ...overrides,
+    };
+    return new Map(Object.entries(all).filter((entry): entry is [string, Blob] => entry[1] !== undefined));
+  };
+
+  test('gives back the record as it was written, and its recordings by name', async () => {
+    const opened = await readRaw(files());
+
+    expect(opened.record).toEqual(record);
+    expect(await opened.recordings.get('exchange-1.mp4')?.text()).toBe('video');
+  });
+
+  test('refuses a zip with no bout in it', async () => {
+    await expect(readRaw(files({ 'bout.json': undefined }))).rejects.toThrow(/not .*raw files/);
+  });
+
+  test('refuses a bout written in a format it does not know', async () => {
+    const newer = new Blob([JSON.stringify({ ...record, v: 2 })]);
+
+    await expect(readRaw(files({ 'bout.json': newer }))).rejects.toThrow(/newer/);
+  });
+
+  test('refuses a bout whose recording is missing, naming it', async () => {
+    await expect(readRaw(files({ 'exchange-1.mp4': undefined }))).rejects.toThrow(/exchange-1\.mp4/);
+  });
+
+  test('refuses a bout.json that is not JSON', async () => {
+    await expect(readRaw(files({ 'bout.json': new Blob(['{ nope']) }))).rejects.toThrow(/bout\.json/);
   });
 });

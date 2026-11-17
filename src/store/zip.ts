@@ -128,3 +128,64 @@ export function zipStored(entries: readonly ZipEntry[], modified: Date): Blob {
 
   return new Blob([...parts, ...central, end], { type: 'application/zip' });
 }
+
+/** The type a file's name says it is, so a player knows what to do with it. */
+function typeFor(name: string): string {
+  if (name.endsWith('.mp4')) return 'video/mp4';
+  if (name.endsWith('.webm')) return 'video/webm';
+  if (name.endsWith('.json')) return 'application/json';
+  if (name.endsWith('.csv')) return 'text/csv';
+  return '';
+}
+
+const slice = async (blob: Blob, from: number, to: number) => new DataView(await blob.slice(from, to).arrayBuffer());
+
+/**
+ * Every file in a zip of stored files, by name, each a slice of the zip itself
+ * — nothing read into memory beyond the zip's own index. A file the size of a
+ * bout opens as quickly as an empty one.
+ *
+ * Refuses, saying why, a zip that has been compressed — unpacked and zipped up
+ * again elsewhere, say — and anything that is not a zip at all.
+ */
+export async function readZip(zip: Blob): Promise<Map<string, Blob>> {
+  // The index's end is in the last 22 bytes, or a little before them when the
+  // zip has a comment; look back as far as the longest comment allowed.
+  const reach = Math.min(zip.size, 22 + 0xffff);
+  const tail = await slice(zip, zip.size - reach, zip.size);
+  let end = -1;
+  for (let at = tail.byteLength - 22; at >= 0; at--) {
+    if (tail.getUint32(at, true) === 0x06054b50) {
+      end = at;
+      break;
+    }
+  }
+  if (end < 0) throw new Error('this is not a zip');
+
+  const count = tail.getUint16(end + 10, true);
+  const indexSize = tail.getUint32(end + 12, true);
+  const indexAt = tail.getUint32(end + 16, true);
+  const index = await slice(zip, indexAt, indexAt + indexSize);
+  const decoder = new TextDecoder();
+
+  const files = new Map<string, Blob>();
+  let at = 0;
+  for (let n = 0; n < count; n++) {
+    if (index.getUint32(at, true) !== 0x02014b50) throw new Error('this zip is damaged');
+    const method = index.getUint16(at + 10, true);
+    const size = index.getUint32(at + 24, true);
+    const nameLength = index.getUint16(at + 28, true);
+    const extraLength = index.getUint16(at + 30, true);
+    const commentLength = index.getUint16(at + 32, true);
+    const localAt = index.getUint32(at + 42, true);
+    const name = decoder.decode(new Uint8Array(index.buffer, index.byteOffset + at + 46, nameLength));
+    at += 46 + nameLength + extraLength + commentLength;
+
+    if (method !== 0) throw new Error(`${name} in this zip is compressed — open the zip the app saved, as it was`);
+    const local = await slice(zip, localAt, localAt + 30);
+    if (local.getUint32(0, true) !== 0x04034b50) throw new Error('this zip is damaged');
+    const dataAt = localAt + 30 + local.getUint16(26, true) + local.getUint16(28, true);
+    files.set(name, zip.slice(dataAt, dataAt + size, typeFor(name)));
+  }
+  return files;
+}
