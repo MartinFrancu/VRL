@@ -12,7 +12,7 @@
 // and the next opening has the new version. A version behind is a fair price
 // for never waiting.
 
-const CACHE = 'vrl-next-1.1.41';
+const CACHE = 'vrl-next-1.1.42';
 
 const SHELL = [
   './',

@@ -61,11 +61,7 @@
       body[data-screen="recording"] #live,
       body[data-screen="review"] #review,
       body[data-screen="export"] #export { display: flex; }
-      .open-saved {
-        align-self: center; margin: 0 0 8px; padding: 8px 14px; font-size: 14px;
-        background: none; border: 1px solid var(--faded); color: var(--faded); border-radius: 999px;
-      }
-      body[data-screen="recording"] .open-saved { display: none; }
+
 
       /* ---- the Save screen ----
          The chosen moment loops behind a dimmed list, so what is being picked
@@ -194,6 +190,7 @@
       /* Only in idle. While filming the whole picture is the mark button, and
          anything sitting on top of it is somewhere a mark can be lost. */
       body[data-screen="recording"] #help-open,
+      body[data-screen="recording"] #open-saved,
       body[data-screen="recording"] .ver { display: none; }
 
       /*
@@ -248,7 +245,16 @@
       body[data-screen="idle"] .tapHint { display: none; }
 
       .actions { display: flex; gap: 10px; padding: 12px; flex: none; }
-      #start { flex: 1; font-size: 26px; font-weight: 700; letter-spacing: 0.04em; padding: 26px 16px; background: var(--accent); color: #06232a; border-color: var(--accent); }
+      /* Round, in the middle of the picture, over the camera's own view. */
+      #start {
+        position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 2;
+        width: 150px; height: 150px; padding: 0; border-radius: 50%;
+        font-size: 26px; font-weight: 700; letter-spacing: 0.04em;
+        background: var(--accent); color: #06232a; border-color: var(--accent);
+        box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
+      }
+      /* With START on the picture, idle has nothing for the row below. */
+      body[data-screen="idle"] .actions { display: none; }
       #toReview, #end { flex: 1; font-size: 17px; padding: 16px 0; }
       #toReview { border-color: var(--accent); color: var(--accent); }
       body[data-screen="idle"] #toReview,
@@ -522,7 +528,6 @@
         #live { flex-direction: row; }
         #live-note { display: none; }
         .actions { flex-direction: column; width: 170px; justify-content: center; }
-        #start { font-size: 21px; padding: 20px 8px; }
         #tabs button { padding: 8px 0; }
       }
     </style>
@@ -553,16 +558,17 @@
           <span id="dots"></span>
           <span class="grow"></span>
           <span class="ver" id="version"></span>
+          <!-- A bout saved with Save raw, opened again to re-cut. -->
+          <button class="icon" id="open-saved" title="Open saved bout" aria-label="Open saved bout">📂</button>
           <button class="icon" id="help-open" title="How to use it">?</button>
         </div>
         <p class="tapHint" id="tapHint">tap anywhere to mark</p>
+        <!-- On the picture: the one thing to press, on what is about to be filmed. -->
+        <button id="start">START</button>
       </div>
       <p class="note" id="live-note">Point it at the fight, then press START.</p>
-      <!-- A bout saved with Save raw, opened again to re-cut. Not while filming. -->
-      <button id="open-saved" class="open-saved">Open saved bout</button>
       <input id="open-file" type="file" accept=".zip,application/zip" hidden />
       <div class="actions">
-        <button id="start">START</button>
         <button id="toReview" disabled>REVIEW</button>
         <button id="end">END</button>
       </div>
@@ -681,7 +687,7 @@
         <h2>Ending a bout loses it</h2>
         <p>
           Nothing is kept once a bout ends — unless it was saved with <b>Save raw</b>:
-          <b>Open saved bout</b>, on the start screen, opens that zip again, as it
+          <b>📂</b>, beside <b>?</b> on the start screen, opens that zip again, as it
           was left, to re-cut. On the summary, <b>BACK</b> carries on the same
           bout, and <b>Discard</b> throws all of it away, asking first. Once a
           video has been saved, <b>New bout</b> starts the next one.
