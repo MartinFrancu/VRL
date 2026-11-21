@@ -1,0 +1,107 @@
+name: pages
+
+# What GitHub Pages serves — built here, not straight from a branch:
+#
+#   /VRL/        the live app: main, exactly as it is
+#   /VRL/next/   the test build: the development branch, put through
+#                `npm run preview` (blue icon, "SBA NEXT", its own cache)
+#
+# So a test build is never committed to main. Main changes only when the live
+# app does.
+#
+# When it runs:
+#   - main is pushed: the live app changed, and the test build is rebuilt
+#     alongside it from the development branch as it stands;
+#   - the development branch's tests pass on a push: its `tests` workflow asks
+#     for this run (a workflow_dispatch on main, naming the branch), so a red
+#     branch never reaches the phones;
+#   - by hand, from the Actions tab, optionally naming another branch for /next/.
+#
+# Which branch is "the development branch": the repository variable
+# NEXT_BRANCH if one is set (Settings → Secrets and variables → Actions →
+# Variables), otherwise the default below. The `tests` workflow reads the same.
+#
+# Needs Settings → Pages → Source set to "GitHub Actions" (once). The full
+# scheme is in .claude/skills/deploy/SKILL.md.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      next:
+        description: Branch to build the test version (/next/) from — empty for the development branch
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deploy at a time, and the newest wins — never two racing to publish.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+env:
+  NEXT_BRANCH: ${{ inputs.next || vars.NEXT_BRANCH || 'claude/vrl-characterization-suite' }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: The live app, from main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: site
+
+      - name: The development branch, for the test build
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.NEXT_BRANCH }}
+          path: dev
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: dev/package-lock.json
+
+      - run: npm ci
+        working-directory: dev
+
+      # The preview generator recolours the logo and renders the icons in a
+      # browser.
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+        working-directory: dev
+
+      - name: Build the test version
+        run: npm run preview
+        working-directory: dev
+
+      # Whatever main may still hold at next/ from before this workflow
+      # existed is replaced, never served.
+      - name: Put the test build at /next/
+        run: |
+          rm -rf site/.git site/next
+          cp -r dev/preview site/next
+          touch site/.nojekyll
+          echo "live: $(grep -m1 "^const VERSION" site/solo.js)"
+          echo "next: $(grep -m1 "^const VERSION" site/next/solo.js) from $NEXT_BRANCH"
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
