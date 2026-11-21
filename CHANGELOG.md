@@ -8,6 +8,11 @@ One entry per chunk, newest first, marked with the chunk's own letter:
 
 See `.claude/skills/chunks/SKILL.md` for the agreement these letters come from.
 
+## 1.1.49
+
+- **D** — No "Exchange 2" over the saved video any more: nothing is written
+  over the footage as the video moves from one exchange to the next.
+
 ## 1.1.48
 
 - **D** — A moment shows only its own mark's hits. Two marks close together

@@ -7,15 +7,12 @@ import {
   LOOP_MS,
   CARD_MS,
   SPOTLIGHT,
-  LABEL_MS,
   endCardAt,
   endLogoBox,
   endingMs,
   loopLogoAt,
   fadeAt,
   hitTally,
-  labelLayout,
-  labelStrengthAt,
   reelFilename,
   reelLengthMs,
   numbersLayout,
@@ -215,21 +212,6 @@ describe('the hit count on the end card', () => {
 
   test('is nothing, with nothing annotated', () => {
     expect(hitTally(cut(span(0, 2_000)))).toEqual({ red: 0, blue: 0 });
-  });
-
-  test('sits centred below the logo, in the top half', () => {
-    for (const [width, height] of [
-      [1920, 1080],
-      [1080, 1920],
-    ] as const) {
-      const label = labelLayout(width, height);
-      const logo = watermarkBox(width, height);
-
-      expect(label.x).toBe(width / 2);
-      expect(label.fontPx).toBeCloseTo(1080 * 0.055, 5);
-      expect(label.y - label.fontPx / 2).toBeGreaterThan(logo.top + logo.height);
-      expect(label.y + label.fontPx / 2).toBeLessThan(height / 2);
-    }
   });
 });
 

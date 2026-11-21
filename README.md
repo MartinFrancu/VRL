@@ -73,9 +73,7 @@ moment it fades onto a charcoal card: whatever is typed in the **title** field,
 big — or, with no title, each side's hits as a big red number and a blue one,
 when anything was annotated — then the full logo for a moment, which shrinks
 back into its corner as the first picture returns, so it loops without a
-cut on Shorts and Reels. With moments
-from more than one exchange, each exchange's first moment says which it is —
-"Exchange 2". It then
+cut on Shorts and Reels. It then
 offers it to the phone's share sheet (a download link on a laptop). It records
 by playing the moments through, so it takes as long as they last. **Save raw**
 packs the whole bout into one zip instead — every exchange's recording, whole

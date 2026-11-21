@@ -133,9 +133,6 @@ export function endLogoBox(
 }
 
 
-/** How long a caption takes to fade out at the end of its time. */
-export const CAPTION_FADE_MS = 300;
-
 /** Where the title goes on the end card: big, in the middle. */
 export function endTitleLayout(
   width: number,
@@ -217,21 +214,6 @@ export function loopLogoAt(
 /** Where the hit count goes on its card: big, in the middle. */
 export function numbersLayout(width: number, height: number): { x: number; y: number; fontPx: number } {
   return { x: width / 2, y: height / 2, fontPx: Math.min(width, height) * 0.22 };
-}
-
-/** How long an exchange's label stays over its first moment. */
-export const LABEL_MS = 1500;
-
-/** How solid the label is this long into its moment: fully, then fading out. */
-export function labelStrengthAt(sinceMomentStartMs: number): number {
-  if (sinceMomentStartMs >= LABEL_MS) return 0;
-  return Math.min(1, (LABEL_MS - sinceMomentStartMs) / CAPTION_FADE_MS);
-}
-
-/** Where the label goes: centred, just below the logo, in the top half. */
-export function labelLayout(width: number, height: number): { x: number; y: number; fontPx: number } {
-  const shorter = Math.min(width, height);
-  return { x: width / 2, y: shorter * 0.36, fontPx: shorter * 0.055 };
 }
 
 /** How long each fade takes. Quick: a dip, not a scene change. */

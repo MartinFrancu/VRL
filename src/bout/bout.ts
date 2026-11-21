@@ -58,18 +58,10 @@ export function cutBout(bout: Bout, markIds: readonly MarkId[], spec: CutSpec): 
   }
 
   const wanted = new Set<MarkId>(markIds);
-  const parts = bout.exchanges.map((exchange, index) => {
-    const chosen = exchange.marks.filter((mark) => wanted.has(mark.id)).map((mark) => mark.id);
-    return { number: index + 1, spans: chosen.length ? cut(exchange, chosen, spec).spans : [] };
-  });
-
-  // Where the video moves from one exchange to the next, the first moment of
-  // each says which it is — numbered as in the bout, so as on the summary.
-  // From a single exchange there is nothing to tell apart, and no labels.
-  const several = parts.filter((part) => part.spans.length > 0).length > 1;
   return {
-    spans: parts.flatMap(({ number, spans }) =>
-      several ? spans.map((span, at) => (at === 0 ? { ...span, label: `Exchange ${number}` } : span)) : spans
-    ),
+    spans: bout.exchanges.flatMap((exchange) => {
+      const chosen = exchange.marks.filter((mark) => wanted.has(mark.id)).map((mark) => mark.id);
+      return chosen.length ? cut(exchange, chosen, spec).spans : [];
+    }),
   };
 }

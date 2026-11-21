@@ -30,8 +30,6 @@ import {
   loopLogoAt,
   fadeAt,
   hitTally,
-  labelLayout,
-  labelStrengthAt,
   numbersLayout,
   reelLengthMs,
   titleLines,
@@ -199,12 +197,6 @@ export async function recordReel(
       if (playing.hits?.length) {
         drawHits(paper, playing.hits, nowMs, picture, strength, hitTiming);
       }
-      // Which exchange this is, over the first moment of each — as faded as
-      // the moment, so it dips at the join with everything else.
-      if (playing.label) {
-        const { x, y, fontPx } = labelLayout(canvas.width, canvas.height);
-        drawCaption(paper, playing.label, { x, y, fontPx, maxWidth: canvas.width * 0.9 }, strength * labelStrengthAt(nowMs - playing.fromMs));
-      }
     }
     if (keptFirst && playing === first && video.readyState >= 2) {
       firstFrame.getContext('2d')?.drawImage(canvas, 0, 0);
@@ -358,35 +350,6 @@ export async function recordReel(
     }
     if (wasSource) await seekTo(video, wasAt).catch(() => {});
   }
-}
-
-/**
- * Words over the footage — the title, an exchange's label — white with a dark
- * edge so they read over anything, made smaller if they would not otherwise
- * fit across the picture.
- */
-function drawCaption(
-  paper: CanvasRenderingContext2D,
-  words: string,
-  { x, y, fontPx, maxWidth }: { x: number; y: number; fontPx: number; maxWidth: number },
-  strength: number
-): void {
-  if (strength <= 0) return;
-  const font = (px: number) => `800 ${px}px system-ui, -apple-system, "Segoe UI", sans-serif`;
-  paper.font = font(fontPx);
-  const natural = paper.measureText(words).width;
-  const px = natural > maxWidth ? (fontPx * maxWidth) / natural : fontPx;
-  paper.font = font(px);
-  paper.textAlign = 'center';
-  paper.textBaseline = 'middle';
-  paper.lineJoin = 'round';
-  paper.globalAlpha = strength;
-  paper.lineWidth = px * 0.14;
-  paper.strokeStyle = 'rgba(0, 0, 0, 0.75)';
-  paper.strokeText(words, x, y);
-  paper.fillStyle = '#fff';
-  paper.fillText(words, x, y);
-  paper.globalAlpha = 1;
 }
 
 /**

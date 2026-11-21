@@ -1310,6 +1310,25 @@ describe('saving the bout', () => {
   });
 
   /**
+   * Nothing written over the footage: no "Exchange 2" as the video moves from
+   * one exchange to the next. Read along the row a label sat on — 0.36 of the
+   * shorter side down — and the row a title would, through all the footage of
+   * two exchanges: no white on either.
+   */
+  test('writes no exchange label over the footage', async ({ onTestFinished }) => {
+    const app = await twoExchanges(onTestFinished, 1, 1);
+
+    const saved = await app.save();
+    const { width, height } = await app.colourAlong(saved.path, 0.5, 0.5, 1e9);
+    for (const share of [0.24, 0.36]) {
+      const { lengthMs, samples } = await app.rowAlong(saved.path, (share * Math.min(width, height)) / height, 50);
+      const footage = samples.filter(({ atMs }) => atMs < lengthMs - endCardMs - 100);
+      expect(footage.length).toBeGreaterThan(5);
+      expect(footage.filter(({ white }) => white > 0)).toEqual([]);
+    }
+  });
+
+  /**
    * The saved video ends on the full logo, alone in the middle of a charcoal
    * card, for its last second. Read at a spot on the logo's gold kite — 70%
    * across and 60% down the logo, which is 60% of the shorter side, centred.
