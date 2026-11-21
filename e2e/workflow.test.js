@@ -1276,8 +1276,8 @@ describe('saving the bout', () => {
  * tap lasts.
  */
 describe('handing a saved video to a phone', () => {
-  async function savedOnAPhone(onCleanup) {
-    const app = await openApp(browser, { url: server.url, shareSheet: true });
+  async function savedOnAPhone(onCleanup, shareSheet = true) {
+    const app = await openApp(browser, { url: server.url, shareSheet });
     onCleanup(() => app.close());
     await filmBout(app, 3, { spacingMs: 1000 });
     await app.openSummary();
@@ -1302,6 +1302,32 @@ describe('handing a saved video to a phone', () => {
     expect(shared).toHaveLength(1);
     expect(shared[0].name).toMatch(/^\d{4}-\d{2}-\d{2} SBA 3 marks\.(mp4|webm)$/);
     expect(shared[0].bytes).toBeGreaterThan(1000);
+  });
+
+  /**
+   * Chrome on Android turns down a file whose type carries codec details —
+   * "video/webm;codecs=vp9" — with "Permission denied". The plain type it takes.
+   */
+  test('hands the video over as a plain video type, which Android takes', async ({ onTestFinished }) => {
+    const app = await savedOnAPhone(onTestFinished, 'android');
+
+    await app.page.locator('#saving-share').click();
+
+    const shared = await app.page.evaluate(() => window.__shared);
+    expect(shared).toHaveLength(1);
+    expect(shared[0].type).toMatch(/^video\/(mp4|webm)$/);
+    expect(await app.savedShowing()).toBe(true);
+  });
+
+  /** A share sheet that will not take it is not the end: Download is offered in its place. */
+  test('offers Download when the share sheet turns the video down', async ({ onTestFinished }) => {
+    const app = await savedOnAPhone(onTestFinished, 'refusing');
+
+    await app.page.locator('#saving-share').click();
+
+    expect(await app.page.locator('#saving-download').isVisible()).toBe(true);
+    expect(await app.page.locator('#saving-share').isVisible()).toBe(false);
+    expect(await app.page.locator('#saving-text').textContent()).toMatch(/Download/);
   });
 
   /** Only once the share sheet is done with it — and then what comes next. */

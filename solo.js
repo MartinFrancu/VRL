@@ -36,7 +36,7 @@ import {
 import { canRecordReel, recordReel } from './app/render/record-reel.js';
 import { endingMs, hitTally, reelFilename, reelLengthMs } from './app/render/reel.js';
 
-const VERSION = '1.1.42';
+const VERSION = '1.1.43';
 
 const el = (id) => document.getElementById(id);
 const preview = el('preview');
@@ -1232,8 +1232,12 @@ function offerReel(footage, chosen) {
  * hand it over. `release` gives back what it holds once the panel is closed.
  */
 function offerFile(bytes, name, url, release) {
-  const file = new File([bytes], name, { type: bytes.type });
-  ready = { file, name, release };
+  // The plain type — "video/webm", not "video/webm;codecs=vp9". Chrome on
+  // Android turns down a file whose type carries codec details, and says only
+  // "Permission denied".
+  const type = bytes.type.split(';')[0].trim();
+  const file = new File([bytes], name, { type });
+  ready = { file, name, url, release };
 
   const shareable = Boolean(navigator.canShare?.({ files: [file] }));
   el('saving-title').textContent = 'Saved';
@@ -1261,7 +1265,14 @@ async function shareReady() {
     // Closing the share sheet without choosing anything is not a failure, and
     // Share stays where it is for another go.
     if (error?.name === 'AbortError') return;
-    el('saving-text').textContent = `Could not share it: ${error?.message ?? String(error)}`;
+    // Turned down for any other reason, it can still be saved: Download, in
+    // place of the Share that did not work.
+    el('saving-text').textContent = `The share sheet would not take it (${error?.message ?? String(error)}) — tap Download to save it instead.`;
+    el('saving-share').hidden = true;
+    const download = el('saving-download');
+    download.href = ready.url;
+    download.download = ready.name;
+    download.hidden = false;
   }
 }
 

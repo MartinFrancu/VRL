@@ -8,6 +8,15 @@ One entry per chunk, newest first, marked with the chunk's own letter:
 
 See `.claude/skills/chunks/SKILL.md` for the agreement these letters come from.
 
+## 1.1.43
+
+- **B** — Saving on Android said "Permission denied". The video was handed to
+  the share sheet with its full type — "video/webm;codecs=vp9" — and Chrome on
+  Android turns down a file whose type carries codec details. It is now handed
+  over as plain "video/webm" or "video/mp4". And if a share sheet turns the
+  video down for any other reason, the panel offers Download in place of
+  Share, so a saved video is never stuck.
+
 ## 1.1.42
 
 - **D** — The start screen: START is a big round button in the middle of the

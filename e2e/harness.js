@@ -169,7 +169,11 @@ export async function openApp(browser, { url, shareSheet = false }) {
     // page is still inside the moment of a tap. Desktop Chromium has no share
     // sheet at all, which is how an app that shared too late passed here and
     // left an iPhone on a black screen.
-    await context.addInitScript(() => {
+    //
+    // Two stricter kinds besides, as `shareSheet` says: 'android' turns down a
+    // file whose type carries codec details — as Chrome on Android does, with
+    // "Permission denied" — and 'refusing' turns everything down.
+    await context.addInitScript((kind) => {
       window.__shared = [];
       navigator.canShare = (data) => Boolean(data?.files?.length);
       navigator.share = async (data) => {
@@ -180,9 +184,12 @@ export async function openApp(browser, { url, shareSheet = false }) {
           throw new DOMException('share must follow a tap', 'NotAllowedError');
         }
         const file = data.files[0];
+        if (kind === 'refusing' || (kind === 'android' && file.type.includes(';'))) {
+          throw new DOMException('Permission denied', 'NotAllowedError');
+        }
         window.__shared.push({ name: file.name, type: file.type, bytes: file.size });
       };
-    });
+    }, shareSheet);
   }
   const page = await context.newPage();
 
