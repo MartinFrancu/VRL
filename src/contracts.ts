@@ -201,9 +201,10 @@ export interface Span {
   /** For a highlight's caption. Absent when nothing is written over it. */
   readonly label?: string;
   /**
-   * The hits that land inside this stretch, from any mark of the exchange —
-   * a hit is something in the footage, so it shows wherever that footage is
-   * shown. On the exchange's clock, the same as the span itself.
+   * The hits of this stretch's own mark that land inside it — not those of a
+   * neighbouring mark, even where its footage overlaps: a hit is placed on a
+   * mark, and looking at one mark is not asking to see the next one's. On
+   * the exchange's clock, the same as the span itself.
    */
   readonly hits?: readonly Hit[];
 }

@@ -8,6 +8,13 @@ One entry per chunk, newest first, marked with the chunk's own letter:
 
 See `.claude/skills/chunks/SKILL.md` for the agreement these letters come from.
 
+## 1.1.48
+
+- **D** — A moment shows only its own mark's hits. Two marks close together
+  share footage, and the hits placed on the next mark used to show while
+  looking at this one — on review, behind the summary and in the saved video.
+  Now each mark's hits are its own.
+
 ## 1.1.47
 
 - **D** — A hit's ring comes up only just before its moment — 0.08s, two or

@@ -208,25 +208,40 @@ describe('placing hits on a mark', () => {
 });
 
 /**
- * A hit is something in the footage, so a stretch carries every hit that
- * lands inside it — the hits of its own mark, and of any other mark whose
- * hits happen to fall within it.
+ * A stretch carries its own mark's hits, and only those. Two marks close
+ * together share footage, but a hit is placed on a mark — looking at one mark,
+ * the referee is not asking to see what was annotated on the next.
  */
 describe('the hits a stretch carries', () => {
   const spec = { leadMs: 1500, tailMs: 1000 };
+  const placed = () => {
+    let each = exchange([mark('a', 5_000), mark('b', 6_000), mark('c', 30_000)]);
+    each = withHit(each, 'a' as MarkId, { atMs: 5_100, x: 0.2, y: 0.2, side: 'red' });
+    each = withHit(each, 'b' as MarkId, { atMs: 5_900, x: 0.8, y: 0.8, side: 'blue' });
+    each = withHit(each, 'c' as MarkId, { atMs: 30_000, x: 0.5, y: 0.5, side: 'red' });
+    return each;
+  };
 
-  test('carries the hits that land inside it, from any mark', () => {
-    let placed = exchange([mark('a', 5_000), mark('b', 6_000), mark('c', 30_000)]);
-    placed = withHit(placed, 'a' as MarkId, { atMs: 5_100, x: 0.2, y: 0.2, side: 'red' });
-    placed = withHit(placed, 'b' as MarkId, { atMs: 5_900, x: 0.8, y: 0.8, side: 'blue' });
-    placed = withHit(placed, 'c' as MarkId, { atMs: 30_000, x: 0.5, y: 0.5, side: 'red' });
+  test('carries its own mark\'s hits', () => {
+    const { spans } = cut(placed(), ['a' as MarkId, 'b' as MarkId], spec);
 
-    const { spans } = cut(placed, ['a' as MarkId], spec);
-
-    expect(spans[0]?.hits?.map((each) => each.atMs)).toEqual([5_100, 5_900]);
+    expect(spans[0]?.hits?.map((each) => each.atMs)).toEqual([5_100]);
+    expect(spans[1]?.hits?.map((each) => each.atMs)).toEqual([5_900]);
   });
 
-  test('carries none when no hit lands inside it', () => {
-    expect(cut(exchange([mark('a', 5_000)]), ['a' as MarkId], spec).spans[0]?.hits).toEqual([]);
+  test('carries none of a neighbouring mark\'s, even where they land inside it', () => {
+    let quiet = exchange([mark('a', 5_000), mark('b', 6_000)]);
+    quiet = withHit(quiet, 'b' as MarkId, { atMs: 5_200, x: 0.5, y: 0.5, side: 'blue' });
+
+    expect(cut(quiet, ['a' as MarkId], spec).spans[0]?.hits).toEqual([]);
+  });
+
+  /** Placed on the mark but outside its stretch — a window since narrowed — it is not there to show. */
+  test('carries only those of its mark\'s hits that land inside it', () => {
+    let early = exchange([mark('a', 5_000)]);
+    early = withHit(early, 'a' as MarkId, { atMs: 2_000, x: 0.5, y: 0.5, side: 'red' });
+    early = withHit(early, 'a' as MarkId, { atMs: 5_050, x: 0.5, y: 0.5, side: 'red' });
+
+    expect(cut(early, ['a' as MarkId], spec).spans[0]?.hits?.map((each) => each.atMs)).toEqual([5_050]);
   });
 });
