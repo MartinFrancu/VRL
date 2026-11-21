@@ -18,7 +18,7 @@
 import { cutBout, exchangeHolding, newBout, withExchange, withExchangeReplaced } from './app/bout/bout.js';
 import { boutFromRecord, boutRecord } from './app/bout/record.js';
 import { cut, durationOf, withHit, withoutLastHit } from './app/bout/exchange.js';
-import { drawHits, pictureIn, toFrame } from './app/render/hits.js';
+import { HIT_TIMING, drawHits, pictureIn, toFrame } from './app/render/hits.js';
 import { isChosen, selectionOf, showing, startingChoice, toggled } from './app/bout/selection.js';
 import { Capture } from './app/capture/capture.js';
 import { cameraClockUsable } from './app/capture/clock.js';
@@ -32,11 +32,14 @@ import {
   progressThrough,
   readoutFor,
   shortfallLabel,
+  steppedBy,
+  tapStep,
 } from './app/render/playhead.js';
 import { canRecordReel, recordReel } from './app/render/record-reel.js';
+import { Seeker } from './app/render/seeker.js';
 import { endingMs, hitTally, reelFilename, reelLengthMs } from './app/render/reel.js';
 
-const VERSION = '1.1.42';
+const VERSION = '1.1.49';
 
 const el = (id) => document.getElementById(id);
 const preview = el('preview');
@@ -479,10 +482,22 @@ function select(index) {
   seekTo(span.atMs);
 }
 
+/**
+ * The player's own position, paced: one seek at a time, the newest asked for
+ * winning — so a thumb faster than the phone can seek still sees the picture
+ * move. The readout and the hits follow the thumb at once regardless.
+ */
+const seeker = new Seeker((ms) => {
+  clip.currentTime = ms / 1000;
+});
+clip.addEventListener('seeked', () => seeker.seeked());
+// A new recording in the player: a seek in flight will never report back.
+clip.addEventListener('emptied', () => seeker.reset());
+
 function seekTo(ms) {
   if (!span) return;
   positionMs = clampWithin(ms, span);
-  clip.currentTime = positionMs / 1000;
+  seeker.request(positionMs);
   renderPosition();
   watchShownFrame();
 }
@@ -520,7 +535,7 @@ function renderHits() {
     { left: 0, top: 0, width, height },
     { width: clip.videoWidth, height: clip.videoHeight }
   );
-  if (picture) drawHits(paper, span.hits, positionMs, picture);
+  if (picture) drawHits(paper, span.hits, positionMs, picture, 1, hitTiming);
 }
 
 /** Which frame actually came up, for the diagnostics panel to report. */
@@ -549,6 +564,9 @@ let draggingFromX = 0;
 let pressedAt = null;
 
 function onDragStart(event) {
+  // A button on the picture — the Drag/Step switch, the placing bar — is a
+  // button, not the start of a drag.
+  if (event.target.closest?.('button')) return;
   // Or the browser claims the gesture as a drag of its own — a selection, an
   // image — and abandons ours one move in, leaving the footage barely moved.
   event.preventDefault();
@@ -566,9 +584,88 @@ function onDragStart(event) {
 function onDragEnd(event) {
   const from = pressedAt;
   pressedAt = null;
-  if (!placing || !from) return;
+  if (!from) return;
   if (Math.hypot(event.clientX - from.x, event.clientY - from.y) > 8) return;
-  placeHit(event.clientX, event.clientY);
+  // A tap: a hit while placing, a frame either way in Step mode, and in Drag
+  // mode nothing at all.
+  if (placing) return placeHit(event.clientX, event.clientY);
+  if (scrubMode === 'step' && span) {
+    const box = el('stage').getBoundingClientRect();
+    seekTo(steppedBy(positionMs, tapStep((event.clientX - box.left) / (box.width || 1)), frameMs, span));
+  }
+}
+
+/**
+ * How taps on the review picture move through a moment: 'drag' — they do not,
+ * only dragging does — or 'step', a frame back for the left half and forward
+ * for the right. Kept on the phone; a phone that will not keep it starts in
+ * Drag each time, which is no worse than before.
+ */
+/**
+ * How long a hit shows before and after its moment — the same on review, on
+ * the summary's background and in the saved video. Set under Settings and
+ * kept on the phone, as the Drag/Step choice is.
+ */
+const HIT_TIMING_KEY = 'vrl.hitTiming';
+let hitTiming = (() => {
+  try {
+    const kept = JSON.parse(localStorage.getItem(HIT_TIMING_KEY) ?? 'null');
+    if (Number.isFinite(kept?.leadMs) && Number.isFinite(kept?.tailMs)) return { leadMs: kept.leadMs, tailMs: kept.tailMs };
+  } catch {
+    // Unreadable, or not there: the defaults.
+  }
+  return { ...HIT_TIMING };
+})();
+
+function renderHitTiming() {
+  for (const [input, value] of [
+    ['hit-lead', hitTiming.leadMs],
+    ['hit-tail', hitTiming.tailMs],
+  ]) {
+    el(input).value = String(value);
+    el(`${input}-value`).textContent = `${(value / 1000).toFixed(2)}s`;
+  }
+}
+
+function setHitTiming(next) {
+  hitTiming = next;
+  try {
+    localStorage.setItem(HIT_TIMING_KEY, JSON.stringify(hitTiming));
+  } catch {
+    // Not kept, then — it still applies until the page is closed.
+  }
+  renderHitTiming();
+  renderHits();
+}
+
+const SCRUB_KEY = 'vrl.scrub';
+let scrubMode = (() => {
+  try {
+    return localStorage.getItem(SCRUB_KEY) === 'step' ? 'step' : 'drag';
+  } catch {
+    return 'drag';
+  }
+})();
+
+function setScrubMode(mode) {
+  scrubMode = mode === 'step' ? 'step' : 'drag';
+  try {
+    localStorage.setItem(SCRUB_KEY, scrubMode);
+  } catch {
+    // Not kept, then — it still applies until the page is closed.
+  }
+  renderScrubMode();
+}
+
+/** The switch, the setting and the hint, all saying the same thing. */
+function renderScrubMode() {
+  const stepping = scrubMode === 'step';
+  el('scrub-mode').textContent = stepping ? 'Step' : 'Drag';
+  el('scrub-mode').classList.toggle('on', stepping);
+  el('scrub-setting').value = scrubMode;
+  document.querySelector('.dragHint').textContent = stepping
+    ? 'tap left or right for a frame — or drag'
+    : 'drag anywhere to move through it';
 }
 
 function onDragMove(event) {
@@ -1004,7 +1101,7 @@ function paintBehindHits() {
     { left: 0, top: 0, width, height },
     { width: behind.videoWidth, height: behind.videoHeight }
   );
-  if (picture) drawHits(paper, behindSpan.hits, behind.currentTime * 1000, picture);
+  if (picture) drawHits(paper, behindSpan.hits, behind.currentTime * 1000, picture, 1, hitTiming);
 }
 
 function stopBehind() {
@@ -1128,6 +1225,7 @@ async function saveReel() {
       {
         onProgress: showSavingProgress,
         signal: stopped,
+        hitTiming,
         // Typed on the Save screen; blank means no title on the video at all.
         ...(el('export-title').value.trim() ? { title: el('export-title').value } : {}),
       }
@@ -1232,8 +1330,12 @@ function offerReel(footage, chosen) {
  * hand it over. `release` gives back what it holds once the panel is closed.
  */
 function offerFile(bytes, name, url, release) {
-  const file = new File([bytes], name, { type: bytes.type });
-  ready = { file, name, release };
+  // The plain type — "video/webm", not "video/webm;codecs=vp9". Chrome on
+  // Android turns down a file whose type carries codec details, and says only
+  // "Permission denied".
+  const type = bytes.type.split(';')[0].trim();
+  const file = new File([bytes], name, { type });
+  ready = { file, name, url, release };
 
   const shareable = Boolean(navigator.canShare?.({ files: [file] }));
   el('saving-title').textContent = 'Saved';
@@ -1261,7 +1363,14 @@ async function shareReady() {
     // Closing the share sheet without choosing anything is not a failure, and
     // Share stays where it is for another go.
     if (error?.name === 'AbortError') return;
-    el('saving-text').textContent = `Could not share it: ${error?.message ?? String(error)}`;
+    // Turned down for any other reason, it can still be saved: Download, in
+    // place of the Share that did not work.
+    el('saving-text').textContent = `The share sheet would not take it (${error?.message ?? String(error)}) — tap Download to save it instead.`;
+    el('saving-share').hidden = true;
+    const download = el('saving-download');
+    download.href = ready.url;
+    download.download = ready.name;
+    download.hidden = false;
   }
 }
 
@@ -1437,6 +1546,12 @@ el('saving-new').addEventListener('click', newBoutAfterSaving);
 el('saving-download').addEventListener('click', () => setTimeout(showSaved, 0));
 el('export-save').addEventListener('click', () => void saveReel());
 el('export-raw').addEventListener('click', () => void saveRaw());
+renderScrubMode();
+renderHitTiming();
+el('hit-lead').addEventListener('input', (event) => setHitTiming({ ...hitTiming, leadMs: Number(event.target.value) }));
+el('hit-tail').addEventListener('input', (event) => setHitTiming({ ...hitTiming, tailMs: Number(event.target.value) }));
+el('scrub-mode').addEventListener('click', () => setScrubMode(scrubMode === 'step' ? 'drag' : 'step'));
+el('scrub-setting').addEventListener('change', (event) => setScrubMode(event.target.value));
 el('open-saved').addEventListener('click', () => el('open-file').click());
 el('open-file').addEventListener('change', (event) => {
   const [file] = event.target.files ?? [];

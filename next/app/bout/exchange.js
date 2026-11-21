@@ -68,7 +68,6 @@ export function cut(exchange, markIds, spec) {
     const reaches = durationOf(exchange);
     const angles = exchange.takes.map((take) => take.id);
     const wanted = new Set(markIds);
-    const everyHit = exchange.marks.flatMap((mark) => mark.hits ?? []);
     const have = new Set(exchange.marks.map((mark) => mark.id));
     for (const id of wanted) {
         if (!have.has(id))
@@ -89,10 +88,10 @@ export function cut(exchange, markIds, spec) {
             takes: angles,
             shortLeadMs: Math.max(0, spec.leadMs - (atMs - fromMs)),
             shortTailMs: Math.max(0, spec.tailMs - (toMs - atMs)),
-            // Every hit in this stretch of footage, whichever mark it was placed
-            // on — a hit is something that happened, so it shows wherever that
-            // moment is shown.
-            hits: everyHit.filter((hit) => hit.atMs >= fromMs && hit.atMs <= toMs),
+            // Its own mark's hits, and only those that land inside the stretch.
+            // Two marks close together share footage, but a hit is placed on a
+            // mark: looking at one, the next one's hits are not what was asked.
+            hits: (mark.hits ?? []).filter((hit) => hit.atMs >= fromMs && hit.atMs <= toMs),
         };
     });
     return { spans };

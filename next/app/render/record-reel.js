@@ -15,8 +15,8 @@
 // real time, and by a distance the heaviest thing in the plan. Worth reaching
 // for only if this disappoints.
 import { measureDurationMs, record, release } from '../media/media.js';
-import { SIDE_COLOURS, drawHits, pictureIn } from './hits.js';
-import { FADE_MS, SPOTLIGHT, WATERMARK_OPACITY, endCardAt, endTitleLayout, endLogoBox, endingMs, loopLogoAt, fadeAt, hitTally, labelLayout, labelStrengthAt, numbersLayout, reelLengthMs, titleLines, watermarkBox, } from './reel.js';
+import { HIT_TIMING, SIDE_COLOURS, drawHits, pictureIn } from './hits.js';
+import { FADE_MS, SPOTLIGHT, WATERMARK_OPACITY, endCardAt, endTitleLayout, endLogoBox, endingMs, loopLogoAt, fadeAt, hitTally, numbersLayout, reelLengthMs, titleLines, watermarkBox, } from './reel.js';
 /**
  * Whether this device can save a video at all.
  *
@@ -57,7 +57,7 @@ function seekTo(video, seconds) {
  * Returns footage like any other — a `MediaHandle` — so what the caller does
  * with it is the caller's business: share it, download it, keep it.
  */
-export async function recordReel(cut, { video, canvas, urlFor, watermark }, { onProgress, fps = 30, signal, fadeMs = FADE_MS, title } = {}) {
+export async function recordReel(cut, { video, canvas, urlFor, watermark }, { onProgress, fps = 30, signal, fadeMs = FADE_MS, title, hitTiming = HIT_TIMING } = {}) {
     if (cut.spans.length === 0)
         throw new Error('nothing was marked, so there is nothing to save');
     if (!canRecordReel())
@@ -130,13 +130,7 @@ export async function recordReel(cut, { video, canvas, urlFor, watermark }, { on
             // over the picture — and as faded as the stretch is, so a hit near a
             // join dips to black with everything else.
             if (playing.hits?.length) {
-                drawHits(paper, playing.hits, nowMs, picture, strength);
-            }
-            // Which exchange this is, over the first moment of each — as faded as
-            // the moment, so it dips at the join with everything else.
-            if (playing.label) {
-                const { x, y, fontPx } = labelLayout(canvas.width, canvas.height);
-                drawCaption(paper, playing.label, { x, y, fontPx, maxWidth: canvas.width * 0.9 }, strength * labelStrengthAt(nowMs - playing.fromMs));
+                drawHits(paper, playing.hits, nowMs, picture, strength, hitTiming);
             }
         }
         if (keptFirst && playing === first && video.readyState >= 2) {
@@ -291,30 +285,6 @@ export async function recordReel(cut, { video, canvas, urlFor, watermark }, { on
         if (wasSource)
             await seekTo(video, wasAt).catch(() => { });
     }
-}
-/**
- * Words over the footage — the title, an exchange's label — white with a dark
- * edge so they read over anything, made smaller if they would not otherwise
- * fit across the picture.
- */
-function drawCaption(paper, words, { x, y, fontPx, maxWidth }, strength) {
-    if (strength <= 0)
-        return;
-    const font = (px) => `800 ${px}px system-ui, -apple-system, "Segoe UI", sans-serif`;
-    paper.font = font(fontPx);
-    const natural = paper.measureText(words).width;
-    const px = natural > maxWidth ? (fontPx * maxWidth) / natural : fontPx;
-    paper.font = font(px);
-    paper.textAlign = 'center';
-    paper.textBaseline = 'middle';
-    paper.lineJoin = 'round';
-    paper.globalAlpha = strength;
-    paper.lineWidth = px * 0.14;
-    paper.strokeStyle = 'rgba(0, 0, 0, 0.75)';
-    paper.strokeText(words, x, y);
-    paper.fillStyle = '#fff';
-    paper.fillText(words, x, y);
-    paper.globalAlpha = 1;
 }
 /**
  * The ending's ground: charcoal, lit softly in the middle. Neutral, so it
