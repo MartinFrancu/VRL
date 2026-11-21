@@ -1569,6 +1569,41 @@ describe('saving the raw files', () => {
     expect(Math.abs((await app.lengthOfVideo(raw.video)) - take.durationMs)).toBeLessThan(400);
   });
 
+  /**
+   * A keyframe every half second or so in what the camera records. Without
+   * them Chrome writes one at the very start and none after, and every seek
+   * while reviewing decodes from the start of the recording — the further in,
+   * the slower. Read with ffprobe, where there is one to read with.
+   */
+  const ffprobe = (() => {
+    try {
+      execFileSync('ffprobe', ['-version']);
+      return true;
+    } catch {
+      return false;
+    }
+  })();
+  test.skipIf(!ffprobe)('records a keyframe every half second or so', async ({ onTestFinished }) => {
+    const app = await freshApp(onTestFinished);
+    await filmBout(app, 2, { spacingMs: 1500 });
+    await app.openSummary();
+
+    const raw = unpack((await app.saveRaw()).path);
+    const keyframes = execFileSync('ffprobe', [
+      '-v', 'error', '-select_streams', 'v', '-show_entries', 'frame=key_frame,pts_time', '-of', 'csv=p=0', raw.video,
+    ])
+      .toString()
+      .trim()
+      .split('\n')
+      .map((line) => line.split(','))
+      .filter(([key]) => key === '1')
+      .map(([, at]) => Number(at));
+
+    expect(keyframes.length).toBeGreaterThan(3);
+    const gaps = keyframes.slice(1).map((at, n) => at - (keyframes[n] ?? 0));
+    expect(Math.max(...gaps)).toBeLessThan(0.7);
+  });
+
   /** Whatever is ticked, the raw files are the whole bout — even with nothing ticked. */
   test('can be saved with nothing ticked', async ({ onTestFinished }) => {
     const app = await freshApp(onTestFinished);

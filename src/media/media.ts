@@ -72,12 +72,21 @@ export interface Recording {
  * A one-second timeslice, so the bytes arrive as the bout runs rather than in
  * one lump at the end; a long bout then has nothing to do when the fight stops.
  */
+/** Chrome's option for how often to write a keyframe; not yet in TypeScript's own types. */
+const KEYFRAMES = { videoKeyFrameIntervalDuration: 500 };
+
 export function record(stream: MediaStream, { bitsPerSecond = 8_000_000 } = {}): Recording {
   const mimeType = mimeTypeHere();
   const recorder = new MediaRecorder(stream, {
     ...(mimeType ? { mimeType } : {}),
     videoBitsPerSecond: bitsPerSecond,
-  });
+    // A keyframe every half second. Left to itself Chrome writes one at the
+    // very start and none after, so every seek while reviewing decodes from
+    // the start of the recording — slower the further in, and on a phone,
+    // slow enough to leave the picture behind the thumb. Ignored by browsers
+    // that do not know it.
+    ...KEYFRAMES,
+  } as MediaRecorderOptions);
 
   const parts: Blob[] = [];
   recorder.ondataavailable = (event) => {

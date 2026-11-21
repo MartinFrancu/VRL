@@ -8,6 +8,15 @@ One entry per chunk, newest first, marked with the chunk's own letter:
 
 See `.claude/skills/chunks/SKILL.md` for the agreement these letters come from.
 
+## 1.1.45
+
+- **B** — Chrome, left to itself, writes a recording with a single keyframe at
+  the very start, so every seek while reviewing decoded from the start of the
+  recording: slower the further into an exchange, and on a phone slow enough
+  to leave the picture behind the thumb. Recordings now carry a keyframe
+  every half second where the browser takes the option (Chrome does), at the
+  cost of slightly larger files. The saved cut gets them too.
+
 ## 1.1.44
 
 - **B** — Dragging through a moment could leave the picture behind the thumb,
