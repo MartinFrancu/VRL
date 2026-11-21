@@ -4,10 +4,15 @@
 // placed, and by the recorder, which draws them into the saved video. Both
 // call `drawHits`, so what the referee sees while placing a hit is what ends
 // up in the file.
-/** How long before the moment of a hit the effect starts to show. */
-export const HIT_LEAD_MS = 200;
+/**
+ * How long before the moment of a hit the effect starts to show: two or three
+ * frames. Before the hit, a ring is a spoiler; it is there to point, not to
+ * announce.
+ */
+export const HIT_LEAD_MS = 80;
 /** How long after it the effect takes to fade away. */
 export const HIT_TAIL_MS = 500;
+export const HIT_TIMING = { leadMs: HIT_LEAD_MS, tailMs: HIT_TAIL_MS };
 /** The fighters' colours, as the canvas needs them. */
 export const SIDE_COLOURS = { red: '#e05252', blue: '#3b82f6' };
 /**
@@ -51,17 +56,18 @@ export function fromFrame(at, box, video) {
 /**
  * How a hit shows at a moment: how strongly, and how far it has grown.
  *
- * It comes up over the fifth of a second before the hit, is at its strongest
- * on the moment, and fades out over the half-second after — growing all the
- * while, so it reads as an impact spreading out rather than a dot blinking.
- * Null outside that window.
+ * It comes up over the `leadMs` before the hit, is at its strongest on the
+ * moment, and fades out over the `tailMs` after — growing all the while, so it
+ * reads as an impact spreading out rather than a dot blinking. Null outside
+ * that window.
  */
-export function hitEffectAt(positionMs, hit) {
+export function hitEffectAt(positionMs, hit, { leadMs, tailMs } = HIT_TIMING) {
     const since = positionMs - hit.atMs;
-    if (since < -HIT_LEAD_MS || since > HIT_TAIL_MS)
+    if (since < -leadMs || since > tailMs)
         return null;
-    const alpha = since < 0 ? 1 + since / HIT_LEAD_MS : 1 - since / HIT_TAIL_MS;
-    const grow = (since + HIT_LEAD_MS) / (HIT_LEAD_MS + HIT_TAIL_MS);
+    const alpha = since < 0 ? 1 + since / leadMs : tailMs > 0 ? 1 - since / tailMs : 1;
+    const span = leadMs + tailMs;
+    const grow = span > 0 ? (since + leadMs) / span : 1;
     return { alpha, grow };
 }
 /**
@@ -72,10 +78,10 @@ export function hitEffectAt(positionMs, hit) {
  * stays put. A dark shadow keeps it readable on a bright picture as well as a
  * dark one. `strength` scales it all, so a hit fades with the stretch it is in.
  */
-export function drawHits(paper, hits, positionMs, picture, strength = 1) {
+export function drawHits(paper, hits, positionMs, picture, strength = 1, timing = HIT_TIMING) {
     const unit = Math.min(picture.width, picture.height);
     for (const hit of hits) {
-        const effect = hitEffectAt(positionMs, hit);
+        const effect = hitEffectAt(positionMs, hit, timing);
         if (!effect || strength <= 0)
             continue;
         const x = picture.left + hit.x * picture.width;

@@ -53,8 +53,9 @@ about a second and a half before it and a second after — adjustable under
 picture where each hit landed**. A bar offers Red or Blue for each hit, Undo
 for the last one, and Done. Drag to find the frame first; the hit goes in at
 the moment on screen, and shows over the picture as a ring in the fighter's
-colour that comes up just before the moment and fades over the half-second
-after. Any number of hits per mark. A dot on a mark's number means it has
+colour that comes up just before the moment — 0.08s, two or three frames — and
+fades over the half-second after; both adjustable under **Settings &
+diagnostics**, and kept on the phone. Any number of hits per mark. A dot on a mark's number means it has
 hits, and the saved video shows every hit the same way, at the spot and the
 moment it was placed.
 **BACK** keeps this exchange and goes straight back to filming the next.

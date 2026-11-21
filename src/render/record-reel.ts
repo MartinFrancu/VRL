@@ -17,7 +17,8 @@
 
 import type { Cut, MediaHandle, Span, TakeId } from '../contracts.js';
 import { measureDurationMs, record, release } from '../media/media.js';
-import { SIDE_COLOURS, drawHits, pictureIn } from './hits.js';
+import { HIT_TIMING, SIDE_COLOURS, drawHits, pictureIn } from './hits.js';
+import type { HitTiming } from './hits.js';
 import {
   FADE_MS,
   SPOTLIGHT,
@@ -69,6 +70,8 @@ export interface ReelOptions {
    * each side's hit count. Left out or blank, there is no title.
    */
   readonly title?: string;
+  /** How long before and after its moment a hit shows. */
+  readonly hitTiming?: HitTiming;
   /** How long each dip to black at a join takes. Zero for hard cuts. */
   readonly fadeMs?: number;
 }
@@ -121,7 +124,7 @@ function seekTo(video: HTMLVideoElement, seconds: number): Promise<void> {
 export async function recordReel(
   cut: Cut,
   { video, canvas, urlFor, watermark }: ReelSources,
-  { onProgress, fps = 30, signal, fadeMs = FADE_MS, title }: ReelOptions = {}
+  { onProgress, fps = 30, signal, fadeMs = FADE_MS, title, hitTiming = HIT_TIMING }: ReelOptions = {}
 ): Promise<MediaHandle> {
   if (cut.spans.length === 0) throw new Error('nothing was marked, so there is nothing to save');
   if (!canRecordReel()) throw new Error('this device cannot record video from a canvas');
@@ -194,7 +197,7 @@ export async function recordReel(
       // over the picture — and as faded as the stretch is, so a hit near a
       // join dips to black with everything else.
       if (playing.hits?.length) {
-        drawHits(paper, playing.hits, nowMs, picture, strength);
+        drawHits(paper, playing.hits, nowMs, picture, strength, hitTiming);
       }
       // Which exchange this is, over the first moment of each — as faded as
       // the moment, so it dips at the join with everything else.

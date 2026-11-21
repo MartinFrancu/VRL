@@ -61,8 +61,9 @@ describe('where on the picture a tap landed', () => {
 });
 
 /**
- * The effect: it starts to show a little before the moment of the hit, is at
- * its strongest on it, and fades as it grows over the half-second after.
+ * The effect: it starts to show just before the moment of the hit — two or
+ * three frames — is at its strongest on it, and fades as it grows over the
+ * half-second after. Lopsided on purpose: before the hit, a ring is a spoiler.
  */
 describe('how a hit shows over time', () => {
   const hit: Hit = { atMs: 10_000, x: 0.5, y: 0.5, side: 'red' };
@@ -72,7 +73,11 @@ describe('how a hit shows over time', () => {
     expect(hitEffectAt(10_000 + HIT_TAIL_MS + 1, hit)).toBeNull();
   });
 
-  test('comes up before the moment of the hit', () => {
+  test('comes up only just before the moment of the hit', () => {
+    expect(HIT_LEAD_MS).toBe(80);
+  });
+
+  test('comes up evenly over that time', () => {
     expect(hitEffectAt(10_000 - HIT_LEAD_MS / 2, hit)?.alpha).toBeCloseTo(0.5, 5);
   });
 
@@ -86,12 +91,30 @@ describe('how a hit shows over time', () => {
   });
 
   test('keeps growing from first sight to last', () => {
-    const sizes = [-HIT_LEAD_MS, -100, 0, 100, 250, 400, HIT_TAIL_MS].map(
+    const sizes = [-HIT_LEAD_MS, -40, 0, 100, 250, 400, HIT_TAIL_MS].map(
       (offset) => hitEffectAt(10_000 + offset, hit)!.grow
     );
 
     for (let i = 1; i < sizes.length; i++) expect(sizes[i]).toBeGreaterThan(sizes[i - 1]!);
     expect(sizes[0]).toBe(0);
     expect(sizes.at(-1)).toBe(1);
+  });
+
+  /** Both ends are settings, and a timing given is the one used. */
+  test('keeps to the timing it is given', () => {
+    const longer = { leadMs: 300, tailMs: 1000 };
+
+    expect(hitEffectAt(10_000 - 250, hit, longer)).not.toBeNull();
+    expect(hitEffectAt(10_000 - 250, hit)).toBeNull();
+    expect(hitEffectAt(10_000 + 800, hit, longer)?.alpha).toBeCloseTo(0.2, 5);
+    expect(hitEffectAt(10_000 + 1_001, hit, longer)).toBeNull();
+  });
+
+  /** Nothing before at all is a timing too: it appears on the moment. */
+  test('appears on the moment itself when nothing before is wanted', () => {
+    const none = { leadMs: 0, tailMs: 500 };
+
+    expect(hitEffectAt(9_999, hit, none)).toBeNull();
+    expect(hitEffectAt(10_000, hit, none)?.alpha).toBe(1);
   });
 });

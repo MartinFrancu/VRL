@@ -590,6 +590,29 @@ export async function openApp(browser, { url, shareSheet = false }) {
       await page.mouse.up();
     },
 
+    /** Set how long a hit shows before and after its moment, as the Settings sliders do. */
+    setHitTiming: (leadMs, tailMs) =>
+      page.evaluate(
+        ({ leadMs, tailMs }) => {
+          for (const [id, value] of [
+            ['hit-lead', leadMs],
+            ['hit-tail', tailMs],
+          ]) {
+            const slider = document.getElementById(id);
+            slider.value = String(value);
+            slider.dispatchEvent(new Event('input'));
+          }
+        },
+        { leadMs, tailMs }
+      ),
+
+    /** What the Settings sliders for a hit's timing say, in ms. */
+    hitTiming: () =>
+      read(() => ({
+        leadMs: Number(document.getElementById('hit-lead').value),
+        tailMs: Number(document.getElementById('hit-tail').value),
+      })),
+
     /** Which way the review screen moves through a moment: 'Drag' or 'Step'. */
     scrubMode: () => read(() => document.getElementById('scrub-mode').textContent.trim()),
 

@@ -15,7 +15,7 @@
 // real time, and by a distance the heaviest thing in the plan. Worth reaching
 // for only if this disappoints.
 import { measureDurationMs, record, release } from '../media/media.js';
-import { SIDE_COLOURS, drawHits, pictureIn } from './hits.js';
+import { HIT_TIMING, SIDE_COLOURS, drawHits, pictureIn } from './hits.js';
 import { FADE_MS, SPOTLIGHT, WATERMARK_OPACITY, endCardAt, endTitleLayout, endLogoBox, endingMs, loopLogoAt, fadeAt, hitTally, labelLayout, labelStrengthAt, numbersLayout, reelLengthMs, titleLines, watermarkBox, } from './reel.js';
 /**
  * Whether this device can save a video at all.
@@ -57,7 +57,7 @@ function seekTo(video, seconds) {
  * Returns footage like any other — a `MediaHandle` — so what the caller does
  * with it is the caller's business: share it, download it, keep it.
  */
-export async function recordReel(cut, { video, canvas, urlFor, watermark }, { onProgress, fps = 30, signal, fadeMs = FADE_MS, title } = {}) {
+export async function recordReel(cut, { video, canvas, urlFor, watermark }, { onProgress, fps = 30, signal, fadeMs = FADE_MS, title, hitTiming = HIT_TIMING } = {}) {
     if (cut.spans.length === 0)
         throw new Error('nothing was marked, so there is nothing to save');
     if (!canRecordReel())
@@ -130,7 +130,7 @@ export async function recordReel(cut, { video, canvas, urlFor, watermark }, { on
             // over the picture — and as faded as the stretch is, so a hit near a
             // join dips to black with everything else.
             if (playing.hits?.length) {
-                drawHits(paper, playing.hits, nowMs, picture, strength);
+                drawHits(paper, playing.hits, nowMs, picture, strength, hitTiming);
             }
             // Which exchange this is, over the first moment of each — as faded as
             // the moment, so it dips at the join with everything else.

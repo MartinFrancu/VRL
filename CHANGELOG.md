@@ -8,6 +8,14 @@ One entry per chunk, newest first, marked with the chunk's own letter:
 
 See `.claude/skills/chunks/SKILL.md` for the agreement these letters come from.
 
+## 1.1.47
+
+- **D** — A hit's ring comes up only just before its moment — 0.08s, two or
+  three frames, down from 0.2s — and still fades over the half-second after:
+  before the hit, a ring is a spoiler. Both times are now settings, under
+  Settings & diagnostics, kept on the phone, and the same on review, on the
+  summary's background and in the saved video.
+
 ## 1.1.46
 
 - **D** — Step mode, for going through a moment frame by frame. A switch in

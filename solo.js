@@ -18,7 +18,7 @@
 import { cutBout, exchangeHolding, newBout, withExchange, withExchangeReplaced } from './app/bout/bout.js';
 import { boutFromRecord, boutRecord } from './app/bout/record.js';
 import { cut, durationOf, withHit, withoutLastHit } from './app/bout/exchange.js';
-import { drawHits, pictureIn, toFrame } from './app/render/hits.js';
+import { HIT_TIMING, drawHits, pictureIn, toFrame } from './app/render/hits.js';
 import { isChosen, selectionOf, showing, startingChoice, toggled } from './app/bout/selection.js';
 import { Capture } from './app/capture/capture.js';
 import { cameraClockUsable } from './app/capture/clock.js';
@@ -39,7 +39,7 @@ import { canRecordReel, recordReel } from './app/render/record-reel.js';
 import { Seeker } from './app/render/seeker.js';
 import { endingMs, hitTally, reelFilename, reelLengthMs } from './app/render/reel.js';
 
-const VERSION = '1.1.46';
+const VERSION = '1.1.47';
 
 const el = (id) => document.getElementById(id);
 const preview = el('preview');
@@ -535,7 +535,7 @@ function renderHits() {
     { left: 0, top: 0, width, height },
     { width: clip.videoWidth, height: clip.videoHeight }
   );
-  if (picture) drawHits(paper, span.hits, positionMs, picture);
+  if (picture) drawHits(paper, span.hits, positionMs, picture, 1, hitTiming);
 }
 
 /** Which frame actually came up, for the diagnostics panel to report. */
@@ -601,6 +601,43 @@ function onDragEnd(event) {
  * for the right. Kept on the phone; a phone that will not keep it starts in
  * Drag each time, which is no worse than before.
  */
+/**
+ * How long a hit shows before and after its moment — the same on review, on
+ * the summary's background and in the saved video. Set under Settings and
+ * kept on the phone, as the Drag/Step choice is.
+ */
+const HIT_TIMING_KEY = 'vrl.hitTiming';
+let hitTiming = (() => {
+  try {
+    const kept = JSON.parse(localStorage.getItem(HIT_TIMING_KEY) ?? 'null');
+    if (Number.isFinite(kept?.leadMs) && Number.isFinite(kept?.tailMs)) return { leadMs: kept.leadMs, tailMs: kept.tailMs };
+  } catch {
+    // Unreadable, or not there: the defaults.
+  }
+  return { ...HIT_TIMING };
+})();
+
+function renderHitTiming() {
+  for (const [input, value] of [
+    ['hit-lead', hitTiming.leadMs],
+    ['hit-tail', hitTiming.tailMs],
+  ]) {
+    el(input).value = String(value);
+    el(`${input}-value`).textContent = `${(value / 1000).toFixed(2)}s`;
+  }
+}
+
+function setHitTiming(next) {
+  hitTiming = next;
+  try {
+    localStorage.setItem(HIT_TIMING_KEY, JSON.stringify(hitTiming));
+  } catch {
+    // Not kept, then — it still applies until the page is closed.
+  }
+  renderHitTiming();
+  renderHits();
+}
+
 const SCRUB_KEY = 'vrl.scrub';
 let scrubMode = (() => {
   try {
@@ -1064,7 +1101,7 @@ function paintBehindHits() {
     { left: 0, top: 0, width, height },
     { width: behind.videoWidth, height: behind.videoHeight }
   );
-  if (picture) drawHits(paper, behindSpan.hits, behind.currentTime * 1000, picture);
+  if (picture) drawHits(paper, behindSpan.hits, behind.currentTime * 1000, picture, 1, hitTiming);
 }
 
 function stopBehind() {
@@ -1188,6 +1225,7 @@ async function saveReel() {
       {
         onProgress: showSavingProgress,
         signal: stopped,
+        hitTiming,
         // Typed on the Save screen; blank means no title on the video at all.
         ...(el('export-title').value.trim() ? { title: el('export-title').value } : {}),
       }
@@ -1509,6 +1547,9 @@ el('saving-download').addEventListener('click', () => setTimeout(showSaved, 0));
 el('export-save').addEventListener('click', () => void saveReel());
 el('export-raw').addEventListener('click', () => void saveRaw());
 renderScrubMode();
+renderHitTiming();
+el('hit-lead').addEventListener('input', (event) => setHitTiming({ ...hitTiming, leadMs: Number(event.target.value) }));
+el('hit-tail').addEventListener('input', (event) => setHitTiming({ ...hitTiming, tailMs: Number(event.target.value) }));
 el('scrub-mode').addEventListener('click', () => setScrubMode(scrubMode === 'step' ? 'drag' : 'step'));
 el('scrub-setting').addEventListener('change', (event) => setScrubMode(event.target.value));
 el('open-saved').addEventListener('click', () => el('open-file').click());

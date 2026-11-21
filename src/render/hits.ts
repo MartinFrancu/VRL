@@ -7,10 +7,22 @@
 
 import type { Hit, Side } from '../contracts.js';
 
-/** How long before the moment of a hit the effect starts to show. */
-export const HIT_LEAD_MS = 200;
+/**
+ * How long before the moment of a hit the effect starts to show: two or three
+ * frames. Before the hit, a ring is a spoiler; it is there to point, not to
+ * announce.
+ */
+export const HIT_LEAD_MS = 80;
 /** How long after it the effect takes to fade away. */
 export const HIT_TAIL_MS = 500;
+
+/** How long before and after its moment a hit shows. Both are settings. */
+export interface HitTiming {
+  readonly leadMs: number;
+  readonly tailMs: number;
+}
+
+export const HIT_TIMING: HitTiming = { leadMs: HIT_LEAD_MS, tailMs: HIT_TAIL_MS };
 
 /** The fighters' colours, as the canvas needs them. */
 export const SIDE_COLOURS: Readonly<Record<Side, string>> = { red: '#e05252', blue: '#3b82f6' };
@@ -78,17 +90,22 @@ export function fromFrame(
 /**
  * How a hit shows at a moment: how strongly, and how far it has grown.
  *
- * It comes up over the fifth of a second before the hit, is at its strongest
- * on the moment, and fades out over the half-second after — growing all the
- * while, so it reads as an impact spreading out rather than a dot blinking.
- * Null outside that window.
+ * It comes up over the `leadMs` before the hit, is at its strongest on the
+ * moment, and fades out over the `tailMs` after — growing all the while, so it
+ * reads as an impact spreading out rather than a dot blinking. Null outside
+ * that window.
  */
-export function hitEffectAt(positionMs: number, hit: Hit): { alpha: number; grow: number } | null {
+export function hitEffectAt(
+  positionMs: number,
+  hit: Hit,
+  { leadMs, tailMs }: HitTiming = HIT_TIMING
+): { alpha: number; grow: number } | null {
   const since = positionMs - hit.atMs;
-  if (since < -HIT_LEAD_MS || since > HIT_TAIL_MS) return null;
+  if (since < -leadMs || since > tailMs) return null;
 
-  const alpha = since < 0 ? 1 + since / HIT_LEAD_MS : 1 - since / HIT_TAIL_MS;
-  const grow = (since + HIT_LEAD_MS) / (HIT_LEAD_MS + HIT_TAIL_MS);
+  const alpha = since < 0 ? 1 + since / leadMs : tailMs > 0 ? 1 - since / tailMs : 1;
+  const span = leadMs + tailMs;
+  const grow = span > 0 ? (since + leadMs) / span : 1;
   return { alpha, grow };
 }
 
@@ -105,11 +122,12 @@ export function drawHits(
   hits: readonly Hit[],
   positionMs: number,
   picture: Box,
-  strength = 1
+  strength = 1,
+  timing: HitTiming = HIT_TIMING
 ): void {
   const unit = Math.min(picture.width, picture.height);
   for (const hit of hits) {
-    const effect = hitEffectAt(positionMs, hit);
+    const effect = hitEffectAt(positionMs, hit, timing);
     if (!effect || strength <= 0) continue;
 
     const x = picture.left + hit.x * picture.width;

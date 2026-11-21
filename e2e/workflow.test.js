@@ -743,6 +743,36 @@ describe('placing hits', () => {
     expect(samples.some(({ r, g, b }) => r > 120 && r > g + 50 && r > b + 50)).toBe(false);
   });
 
+  /**
+   * A hit shows only just before its moment — 0.08s, two or three frames —
+   * unless Settings says otherwise. Three frames back (a tenth of a second at
+   * the test camera's 30 a second) it is not there yet; with 0.3s before set,
+   * it is.
+   */
+  test('shows a hit only just before its moment, or as long before as Settings says', async ({ onTestFinished }) => {
+    const app = await reviewing(onTestFinished);
+    await app.switchScrubMode();
+    await app.annotate('red');
+    await app.tapPictureAt(0.3, 0.4);
+    await app.doneHits();
+    for (let i = 0; i < 3; i++) await app.tapPictureAt(0.2, 0.5);
+
+    expect((await app.hitLayerAt(0.3, 0.4)).a).toBe(0);
+
+    await app.setHitTiming(300, 500);
+    expect((await app.hitLayerAt(0.3, 0.4)).a).toBeGreaterThan(0);
+  });
+
+  test('keeps the hit timing set in Settings on the phone', async ({ onTestFinished }) => {
+    const app = await freshApp(onTestFinished);
+    expect(await app.hitTiming()).toEqual({ leadMs: 80, tailMs: 500 });
+
+    await app.setHitTiming(150, 900);
+    await app.reload();
+
+    expect(await app.hitTiming()).toEqual({ leadMs: 150, tailMs: 900 });
+  });
+
   /** Outside placing, a tap on the picture is still nothing at all. */
   test('places nothing once placing is done', async ({ onTestFinished }) => {
     const app = await reviewing(onTestFinished);
