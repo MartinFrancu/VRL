@@ -75,6 +75,11 @@ service worker serves the cached one and fetches the new one behind it.
   the real ones back, not always byte for byte. If `icon-*.png` show as
   modified after running it locally, `git checkout -- icon-180.png icon-192.png
   icon-512.png`; never commit them from a preview run.
+- **Which Chromium the generator uses.** Playwright's own, unless
+  `VRL_CHROMIUM` names another. In this repo's cloud sessions, where it lives
+  at `/opt/pw-browsers/chromium`, run `VRL_CHROMIUM=/opt/pw-browsers/chromium
+  npm run preview` to try a test build locally; the `pages` workflow needs
+  nothing, as it installs Playwright's.
 - **The test build is generated, so edit the generator, not the output.** What
   differs between `/next/` and `/` lives in `tools/make-preview.mjs` and
   nowhere else.

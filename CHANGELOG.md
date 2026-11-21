@@ -8,6 +8,15 @@ One entry per chunk, newest first, marked with the chunk's own letter:
 
 See `.claude/skills/chunks/SKILL.md` for the agreement these letters come from.
 
+## 1.1.51
+
+- **B** — The test build could not be built anywhere but this project's cloud
+  sessions: `tools/make-icons.mjs` launched Chromium from the path those
+  sessions keep it at, and nowhere else has it there — so the new `pages`
+  workflow failed at "Build the test version". It now uses Playwright's own
+  Chromium unless `VRL_CHROMIUM` names another, as the logo recolourer
+  already did.
+
 ## 1.1.50
 
 - **D** — The test build at `/VRL/next/` is no longer committed to `main`. A

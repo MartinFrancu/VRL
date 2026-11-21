@@ -39,7 +39,7 @@ import { canRecordReel, recordReel } from './app/render/record-reel.js';
 import { Seeker } from './app/render/seeker.js';
 import { endingMs, hitTally, reelFilename, reelLengthMs } from './app/render/reel.js';
 
-const VERSION = '1.1.50';
+const VERSION = '1.1.51';
 
 const el = (id) => document.getElementById(id);
 const preview = el('preview');

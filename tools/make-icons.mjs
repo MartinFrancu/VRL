@@ -38,7 +38,9 @@ const page = (size) => `<!doctype html>
 </style></head><body><img src="${logo}" alt=""></body></html>`;
 
 const browser = await chromium.launch({
-  executablePath: process.env['VRL_CHROMIUM'] || '/opt/pw-browsers/chromium',
+  // Playwright's own Chromium unless told otherwise — VRL_CHROMIUM names another
+  // (this repo's cloud sessions keep theirs at /opt/pw-browsers/chromium).
+  executablePath: process.env['VRL_CHROMIUM'] || undefined,
 });
 for (const size of [180, 192, 512]) {
   const tab = await browser.newPage({ viewport: { width: size, height: size } });
