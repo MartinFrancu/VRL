@@ -34,9 +34,10 @@ import {
   shortfallLabel,
 } from './app/render/playhead.js';
 import { canRecordReel, recordReel } from './app/render/record-reel.js';
+import { Seeker } from './app/render/seeker.js';
 import { endingMs, hitTally, reelFilename, reelLengthMs } from './app/render/reel.js';
 
-const VERSION = '1.1.43';
+const VERSION = '1.1.44';
 
 const el = (id) => document.getElementById(id);
 const preview = el('preview');
@@ -479,10 +480,22 @@ function select(index) {
   seekTo(span.atMs);
 }
 
+/**
+ * The player's own position, paced: one seek at a time, the newest asked for
+ * winning — so a thumb faster than the phone can seek still sees the picture
+ * move. The readout and the hits follow the thumb at once regardless.
+ */
+const seeker = new Seeker((ms) => {
+  clip.currentTime = ms / 1000;
+});
+clip.addEventListener('seeked', () => seeker.seeked());
+// A new recording in the player: a seek in flight will never report back.
+clip.addEventListener('emptied', () => seeker.reset());
+
 function seekTo(ms) {
   if (!span) return;
   positionMs = clampWithin(ms, span);
-  clip.currentTime = positionMs / 1000;
+  seeker.request(positionMs);
   renderPosition();
   watchShownFrame();
 }

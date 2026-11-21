@@ -349,7 +349,14 @@ export async function openApp(browser, { url, shareSheet = false }) {
       );
     },
 
-    positionMs: () => read(() => document.getElementById('clip').currentTime * 1000),
+    /**
+     * Where the footage is, once the player has got there. Seeks are paced —
+     * one at a time — so a position just asked for can be a moment behind.
+     */
+    async positionMs() {
+      await page.waitForFunction(() => !document.getElementById('clip').seeking);
+      return read(() => document.getElementById('clip').currentTime * 1000);
+    },
     durationMs: () => read(() => document.getElementById('clip').duration * 1000),
     readout: () => read(() => document.getElementById('readout').textContent),
     shortfall: () => read(() => document.getElementById('shortfall').textContent),
@@ -367,6 +374,60 @@ export async function openApp(browser, { url, shareSheet = false }) {
       await page.mouse.down();
       await page.mouse.move(from + fraction * box.width, y, { steps: 12 });
       await page.mouse.up();
+    },
+
+    /**
+     * Drag across the picture as fast as a thumb flicks: many movements, no
+     * waiting between them for the picture to keep up.
+     */
+    async flickAcross(fraction, moves = 60) {
+      const box = await page.locator('#stage').boundingBox();
+      const y = box.y + box.height / 2;
+      const from = box.x + box.width / 2;
+      await page.mouse.move(from, y);
+      await page.mouse.down();
+      await page.mouse.move(from + fraction * box.width, y, { steps: moves });
+      await page.mouse.up();
+    },
+
+    /**
+     * Start counting, from outside, how the review player is asked to seek:
+     * every position set on it, and how many were set while it was still
+     * finding the one before.
+     */
+    watchSeeks: () =>
+      page.evaluate(() => {
+        const clip = document.getElementById('clip');
+        const own = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'currentTime');
+        const seen = { sets: 0, inFlight: 0, mostInFlight: 0 };
+        window.__seeks = seen;
+        Object.defineProperty(clip, 'currentTime', {
+          configurable: true,
+          get() {
+            return own.get.call(this);
+          },
+          set(value) {
+            seen.sets += 1;
+            seen.inFlight += 1;
+            seen.mostInFlight = Math.max(seen.mostInFlight, seen.inFlight);
+            own.set.call(this, value);
+          },
+        });
+        // Capturing, so this hears a seek finish before the app does — the app
+        // may start the next one in its own listener.
+        clip.addEventListener(
+          'seeked',
+          () => {
+            seen.inFlight = 0;
+          },
+          { capture: true }
+        );
+      }),
+
+    /** What `watchSeeks` has counted, once the player has stopped seeking. */
+    async seeks() {
+      await page.waitForFunction(() => !document.getElementById('clip').seeking);
+      return read(() => ({ ...window.__seeks }));
     },
 
     /** Touch the picture without moving. Deliberately expected to do nothing. */

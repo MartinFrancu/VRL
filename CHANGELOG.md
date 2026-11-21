@@ -8,6 +8,16 @@ One entry per chunk, newest first, marked with the chunk's own letter:
 
 See `.claude/skills/chunks/SKILL.md` for the agreement these letters come from.
 
+## 1.1.44
+
+- **B** — Dragging through a moment could leave the picture behind the thumb,
+  or frozen until it stopped, on phones that seek slowly. Every movement asked
+  the player for a new position, and a player asked again before it has shown
+  the last one starts over. Now there is one seek at a time, and whatever the
+  thumb asks for meanwhile replaces whatever was waiting: the picture moves in
+  steps on a slow phone, but it always moves, and it ends exactly where the
+  thumb stopped. The readout and the hits follow the thumb at once, as before.
+
 ## 1.1.43
 
 - **B** — Saving on Android said "Permission denied". The video was handed to

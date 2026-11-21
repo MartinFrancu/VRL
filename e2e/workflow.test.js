@@ -304,6 +304,46 @@ describe('reviewing a bout that was filmed with three marks', () => {
   });
 });
 
+/**
+ * Dragging through a moment on a phone that seeks slowly. Asked for a new
+ * position before it has shown the last, a player starts over — so a thumb
+ * moving faster than the phone can seek saw nothing until it stopped. One seek
+ * at a time, the newest position winning, keeps the picture moving.
+ */
+describe('dragging faster than the phone can seek', () => {
+  test('never asks the player for a new position while it is still finding one', async ({ onTestFinished }) => {
+    const app = await freshApp(onTestFinished);
+    await filmBout(app, 1, { spacingMs: 1500 });
+    await app.review();
+    await app.watchSeeks();
+
+    await app.flickAcross(0.4);
+    const seeks = await app.seeks();
+
+    expect(seeks.sets).toBeGreaterThan(0);
+    expect(seeks.mostInFlight).toBe(1);
+  });
+
+  /** Steps skipped on the way, but not the last: it ends where the thumb did. */
+  test('ends exactly where the thumb stopped', async ({ onTestFinished }) => {
+    const app = await freshApp(onTestFinished);
+    await filmBout(app, 1, { spacingMs: 1500 });
+    await app.review();
+    // To the end of the window, slowly, to learn where that is.
+    await app.dragAcross(1);
+    await app.seeks();
+    const end = await app.positionMs();
+    await app.dragAcross(-1);
+    await app.seeks();
+    expect(await app.positionMs()).toBeLessThan(end - 500);
+
+    await app.flickAcross(1);
+    await app.seeks();
+
+    expect(await app.positionMs()).toBeCloseTo(end, 0);
+  });
+});
+
 describe('moving between the modes', () => {
   /**
    * BACK keeps the exchange: it is part of the bout now, and will be on the
