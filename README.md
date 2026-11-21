@@ -44,7 +44,10 @@ goes. Taps still mark through it.
 
 **Review** — the numbered marks along the top, and the picture. **Drag your
 thumb across the picture** to move through the moment; the full width is the
-whole window, which works out finer than one frame per pixel. Each mark shows
+whole window, which works out finer than one frame per pixel. Or switch the
+button in the picture's corner from **Drag** to **Step**: a tap on the left half
+then goes back one frame, on the right half forward one (dragging still works).
+The same choice is under **Settings & diagnostics**, and the phone remembers it. Each mark shows
 about a second and a half before it and a second after — adjustable under
 **Settings & diagnostics**. **✎** annotates the mark on screen: **tap the
 picture where each hit landed**. A bar offers Red or Blue for each hit, Undo

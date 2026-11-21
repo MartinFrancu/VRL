@@ -66,4 +66,12 @@ export function shortfallLabel(span, { noticeAboveMs = 100 } = {}) {
         return null;
     return `stopped ${(span.shortTailMs / 1000).toFixed(1)}s after this mark`;
 }
+/**
+ * Which way a tap steps, in Step mode: back a frame for the left half of the
+ * picture, forward for the right. `acrossFraction` is where the tap was, from
+ * 0 at the left edge to 1 at the right.
+ */
+export function tapStep(acrossFraction) {
+    return acrossFraction < 0.5 ? -1 : 1;
+}
 //# sourceMappingURL=playhead.js.map

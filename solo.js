@@ -32,12 +32,14 @@ import {
   progressThrough,
   readoutFor,
   shortfallLabel,
+  steppedBy,
+  tapStep,
 } from './app/render/playhead.js';
 import { canRecordReel, recordReel } from './app/render/record-reel.js';
 import { Seeker } from './app/render/seeker.js';
 import { endingMs, hitTally, reelFilename, reelLengthMs } from './app/render/reel.js';
 
-const VERSION = '1.1.45';
+const VERSION = '1.1.46';
 
 const el = (id) => document.getElementById(id);
 const preview = el('preview');
@@ -562,6 +564,9 @@ let draggingFromX = 0;
 let pressedAt = null;
 
 function onDragStart(event) {
+  // A button on the picture — the Drag/Step switch, the placing bar — is a
+  // button, not the start of a drag.
+  if (event.target.closest?.('button')) return;
   // Or the browser claims the gesture as a drag of its own — a selection, an
   // image — and abandons ours one move in, leaving the footage barely moved.
   event.preventDefault();
@@ -579,9 +584,51 @@ function onDragStart(event) {
 function onDragEnd(event) {
   const from = pressedAt;
   pressedAt = null;
-  if (!placing || !from) return;
+  if (!from) return;
   if (Math.hypot(event.clientX - from.x, event.clientY - from.y) > 8) return;
-  placeHit(event.clientX, event.clientY);
+  // A tap: a hit while placing, a frame either way in Step mode, and in Drag
+  // mode nothing at all.
+  if (placing) return placeHit(event.clientX, event.clientY);
+  if (scrubMode === 'step' && span) {
+    const box = el('stage').getBoundingClientRect();
+    seekTo(steppedBy(positionMs, tapStep((event.clientX - box.left) / (box.width || 1)), frameMs, span));
+  }
+}
+
+/**
+ * How taps on the review picture move through a moment: 'drag' — they do not,
+ * only dragging does — or 'step', a frame back for the left half and forward
+ * for the right. Kept on the phone; a phone that will not keep it starts in
+ * Drag each time, which is no worse than before.
+ */
+const SCRUB_KEY = 'vrl.scrub';
+let scrubMode = (() => {
+  try {
+    return localStorage.getItem(SCRUB_KEY) === 'step' ? 'step' : 'drag';
+  } catch {
+    return 'drag';
+  }
+})();
+
+function setScrubMode(mode) {
+  scrubMode = mode === 'step' ? 'step' : 'drag';
+  try {
+    localStorage.setItem(SCRUB_KEY, scrubMode);
+  } catch {
+    // Not kept, then — it still applies until the page is closed.
+  }
+  renderScrubMode();
+}
+
+/** The switch, the setting and the hint, all saying the same thing. */
+function renderScrubMode() {
+  const stepping = scrubMode === 'step';
+  el('scrub-mode').textContent = stepping ? 'Step' : 'Drag';
+  el('scrub-mode').classList.toggle('on', stepping);
+  el('scrub-setting').value = scrubMode;
+  document.querySelector('.dragHint').textContent = stepping
+    ? 'tap left or right for a frame — or drag'
+    : 'drag anywhere to move through it';
 }
 
 function onDragMove(event) {
@@ -1461,6 +1508,9 @@ el('saving-new').addEventListener('click', newBoutAfterSaving);
 el('saving-download').addEventListener('click', () => setTimeout(showSaved, 0));
 el('export-save').addEventListener('click', () => void saveReel());
 el('export-raw').addEventListener('click', () => void saveRaw());
+renderScrubMode();
+el('scrub-mode').addEventListener('click', () => setScrubMode(scrubMode === 'step' ? 'drag' : 'step'));
+el('scrub-setting').addEventListener('change', (event) => setScrubMode(event.target.value));
 el('open-saved').addEventListener('click', () => el('open-file').click());
 el('open-file').addEventListener('change', (event) => {
   const [file] = event.target.files ?? [];

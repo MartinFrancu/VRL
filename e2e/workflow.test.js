@@ -344,6 +344,91 @@ describe('dragging faster than the phone can seek', () => {
   });
 });
 
+/**
+ * Step mode: frame by frame. A switch in the corner of the review picture —
+ * and the same choice in Settings — turns taps into steps: a tap on the left
+ * half goes back a frame, one on the right forward a frame. Dragging still
+ * works. The choice is kept on the phone.
+ */
+describe('stepping frame by frame', () => {
+  async function reviewing(onCleanup) {
+    const app = await freshApp(onCleanup);
+    await filmBout(app, 1, { spacingMs: 1500 });
+    await app.review();
+    return app;
+  }
+
+  test('starts in Drag, where a tap does nothing', async ({ onTestFinished }) => {
+    const app = await reviewing(onTestFinished);
+    const before = await app.positionMs();
+
+    await app.tapPictureAt(0.8, 0.5);
+
+    expect(await app.scrubMode()).toBe('Drag');
+    expect(await app.positionMs()).toBe(before);
+  });
+
+  test('steps a frame forward for a tap on the right, back for one on the left', async ({ onTestFinished }) => {
+    const app = await reviewing(onTestFinished);
+    await app.switchScrubMode();
+    expect(await app.scrubMode()).toBe('Step');
+    const start = await app.positionMs();
+
+    await app.tapPictureAt(0.8, 0.5);
+    const forward = await app.positionMs();
+    await app.tapPictureAt(0.2, 0.5);
+    await app.tapPictureAt(0.2, 0.5);
+    const back = await app.positionMs();
+
+    // One frame of the test camera's 30 a second, give or take its rounding.
+    expect(forward - start).toBeGreaterThan(10);
+    expect(forward - start).toBeLessThan(70);
+    expect(start - back).toBeCloseTo(forward - start, 0);
+  });
+
+  test('still drags in Step mode', async ({ onTestFinished }) => {
+    const app = await reviewing(onTestFinished);
+    await app.switchScrubMode();
+    const before = await app.positionMs();
+
+    await app.dragAcross(0.3);
+
+    expect(await app.positionMs()).toBeGreaterThan(before + 200);
+  });
+
+  /** While placing hits, a tap places a hit — in Step mode as in Drag. */
+  test('places a hit for a tap while placing, not a step', async ({ onTestFinished }) => {
+    const app = await reviewing(onTestFinished);
+    await app.switchScrubMode();
+    await app.annotate('red');
+    const before = await app.positionMs();
+
+    await app.tapPictureAt(0.8, 0.5);
+
+    expect(await app.hitCount()).toBe(1);
+    expect(await app.positionMs()).toBe(before);
+  });
+
+  test('is the same choice in Settings as in the corner', async ({ onTestFinished }) => {
+    const app = await reviewing(onTestFinished);
+
+    await app.chooseScrubInSettings('step');
+    expect(await app.scrubMode()).toBe('Step');
+
+    await app.switchScrubMode();
+    expect(await app.scrubSetting()).toBe('drag');
+  });
+
+  test('is remembered on the phone', async ({ onTestFinished }) => {
+    const app = await reviewing(onTestFinished);
+    await app.switchScrubMode();
+
+    await app.reload();
+
+    expect(await app.scrubSetting()).toBe('step');
+  });
+});
+
 describe('moving between the modes', () => {
   /**
    * BACK keeps the exchange: it is part of the bout now, and will be on the

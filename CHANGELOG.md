@@ -8,6 +8,15 @@ One entry per chunk, newest first, marked with the chunk's own letter:
 
 See `.claude/skills/chunks/SKILL.md` for the agreement these letters come from.
 
+## 1.1.46
+
+- **D** — Step mode, for going through a moment frame by frame. A switch in
+  the top-left corner of the review picture turns **Drag** into **Step**: a
+  tap on the left half of the picture then goes back one frame, on the right
+  half forward one. Dragging still works in Step mode, and while placing hits
+  a tap still places a hit. The same choice is under Settings & diagnostics,
+  and the phone remembers it.
+
 ## 1.1.45
 
 - **B** — Chrome, left to itself, writes a recording with a single keyframe at

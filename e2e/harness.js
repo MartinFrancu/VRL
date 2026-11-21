@@ -590,6 +590,23 @@ export async function openApp(browser, { url, shareSheet = false }) {
       await page.mouse.up();
     },
 
+    /** Which way the review screen moves through a moment: 'Drag' or 'Step'. */
+    scrubMode: () => read(() => document.getElementById('scrub-mode').textContent.trim()),
+
+    /** The switch in the corner of the review picture. */
+    switchScrubMode: () => page.locator('#scrub-mode').click(),
+
+    /** The same choice, made in Settings instead. */
+    chooseScrubInSettings: (value) =>
+      page.evaluate((value) => {
+        const choice = document.getElementById('scrub-setting');
+        choice.value = value;
+        choice.dispatchEvent(new Event('change'));
+      }, value),
+
+    /** What Settings says, whether or not it is open. */
+    scrubSetting: () => read(() => document.getElementById('scrub-setting').value),
+
     /** Tap the black bar above the picture. */
     async tapBar() {
       const at = await app.pictureSpot(0.5, 0.5);

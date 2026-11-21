@@ -8,6 +8,7 @@ import {
   readoutFor,
   shortfallLabel,
   steppedBy,
+  tapStep,
 } from './playhead.js';
 
 const span = (over: Partial<Span> = {}): Span => ({
@@ -121,5 +122,19 @@ describe('stepping a frame at a time', () => {
   test('stops at the ends rather than stepping off them', () => {
     expect(steppedBy(30_999, 10, frameMs, span())).toBe(31_000);
     expect(steppedBy(28_501, -10, frameMs, span())).toBe(28_500);
+  });
+});
+
+/**
+ * In Step mode a tap moves one frame: back for a tap on the left half of the
+ * picture, forward for one on the right. Halves, not thirds — a thumb on a
+ * moving bout does not aim, and the middle has to go one way or the other.
+ */
+describe('which way a tap steps', () => {
+  test('steps back for the left half, forward for the right', () => {
+    expect(tapStep(0.1)).toBe(-1);
+    expect(tapStep(0.49)).toBe(-1);
+    expect(tapStep(0.5)).toBe(1);
+    expect(tapStep(0.9)).toBe(1);
   });
 });
