@@ -64,8 +64,6 @@ Unordered. Nothing here is a commitment.
   `vrl-v2`, bumped by hand. A chunk that renames a file without bumping it
   serves half an old app on the next launch.
 
-- **A `/next/` path on the same Pages site.** Somewhere to try a build from a
-  phone that is not the URL other referees already have installed.
 
 ## Known rough edges
 

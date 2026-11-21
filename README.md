@@ -149,6 +149,19 @@ only appear on a phone. It makes its own https certificate on first run
 (`tools/certs.js`), since the camera will not start without one — or point
 `VRL_CERTS` at a pair you already have.
 
+### Where it goes out
+
+One site, two builds, both published by the `pages` workflow:
+
+- **https://martinfrancu.github.io/VRL/** — the live app, from `main`, as `main`
+  is pushed.
+- **https://martinfrancu.github.io/VRL/next/** — the test build (blue icon, "SBA
+  NEXT"), from the development branch, as it is pushed and its tests pass.
+
+Nothing about a test build is committed to `main`: to try a change on a phone,
+push the branch. The details — which branch, how to check what is out, the
+one-time Pages setting — are in `.claude/skills/deploy/SKILL.md`.
+
 ### The tests
 
 ```

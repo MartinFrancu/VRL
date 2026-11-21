@@ -95,6 +95,9 @@ it does not move between branches without being asked for.
 3. **One entry in `CHANGELOG.md`**, under the new version, marked with the same
    letter.
 
+Putting a chunk on a phone to try is a push of the branch — see the `deploy`
+skill. Nothing about a test build is ever committed to `main`.
+
 There is no `web/operator/` here. That is the multi-camera version's Angular
 app, in the other repository.
 

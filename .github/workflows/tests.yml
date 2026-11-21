@@ -7,10 +7,11 @@ name: tests
 # app installed. Running on branches is what makes it possible to see a change
 # is green *before* it becomes the thing referees are using.
 #
-# Worth knowing: this does not *stop* a deploy. Pages publishes from its branch
-# as soon as it is pushed, without waiting for anything. Gating the deploy on a
-# green run means moving Pages over to deploying from a workflow instead, which
-# is a change to how the site is published and is not made here.
+# Pages is built by the `pages` workflow. For the development branch, the
+# last job here asks for that build once the tests are green, which is what
+# puts the test build at /VRL/next/ — a red branch never reaches the phones.
+# The live app still goes out as main is pushed. See
+# .claude/skills/deploy/SKILL.md.
 on:
   push:
   pull_request:
@@ -49,3 +50,21 @@ jobs:
             || { echo "::error::app/ is stale — run 'npm run build' and commit the result"; exit 1; }
 
       - run: npm test
+
+  # The test build at /VRL/next/, from the development branch, once its tests
+  # pass: a run of the `pages` workflow on main, naming this branch. (A run
+  # asked for with this workflow's own token is one of the few kinds GitHub
+  # lets a workflow start.) Which branch counts as the development branch is
+  # the repository variable NEXT_BRANCH, or else the default named here and in
+  # pages.yml.
+  next:
+    needs: test
+    if: github.event_name == 'push' && github.ref_name == (vars.NEXT_BRANCH || 'claude/vrl-characterization-suite')
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - name: Ask for the test build to be deployed
+        run: gh workflow run pages.yml --repo "$GITHUB_REPOSITORY" --ref main -f next="$GITHUB_REF_NAME"
+        env:
+          GH_TOKEN: ${{ github.token }}

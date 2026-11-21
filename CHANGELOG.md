@@ -8,6 +8,14 @@ One entry per chunk, newest first, marked with the chunk's own letter:
 
 See `.claude/skills/chunks/SKILL.md` for the agreement these letters come from.
 
+## 1.1.50
+
+- **D** — The test build at `/VRL/next/` is no longer committed to `main`. A
+  `pages` workflow builds the site instead: the live app from `main`, and the
+  test build from the development branch through `npm run preview` — published
+  once the branch's tests pass. Trying a change on a phone is now a push of the
+  branch and nothing more. Written down in `.claude/skills/deploy/SKILL.md`.
+
 ## 1.1.49
 
 - **D** — No "Exchange 2" over the saved video any more: nothing is written
