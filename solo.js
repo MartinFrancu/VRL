@@ -40,7 +40,7 @@ import { Seeker } from './app/render/seeker.js';
 import { endingMs, hitTally, reelFilename, reelLengthMs } from './app/render/reel.js';
 import { EventLog, issueUrl, reportText } from './app/report/report.js';
 
-const VERSION = '1.1.54';
+const VERSION = '1.1.55';
 
 const el = (id) => document.getElementById(id);
 
@@ -520,8 +520,12 @@ const seeker = new Seeker((ms) => {
 });
 clip.addEventListener('seeked', () => {
   // A seek slow enough to feel is worth a line in a report; the rest are noise.
+  // Only the review screen's own: once landed, when it was asked for is
+  // forgotten, so the seeks saving makes on the same player are never timed
+  // from a review seek minutes before.
   const took = performance.now() - seekAskedAt;
   if (seekAskedAt && took > 150) trace('slow seek', `${Math.round(took)} ms`);
+  seekAskedAt = 0;
   seeker.seeked();
 });
 // A new recording in the player: a seek in flight will never report back.

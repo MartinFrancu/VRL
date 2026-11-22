@@ -1884,6 +1884,26 @@ describe('reporting a problem', () => {
     expect(await app.reportShowing()).toBe(true);
   });
 
+  /**
+   * "Slow seek" is about the review screen's own seeks. Saving seeks the same
+   * player, and those were timed from the review screen's last seek, minutes
+   * before — so a report from a save was full of slow seeks of 300 seconds
+   * that never happened (#1). Here every seek is quick: there should be none.
+   */
+  test('times only the review screen\'s own seeks as slow', async ({ onTestFinished }) => {
+    const app = await freshApp(onTestFinished);
+    await filmBout(app, 2, { spacingMs: 1500 });
+    await app.review();
+    await app.dragAcross(0.2);
+    await app.page.waitForTimeout(1_200);
+    await app.save();
+
+    await app.holdOn('export-heading');
+
+    expect(await app.reportText()).toMatch(/cut saved/);
+    expect(await app.reportText()).not.toMatch(/slow seek/);
+  });
+
   /** A tap is not a hold: the version and the time stay what they are. */
   test('does not open for a tap', async ({ onTestFinished }) => {
     const app = await freshApp(onTestFinished);

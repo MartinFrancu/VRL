@@ -8,6 +8,14 @@ One entry per chunk, newest first, marked with the chunk's own letter:
 
 See `.claude/skills/chunks/SKILL.md` for the agreement these letters come from.
 
+## 1.1.55
+
+- **B** — The problem report's "slow seek" lines were nonsense after saving
+  (#1): the seeks saving makes on the review player were timed from the
+  review screen's last seek, minutes before, so a save showed slow seeks of
+  300 seconds that never happened. Only the review screen's own seeks are
+  timed now.
+
 ## 1.1.54
 
 - **B** — Stop did not always stop a save (#1). A save stopped while it was
