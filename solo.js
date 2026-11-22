@@ -40,7 +40,7 @@ import { Seeker } from './app/render/seeker.js';
 import { endingMs, hitTally, reelFilename, reelLengthMs } from './app/render/reel.js';
 import { EventLog, issueUrl, reportText } from './app/report/report.js';
 
-const VERSION = '1.1.55';
+const VERSION = '1.1.56';
 
 const el = (id) => document.getElementById(id);
 
@@ -1272,6 +1272,7 @@ async function saveReel() {
     await recorderRunning;
     recorderRunning = new Promise((resolve) => (done = resolve));
     if (stopped.aborted) throw new Error('saving was stopped');
+    document.body.classList.add('saving-cut');
     footage = await recordReel(
       plan,
       {
@@ -1306,6 +1307,7 @@ async function saveReel() {
     el('saving-stop').textContent = 'Close';
     return;
   } finally {
+    document.body.classList.remove('saving-cut');
     done();
   }
 

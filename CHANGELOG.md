@@ -8,6 +8,18 @@ One entry per chunk, newest first, marked with the chunk's own letter:
 
 See `.claude/skills/chunks/SKILL.md` for the agreement these letters come from.
 
+## 1.1.56
+
+- **B** — A saved cut could start on black instead of its first picture (on
+  an iPhone). The video the cut is recorded from was hidden behind the Save
+  screen, and an iPhone prepares no picture for a hidden video that has not
+  played — so recording began before there was one. It now plays on screen
+  behind the saving panel (the moment being recorded shows faintly through
+  it), and recording waits for a real first picture: if there is none, the
+  video is played for a moment and taken back to the start. The problem
+  report says when the first picture was ready. Hidden, the same video is
+  also the likeliest reason a save stalled (#1).
+
 ## 1.1.55
 
 - **B** — The problem report's "slow seek" lines were nonsense after saving

@@ -85,6 +85,47 @@ function seekTo(video, seconds) {
         video.currentTime = seconds;
     });
 }
+/** Resolves when the player has put a picture on screen, or never. */
+function shownFrame(video) {
+    return new Promise((resolve) => {
+        if (video.requestVideoFrameCallback)
+            video.requestVideoFrameCallback(() => resolve());
+        else
+            video.addEventListener('timeupdate', () => resolve(), { once: true });
+    });
+}
+const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+/**
+ * Make sure the player has a picture at the start before recording begins —
+ * or the saved video opens on black until playback gets going. Found by
+ * seeking, a picture is usually there already. An iPhone may not prepare one
+ * for a video that has not played, so failing that, it is played for a moment
+ * and taken back to the start. Says which, for a problem report.
+ */
+async function firstPictureOf(video, startSeconds, signal, onNote) {
+    const began = performance.now();
+    const took = () => `${Math.round(performance.now() - began)} ms`;
+    if (video.readyState >= 2) {
+        const shown = await Promise.race([shownFrame(video).then(() => true), pause(400).then(() => false)]);
+        if (shown || !video.requestVideoFrameCallback) {
+            onNote?.('first picture', `ready in ${took()}`);
+            return;
+        }
+    }
+    try {
+        const shown = shownFrame(video).then(() => true);
+        await within(video.play(), STEP_MS, 'starting the first moment', signal);
+        const primed = await Promise.race([shown, pause(1500).then(() => false)]);
+        video.pause();
+        await within(seekTo(video, startSeconds), STEP_MS, 'finding the first moment', signal);
+        onNote?.('first picture', primed ? `ready after playing, in ${took()}` : `not ready after ${took()}`);
+    }
+    catch (error) {
+        if (signal?.aborted)
+            throw error;
+        onNote?.('first picture', `not ready: ${error instanceof Error ? error.message : String(error)}`);
+    }
+}
 /**
  * Record the stretches in `cut` as one video.
  *
@@ -250,6 +291,7 @@ export async function recordReel(cut, { video, canvas, urlFor, watermark }, { on
             canvas.height = video.videoHeight || canvas.height;
             firstFrame.width = canvas.width;
             firstFrame.height = canvas.height;
+            await firstPictureOf(video, first.fromMs / 1000, signal, onNote);
             playing = first;
             await Promise.race([firstKept, new Promise((resolve) => setTimeout(resolve, 2_000))]);
         }

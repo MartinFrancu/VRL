@@ -1984,6 +1984,40 @@ describe('saving when the player stalls', () => {
     return app;
   }
 
+  /**
+   * The player the cut is recorded from is on screen while it saves — behind
+   * the panel, but there. Hidden, an iPhone neither prepares its picture nor
+   * reliably plays it, and the saved video started on black.
+   */
+  test('keeps the player it records from on screen, behind the panel', async ({ onTestFinished }) => {
+    const app = await summaryOfThree(onTestFinished);
+
+    await app.startSavingCut();
+    await app.page.waitForFunction(() => document.getElementById('saving-title').textContent.startsWith('Saving'));
+    const shown = await app.page.evaluate(() => {
+      const clip = document.getElementById('clip');
+      const box = clip.getBoundingClientRect();
+      return { width: box.width, height: box.height, visible: getComputedStyle(clip).visibility };
+    });
+    await app.savingSettlesOn(['Saved', 'Could not save it'], 45_000);
+
+    expect(shown.width).toBeGreaterThan(100);
+    expect(shown.height).toBeGreaterThan(100);
+    expect(shown.visible).toBe('visible');
+    // And behind it, not instead of it: once saved, gone again.
+    expect(await app.page.locator('#clip').isVisible()).toBe(false);
+  });
+
+  /** Whether the first picture was there before recording began, for a report to say. */
+  test('says in the report when the first picture was ready', async ({ onTestFinished }) => {
+    const app = await summaryOfThree(onTestFinished);
+
+    await app.save();
+    await app.holdOn('export-heading');
+
+    expect(await app.reportText()).toMatch(/saving: first picture {2}ready/);
+  });
+
   test('nudges a stalled moment back into playing, and finishes', async ({ onTestFinished }) => {
     const app = await summaryOfThree(onTestFinished);
     await app.stallPlayback({ from: 2, times: 1 });

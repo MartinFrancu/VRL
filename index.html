@@ -61,6 +61,13 @@
       body[data-screen="recording"] #live,
       body[data-screen="review"] #review,
       body[data-screen="export"] #export { display: flex; }
+      /* While a cut is saved, the player it is recorded from stays on screen —
+         behind the saving panel, its controls hidden. Hidden altogether, an
+         iPhone neither prepares its picture nor reliably plays it, and the
+         saved video started on black (#1). */
+      body.saving-cut #review { display: flex; position: fixed; inset: 0; z-index: 25; pointer-events: none; }
+      body.saving-cut #review #topbar,
+      body.saving-cut #review .stage > :not(#clip) { visibility: hidden; }
 
 
       /* ---- the Save screen ----
