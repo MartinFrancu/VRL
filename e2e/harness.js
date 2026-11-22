@@ -618,6 +618,47 @@ export async function openApp(browser, { url, shareSheet = false }) {
         tailMs: Number(document.getElementById('hit-tail').value),
       })),
 
+    /**
+     * Make the review player stall, the way an iPhone's did while a video was
+     * being saved (issue #1): from its `from`-th call to play() on, play()
+     * says it worked and nothing plays. `times` such stalls, then it plays
+     * normally again — or never does, if `times` is Infinity.
+     */
+    stallPlayback: ({ from = 2, times = 1 } = {}) =>
+      page.evaluate(
+        ({ from, times }) => {
+          const clip = document.getElementById('clip');
+          const play = HTMLMediaElement.prototype.play;
+          let calls = 0;
+          let stalls = 0;
+          window.__stalls = 0;
+          clip.play = function () {
+            calls += 1;
+            if (calls >= from && stalls < times) {
+              stalls += 1;
+              window.__stalls = stalls;
+              return Promise.resolve();
+            }
+            return play.call(this);
+          };
+        },
+        { from, times: times === Infinity ? 1e9 : times }
+      ),
+
+    /** Press Save cut on the summary, without waiting for anything after. */
+    startSavingCut: () => page.locator('#export-save').click(),
+
+    /** The saving panel's title, once it says one of `titles`. */
+    async savingSettlesOn(titles, timeout = 30_000) {
+      await page.waitForFunction((titles) => titles.includes(document.getElementById('saving-title').textContent), titles, {
+        timeout,
+      });
+      return read(() => ({
+        title: document.getElementById('saving-title').textContent,
+        text: document.getElementById('saving-text').textContent,
+      }));
+    },
+
     /** Open "Report a problem" from Settings & diagnostics, by way of the help page. */
     async openReportFromSettings() {
       await page.locator('#help-open').click();

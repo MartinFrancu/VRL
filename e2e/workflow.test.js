@@ -1949,3 +1949,41 @@ describe('reporting a problem', () => {
   });
 });
 
+/**
+ * Saving on a phone whose player stalls partway through a moment — as an
+ * iPhone's did (issue #1): the bar stopped, and stayed stopped. A stall is now
+ * nudged back into playing, and one that will not move ends the save with a
+ * message rather than a bar that never finishes.
+ */
+describe('saving when the player stalls', () => {
+  async function summaryOfThree(onCleanup) {
+    const app = await freshApp(onCleanup);
+    await filmBout(app, 3, { spacingMs: 1500 });
+    await app.openSummary();
+    await app.tickAll();
+    return app;
+  }
+
+  test('nudges a stalled moment back into playing, and finishes', async ({ onTestFinished }) => {
+    const app = await summaryOfThree(onTestFinished);
+    await app.stallPlayback({ from: 2, times: 1 });
+
+    await app.startSavingCut();
+    const panel = await app.savingSettlesOn(['Saved', 'Could not save it'], 45_000);
+
+    expect(panel.title).toBe('Saved');
+    expect(await app.page.evaluate(() => window.__stalls)).toBe(1);
+  });
+
+  test('ends a save that will not move with a message, not a bar that never finishes', async ({ onTestFinished }) => {
+    const app = await summaryOfThree(onTestFinished);
+    await app.stallPlayback({ from: 2, times: Infinity });
+
+    await app.startSavingCut();
+    const panel = await app.savingSettlesOn(['Saved', 'Could not save it'], 45_000);
+
+    expect(panel.title).toBe('Could not save it');
+    expect(panel.text).toMatch(/stalled/);
+  });
+});
+

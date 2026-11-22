@@ -40,7 +40,7 @@ import { Seeker } from './app/render/seeker.js';
 import { endingMs, hitTally, reelFilename, reelLengthMs } from './app/render/reel.js';
 import { EventLog, issueUrl, reportText } from './app/report/report.js';
 
-const VERSION = '1.1.52';
+const VERSION = '1.1.53';
 
 const el = (id) => document.getElementById(id);
 
@@ -1271,6 +1271,8 @@ async function saveReel() {
         onProgress: showSavingProgress,
         signal: stopped,
         hitTiming,
+        // Each step of the save, for a problem report to say where it got to.
+        onNote: (what, detail) => trace(`saving: ${what}`, detail),
         // Typed on the Save screen; blank means no title on the video at all.
         ...(el('export-title').value.trim() ? { title: el('export-title').value } : {}),
       }

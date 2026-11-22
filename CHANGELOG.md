@@ -8,6 +8,16 @@ One entry per chunk, newest first, marked with the chunk's own letter:
 
 See `.claude/skills/chunks/SKILL.md` for the agreement these letters come from.
 
+## 1.1.53
+
+- **B** — Saving a cut could stop partway, with the bar stuck for good (#1,
+  on an iPhone). A phone can stop a video playing with no error and no
+  event, and the save only ever waited for it to move. Now a moment that sits
+  still for 1.5s is nudged to play again, and again; one still for 6s ends
+  the save with a message saying it stalled, rather than a bar that never
+  finishes. Loading, seeking and starting to play each get a time limit too,
+  and each step of a save goes into the problem report's log.
+
 ## 1.1.52
 
 - **D** — **Report a problem.** A form, from Settings & diagnostics or by

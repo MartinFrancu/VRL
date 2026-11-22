@@ -30,6 +30,25 @@ export function canRecordReel() {
 }
 const nextFrame = () => new Promise((resolve) => requestAnimationFrame(() => resolve()));
 /**
+ * How long the video may sit still while a moment plays before it is nudged,
+ * and before the save gives up on it. A phone can stop a video playing with no
+ * error and no event — an iPhone did, with the video hidden behind the saving
+ * panel — and a save that only ever waited for the video to move waited for
+ * ever (issue #1).
+ */
+const STALL_MS = 1500;
+const GIVE_UP_MS = 6000;
+/** How long any one step — loading, seeking, starting to play — may take. */
+const STEP_MS = 8000;
+/** Wait for `step`, or fail after `ms` saying what was being waited for. */
+function within(step, ms, what) {
+    let timer;
+    const late = new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`saving stalled ${what}`)), ms);
+    });
+    return Promise.race([step, late]).finally(() => clearTimeout(timer));
+}
+/**
  * Put another recording into the player, and wait until it can be sought.
  *
  * A recorder's file says nothing of its own length until something asks to
@@ -57,7 +76,7 @@ function seekTo(video, seconds) {
  * Returns footage like any other — a `MediaHandle` — so what the caller does
  * with it is the caller's business: share it, download it, keep it.
  */
-export async function recordReel(cut, { video, canvas, urlFor, watermark }, { onProgress, fps = 30, signal, fadeMs = FADE_MS, title, hitTiming = HIT_TIMING } = {}) {
+export async function recordReel(cut, { video, canvas, urlFor, watermark }, { onProgress, fps = 30, signal, fadeMs = FADE_MS, title, hitTiming = HIT_TIMING, onNote, stallMs = STALL_MS, giveUpMs = GIVE_UP_MS, } = {}) {
     if (cut.spans.length === 0)
         throw new Error('nothing was marked, so there is nothing to save');
     if (!canRecordReel())
@@ -199,10 +218,10 @@ export async function recordReel(cut, { video, canvas, urlFor, watermark }, { on
             const url = urlFor(take);
             if (!url)
                 throw new Error(`no footage for recording ${take}`);
-            await loadInto(video, url);
+            await within(loadInto(video, url), STEP_MS, 'loading a recording');
             loaded = take;
         }
-        await seekTo(video, span.fromMs / 1000);
+        await within(seekTo(video, span.fromMs / 1000), STEP_MS, 'finding a moment');
     };
     try {
         // Stand on the first picture before recording starts, so the video opens
@@ -232,11 +251,33 @@ export async function recordReel(cut, { video, canvas, urlFor, watermark }, { on
                 await findStart(span);
             }
             playing = span;
-            await video.play();
+            onNote?.('moment', `${cut.spans.indexOf(span) + 1} of ${cut.spans.length}`);
+            await within(video.play(), STEP_MS, 'starting a moment');
+            // Played through to its end — watching that it keeps moving. Still for
+            // `stallMs`, it is nudged to play again, and again; still for
+            // `giveUpMs`, the save stops and says so, rather than wait for ever.
             const until = span.toMs / 1000;
+            let lastAt = video.currentTime;
+            let movedAt = performance.now();
+            let nudgedAt = movedAt;
             while (video.currentTime < until && !video.ended) {
                 if (signal?.aborted)
                     break;
+                const now = performance.now();
+                if (video.currentTime !== lastAt) {
+                    lastAt = video.currentTime;
+                    movedAt = now;
+                    nudgedAt = now;
+                }
+                else if (now - movedAt > giveUpMs) {
+                    onNote?.('gave up', `stuck at ${lastAt.toFixed(2)}s`);
+                    throw new Error(`saving stalled: the video stopped playing at ${lastAt.toFixed(1)}s and would not start again`);
+                }
+                else if (now - nudgedAt > stallMs) {
+                    nudgedAt = now;
+                    onNote?.('stalled, nudged', `at ${lastAt.toFixed(2)}s, ${video.paused ? 'paused' : 'playing'}`);
+                    video.play().catch(() => { });
+                }
                 onProgress?.(doneMs + Math.max(0, video.currentTime * 1000 - span.fromMs), totalMs);
                 await nextFrame();
             }
