@@ -111,13 +111,25 @@ const GIVE_UP_MS = 6000;
 /** How long any one step — loading, seeking, starting to play — may take. */
 const STEP_MS = 8000;
 
-/** Wait for `step`, or fail after `ms` saying what was being waited for. */
-function within<T>(step: Promise<T>, ms: number, what: string): Promise<T> {
+/**
+ * Wait for `step` — or fail after `ms`, saying what was being waited for, or
+ * the moment `signal` says stop. A stopped save must not go on waiting: when
+ * what it waited for finally came, it carried on, driving the same player as
+ * the save started after it.
+ */
+function within<T>(step: Promise<T>, ms: number, what: string, signal?: AbortSignal): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
+  let stop: (() => void) | undefined;
   const late = new Promise<never>((_, reject) => {
     timer = setTimeout(() => reject(new Error(`saving stalled ${what}`)), ms);
+    stop = () => reject(new Error('saving was stopped'));
+    if (signal?.aborted) stop();
+    else signal?.addEventListener('abort', stop, { once: true });
   });
-  return Promise.race([step, late]).finally(() => clearTimeout(timer));
+  return Promise.race([step, late]).finally(() => {
+    clearTimeout(timer);
+    if (stop) signal?.removeEventListener('abort', stop);
+  });
 }
 
 /**
@@ -303,10 +315,10 @@ export async function recordReel(
       // slightly longer dip.
       const url = urlFor(take);
       if (!url) throw new Error(`no footage for recording ${take}`);
-      await within(loadInto(video, url), STEP_MS, 'loading a recording');
+      await within(loadInto(video, url), STEP_MS, 'loading a recording', signal);
       loaded = take;
     }
-    await within(seekTo(video, span.fromMs / 1000), STEP_MS, 'finding a moment');
+    await within(seekTo(video, span.fromMs / 1000), STEP_MS, 'finding a moment', signal);
   };
 
   try {
@@ -339,7 +351,7 @@ export async function recordReel(
       }
       playing = span;
       onNote?.('moment', `${cut.spans.indexOf(span) + 1} of ${cut.spans.length}`);
-      await within(video.play(), STEP_MS, 'starting a moment');
+      await within(video.play(), STEP_MS, 'starting a moment', signal);
 
       // Played through to its end — watching that it keeps moving. Still for
       // `stallMs`, it is nudged to play again, and again; still for

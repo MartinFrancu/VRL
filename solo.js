@@ -40,7 +40,7 @@ import { Seeker } from './app/render/seeker.js';
 import { endingMs, hitTally, reelFilename, reelLengthMs } from './app/render/reel.js';
 import { EventLog, issueUrl, reportText } from './app/report/report.js';
 
-const VERSION = '1.1.53';
+const VERSION = '1.1.54';
 
 const el = (id) => document.getElementById(id);
 
@@ -1236,6 +1236,13 @@ function newBoutAfterSaving() {
   endBout();
 }
 
+/**
+ * The recorder last started, until it has let go of the player. A save that
+ * was stopped finishes at once, but its tidying up — putting the player back
+ * as it was — must not overlap the next save's use of the same player.
+ */
+let recorderRunning = Promise.resolve();
+
 async function saveReel() {
   if (!bout || !selection || selection.chosen.length === 0 || saving) return;
   trace('Save cut', `${selection.chosen.length} marks`);
@@ -1246,8 +1253,9 @@ async function saveReel() {
   stopBehind();
   const totalMs = reelLengthMs(plan, endCardMs(plan));
 
-  saving = new AbortController();
-  const stopped = saving.signal;
+  const mine = new AbortController();
+  saving = mine;
+  const stopped = mine.signal;
   el('saving-text').textContent =
     'It plays them through to record them, so it takes as long as they last.';
   el('saving-stop').textContent = 'Stop';
@@ -1255,7 +1263,11 @@ async function saveReel() {
   showSavingProgress(0, totalMs);
 
   let footage = null;
+  let done = () => {};
   try {
+    await recorderRunning;
+    recorderRunning = new Promise((resolve) => (done = resolve));
+    if (stopped.aborted) throw new Error('saving was stopped');
     footage = await recordReel(
       plan,
       {
@@ -1278,8 +1290,10 @@ async function saveReel() {
       }
     );
   } catch (error) {
-    saving = null;
-    if (stopped.aborted) return closeSaving();
+    // Stopped: Stop has tidied up already, and the panel may by now be a
+    // later save's — so nothing here touches it.
+    if (stopped.aborted) return trace('cut stopped');
+    if (saving === mine) saving = null;
     // Left open, with what went wrong on it. Saving is the one thing here that
     // can fail for reasons the referee cannot see.
     trace('cut failed', error?.message ?? error);
@@ -1287,9 +1301,15 @@ async function saveReel() {
     el('saving-text').textContent = error?.message ?? String(error);
     el('saving-stop').textContent = 'Close';
     return;
+  } finally {
+    done();
   }
 
-  saving = null;
+  if (stopped.aborted) {
+    media.release(footage);
+    return trace('cut stopped');
+  }
+  if (saving === mine) saving = null;
   trace('cut saved', `${(media.sizeOf(footage) / 1e6).toFixed(1)} MB`);
   offerReel(footage, chosen);
 }
@@ -1307,8 +1327,9 @@ async function saveRaw() {
   if (!bout || !selection || saving) return;
   trace('Save raw');
   stopBehind();
-  saving = new AbortController();
-  const stopped = saving.signal;
+  const mine = new AbortController();
+  saving = mine;
+  const stopped = mine.signal;
   el('saving-title').textContent = 'Packing the raw files';
   el('saving-text').textContent = 'Every exchange, whole, with its marks and hits written down beside it.';
   el('saving-stop').textContent = 'Stop';
@@ -1348,12 +1369,14 @@ async function saveRaw() {
       el('saving-bar').firstElementChild.style.width = `${Math.round(((at + 1) / written.length) * 100)}%`;
     }
     const zip = zipStored(entries, new Date());
-    saving = null;
+    if (stopped.aborted) return trace('raw stopped');
+    if (saving === mine) saving = null;
     const url = URL.createObjectURL(zip);
     offerFile(zip, rawFilename(bout.startedAt), url, () => URL.revokeObjectURL(url));
   } catch (error) {
-    saving = null;
-    if (stopped.aborted) return closeSaving();
+    // Stopped: Stop has tidied up already, and the panel may be a later save's.
+    if (stopped.aborted) return trace('raw stopped');
+    if (saving === mine) saving = null;
     trace('raw failed', error?.message ?? error);
     el('saving-title').textContent = 'Could not save the raw files';
     el('saving-text').textContent = error?.message ?? String(error);

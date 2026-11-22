@@ -8,6 +8,16 @@ One entry per chunk, newest first, marked with the chunk's own letter:
 
 See `.claude/skills/chunks/SKILL.md` for the agreement these letters come from.
 
+## 1.1.54
+
+- **B** — Stop did not always stop a save (#1). A save stopped while it was
+  waiting on the video went on waiting; when it finally gave up, or what it
+  waited for came, it carried on — driving the same player as the save
+  started after it — or tidied up that later save, closing its panel and
+  losing the video it had made. Now a stopped save gives up its waiting at
+  once and leaves the panel alone, and a new save waits for the stopped one
+  to let go of the player first. The same for Save raw.
+
 ## 1.1.53
 
 - **B** — Saving a cut could stop partway, with the bar stuck for good (#1,

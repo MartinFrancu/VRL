@@ -1975,6 +1975,29 @@ describe('saving when the player stalls', () => {
     expect(await app.page.evaluate(() => window.__stalls)).toBe(1);
   });
 
+  /**
+   * Stop means stop. A save stopped while it waits on a player that never
+   * answers used to go on waiting — and, giving up later, tidied up the save
+   * started after it: closing its panel and losing what it had made.
+   */
+  test('stops a stalled save for good, leaving the next one alone', async ({ onTestFinished }) => {
+    const app = await summaryOfThree(onTestFinished);
+    await app.stallPlayback({ from: 2, times: Infinity, hang: true });
+    await app.startSavingCut();
+    await app.page.waitForFunction(() => window.__stalls > 0);
+    await app.page.locator('#saving-stop').click();
+
+    await app.unstall();
+    await app.startSavingCut();
+    const panel = await app.savingSettlesOn(['Saved', 'Could not save it'], 45_000);
+    expect(panel.title).toBe('Saved');
+
+    // Long enough for anything the stopped save was still waiting on to give up.
+    await app.page.waitForTimeout(9_000);
+    expect(await app.page.locator('#saving').isVisible()).toBe(true);
+    expect(await app.page.locator('#saving-title').textContent()).toBe('Saved');
+  });
+
   test('ends a save that will not move with a message, not a bar that never finishes', async ({ onTestFinished }) => {
     const app = await summaryOfThree(onTestFinished);
     await app.stallPlayback({ from: 2, times: Infinity });

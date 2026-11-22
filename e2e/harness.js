@@ -622,11 +622,12 @@ export async function openApp(browser, { url, shareSheet = false }) {
      * Make the review player stall, the way an iPhone's did while a video was
      * being saved (issue #1): from its `from`-th call to play() on, play()
      * says it worked and nothing plays. `times` such stalls, then it plays
-     * normally again — or never does, if `times` is Infinity.
+     * normally again — or never does, if `times` is Infinity. With `hang`,
+     * play() does not even say it worked: it never answers at all.
      */
-    stallPlayback: ({ from = 2, times = 1 } = {}) =>
+    stallPlayback: ({ from = 2, times = 1, hang = false } = {}) =>
       page.evaluate(
-        ({ from, times }) => {
+        ({ from, times, hang }) => {
           const clip = document.getElementById('clip');
           const play = HTMLMediaElement.prototype.play;
           let calls = 0;
@@ -637,13 +638,16 @@ export async function openApp(browser, { url, shareSheet = false }) {
             if (calls >= from && stalls < times) {
               stalls += 1;
               window.__stalls = stalls;
-              return Promise.resolve();
+              return hang ? new Promise(() => {}) : Promise.resolve();
             }
             return play.call(this);
           };
         },
-        { from, times: times === Infinity ? 1e9 : times }
+        { from, times: times === Infinity ? 1e9 : times, hang }
       ),
+
+    /** The review player plays normally again. */
+    unstall: () => page.evaluate(() => delete document.getElementById('clip').play),
 
     /** Press Save cut on the summary, without waiting for anything after. */
     startSavingCut: () => page.locator('#export-save').click(),
