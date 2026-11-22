@@ -112,6 +112,21 @@ nothing to recover — a bout exists until you leave it, and then it does not.
 **It will not stop the screen rotating.** A web app on iOS cannot lock
 orientation. The camera is fixed once a bout starts; the layout still turns.
 
+## Reporting a problem
+
+**Report a problem**, from **Settings & diagnostics** or by pressing and
+holding the version number (start screen), the time on the picture (review) or
+**The bout** (summary). Say what happened in a sentence; the app adds its
+version, the phone, what it did in the last two minutes, and the bout's marks
+and hits — never the footage. Send it by **Share**, **Copy**, or as a
+**GitHub issue**, which opens filled in and labelled `bug`. The app remembers
+only two minutes, in memory, so report straight away; if the problem is in the
+footage or the hits, **Save raw** the bout and send that too.
+
+Problems are tracked as [issues](https://github.com/MartinFrancu/VRL/issues)
+labelled `bug`. Each fix starts with a test that fails for that bug, and its
+commit says `Fixes #n`, which closes the issue.
+
 ## Where this came from
 
 Built for the SBA. There is a larger sibling that does the same job with several

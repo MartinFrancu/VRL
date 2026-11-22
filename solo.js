@@ -38,10 +38,25 @@ import {
 import { canRecordReel, recordReel } from './app/render/record-reel.js';
 import { Seeker } from './app/render/seeker.js';
 import { endingMs, hitTally, reelFilename, reelLengthMs } from './app/render/reel.js';
+import { EventLog, issueUrl, reportText } from './app/report/report.js';
 
-const VERSION = '1.1.51';
+const VERSION = '1.1.52';
 
 const el = (id) => document.getElementById(id);
+
+/**
+ * What the app did lately, for a problem report to say what led up to it.
+ * In memory only, the last two minutes, and only ever sent in a report the
+ * referee chooses to send. See src/report/report.ts.
+ */
+const traced = new EventLog();
+function trace(what, detail) {
+  traced.add(performance.now(), what, detail === undefined ? undefined : String(detail));
+}
+// The errors nobody saw: they never reach the screen, and are the first thing
+// worth knowing when something went wrong.
+window.addEventListener('error', (event) => trace('error', event.message || String(event.error)));
+window.addEventListener('unhandledrejection', (event) => trace('error', event.reason?.message ?? String(event.reason)));
 const preview = el('preview');
 const clip = el('clip');
 
@@ -195,6 +210,7 @@ function showTurned() {
 
 /** Rotation fires a flurry of these, and the camera is expensive to reopen. */
 function orientationChanged() {
+  trace('turned', orientationNow());
   // The warning is cheap and wants to be immediate; only the camera waits.
   showTurned();
   clearTimeout(reopenSoon);
@@ -207,6 +223,7 @@ window.addEventListener('orientationchange', orientationChanged);
 window.addEventListener('resize', showTurned);
 
 function onCameraLost() {
+  trace('camera lost');
   // Says nothing before the first bout of a session, which is the oddity noted
   // in docs/BACKLOG.md: the message is right while filming and wrong when idle
   // after a bout.
@@ -272,6 +289,7 @@ const capture = new Capture({
 let bout = null;
 
 function startFilming() {
+  trace('START');
   leaveExchange();
   if (!bout) bout = newBout(crypto.randomUUID(), new Date().toISOString());
   shownMs = null;
@@ -300,6 +318,7 @@ function startFilming() {
  */
 function markAt() {
   if (!capture.recording) return;
+  trace('mark', capture.markCount + 1);
   capture.mark();
 
   // It was marked without looking at the screen, so say so in ways that do not
@@ -333,11 +352,13 @@ async function finishExchange() {
 // ------------------------------------------------------- moving between modes
 
 function screenIs(name) {
+  if (document.body.dataset['screen'] !== name) trace('screen', name);
   document.body.dataset['screen'] = name;
 }
 
 /** Stop filming and look at what was marked in this exchange. */
 async function toReview() {
+  trace('REVIEW');
   if (capture.markCount === 0) return;
   stopFilming();
   reviewingFrom = 'filming';
@@ -367,6 +388,7 @@ async function toReview() {
  * fight is about to resume.
  */
 function toRecord() {
+  trace('BACK to filming');
   if (reviewingFrom === 'summary') return backToSummary();
   startFilming();
 }
@@ -385,6 +407,7 @@ let reviewingFrom = 'filming';
  * nothing to sum up, and it is straight back to idle.
  */
 async function toSummary() {
+  trace('END');
   stopFilming();
   if (capture.markCount > 0) await finishExchange();
   else await capture.discard();
@@ -395,6 +418,7 @@ async function toSummary() {
 
 /** Ask before throwing a bout away — its footage cannot be got back. */
 function askToEndBout() {
+  trace('asked to discard');
   const exchanges = bout?.exchanges.length ?? 0;
   el('confirm-title').textContent = 'Discard this bout?';
   el('confirm-text').textContent =
@@ -405,6 +429,7 @@ function askToEndBout() {
 
 /** Let the whole bout go, and go back to idle. */
 function endBout() {
+  trace('bout let go of');
   el('confirm').hidden = true;
   stopFilming();
   void capture.discard();
@@ -469,6 +494,7 @@ function markActiveTab() {
  * marks is a seek, not a load.
  */
 function select(index) {
+  trace('mark chosen', index + 1);
   const chosen = exchange?.marks[index];
   if (!chosen) return;
 
@@ -487,10 +513,17 @@ function select(index) {
  * winning — so a thumb faster than the phone can seek still sees the picture
  * move. The readout and the hits follow the thumb at once regardless.
  */
+let seekAskedAt = 0;
 const seeker = new Seeker((ms) => {
+  seekAskedAt = performance.now();
   clip.currentTime = ms / 1000;
 });
-clip.addEventListener('seeked', () => seeker.seeked());
+clip.addEventListener('seeked', () => {
+  // A seek slow enough to feel is worth a line in a report; the rest are noise.
+  const took = performance.now() - seekAskedAt;
+  if (seekAskedAt && took > 150) trace('slow seek', `${Math.round(took)} ms`);
+  seeker.seeked();
+});
 // A new recording in the player: a seek in flight will never report back.
 clip.addEventListener('emptied', () => seeker.reset());
 
@@ -566,7 +599,7 @@ let pressedAt = null;
 function onDragStart(event) {
   // A button on the picture — the Drag/Step switch, the placing bar — is a
   // button, not the start of a drag.
-  if (event.target.closest?.('button')) return;
+  if (event.target.closest?.('button, #readout')) return;
   // Or the browser claims the gesture as a drag of its own — a selection, an
   // image — and abandons ours one move in, leaving the footage barely moved.
   event.preventDefault();
@@ -585,7 +618,10 @@ function onDragEnd(event) {
   const from = pressedAt;
   pressedAt = null;
   if (!from) return;
-  if (Math.hypot(event.clientX - from.x, event.clientY - from.y) > 8) return;
+  if (Math.hypot(event.clientX - from.x, event.clientY - from.y) > 8) {
+    trace('dragged', `to ${Math.round(positionMs)} ms`);
+    return;
+  }
   // A tap: a hit while placing, a frame either way in Step mode, and in Drag
   // mode nothing at all.
   if (placing) return placeHit(event.clientX, event.clientY);
@@ -648,6 +684,7 @@ let scrubMode = (() => {
 })();
 
 function setScrubMode(mode) {
+  trace('scrub', mode);
   scrubMode = mode === 'step' ? 'step' : 'drag';
   try {
     localStorage.setItem(SCRUB_KEY, scrubMode);
@@ -750,6 +787,7 @@ function showPlacingCount() {
 
 /** Put a hit where the picture was tapped, at the moment on screen. */
 function placeHit(clientX, clientY) {
+  trace('hit', placingSide);
   const mark = exchange?.marks[current];
   if (!mark) return;
   const box = el('stage').getBoundingClientRect();
@@ -766,6 +804,7 @@ function placeHit(clientX, clientY) {
 }
 
 function undoHit() {
+  trace('hit undone');
   const mark = exchange?.marks[current];
   if (!mark) return;
   exchange = withoutLastHit(exchange, mark.id);
@@ -835,6 +874,7 @@ let behindTake = null;
 const folded = new Set();
 
 function openSummary() {
+  trace('summary');
   // The annotated marks are the ones that matter — or all, if none was.
   selection = startingChoice(bout);
   folded.clear();
@@ -869,17 +909,20 @@ async function openSaved(file) {
     el('export-title').value = loaded.title;
     note.textContent = 'Point it at the fight, then press START.';
     selection = selectionOf(bout, loaded.chosen);
+    trace('opened saved bout', `${bout.exchanges.length} exchanges`);
     folded.clear();
     renderPicks();
     screenIs('export');
     playBehind();
   } catch (error) {
+    trace('could not open', error?.message ?? error);
     note.textContent = `Could not open it: ${error?.message ?? String(error)}`;
   }
 }
 
 /** BACK from the summary: the bout is not over after all. */
 function carryOn() {
+  trace('BACK from the summary');
   stopBehind();
   startFilming();
 }
@@ -892,6 +935,7 @@ function carryOn() {
  * since a recorder's file can only be sought once it has been measured.
  */
 async function annotateFromSummary(exchangeIndex, markIndex) {
+  trace('annotate from the summary', `exchange ${exchangeIndex + 1}, mark ${markIndex + 1}`);
   const chosen = bout?.exchanges[exchangeIndex];
   if (!chosen?.marks[markIndex]) return;
   stopBehind();
@@ -1194,6 +1238,7 @@ function newBoutAfterSaving() {
 
 async function saveReel() {
   if (!bout || !selection || selection.chosen.length === 0 || saving) return;
+  trace('Save cut', `${selection.chosen.length} marks`);
 
   const chosen = selection.chosen;
   const plan = cutBout(bout, chosen, { leadMs, tailMs });
@@ -1235,6 +1280,7 @@ async function saveReel() {
     if (stopped.aborted) return closeSaving();
     // Left open, with what went wrong on it. Saving is the one thing here that
     // can fail for reasons the referee cannot see.
+    trace('cut failed', error?.message ?? error);
     el('saving-title').textContent = 'Could not save it';
     el('saving-text').textContent = error?.message ?? String(error);
     el('saving-stop').textContent = 'Close';
@@ -1242,6 +1288,7 @@ async function saveReel() {
   }
 
   saving = null;
+  trace('cut saved', `${(media.sizeOf(footage) / 1e6).toFixed(1)} MB`);
   offerReel(footage, chosen);
 }
 
@@ -1256,6 +1303,7 @@ async function saveReel() {
  */
 async function saveRaw() {
   if (!bout || !selection || saving) return;
+  trace('Save raw');
   stopBehind();
   saving = new AbortController();
   const stopped = saving.signal;
@@ -1304,6 +1352,7 @@ async function saveRaw() {
   } catch (error) {
     saving = null;
     if (stopped.aborted) return closeSaving();
+    trace('raw failed', error?.message ?? error);
     el('saving-title').textContent = 'Could not save the raw files';
     el('saving-text').textContent = error?.message ?? String(error);
     el('saving-stop').textContent = 'Close';
@@ -1358,11 +1407,13 @@ async function shareReady() {
   if (!ready) return;
   try {
     await navigator.share({ files: [ready.file], title: ready.name });
+    trace('shared', ready.file.type);
     showSaved();
   } catch (error) {
     // Closing the share sheet without choosing anything is not a failure, and
     // Share stays where it is for another go.
-    if (error?.name === 'AbortError') return;
+    if (error?.name === 'AbortError') return trace('share sheet closed');
+    trace('share refused', `${error?.name}: ${error?.message}`);
     // Turned down for any other reason, it can still be saved: Download, in
     // place of the Share that did not work.
     el('saving-text').textContent = `The share sheet would not take it (${error?.message ?? String(error)}) — tap Download to save it instead.`;
@@ -1372,6 +1423,111 @@ async function shareReady() {
     download.download = ready.name;
     download.hidden = false;
   }
+}
+
+// ------------------------------------------------------- reporting a problem
+
+/** Where problem reports go as issues. */
+const ISSUES = 'MartinFrancu/VRL';
+
+/** Taken when the report opens, so it shows what led up to it, not the report itself. */
+let reportAt = null;
+
+/** What the app knows about where it is running, a label and a value each. */
+function reportFacts() {
+  const settings = stream?.getVideoTracks()[0]?.getSettings() ?? {};
+  return [
+    ['App', `${VERSION}${location.pathname.includes('/next/') ? ' (test build)' : ''}`],
+    ['When', new Date().toISOString()],
+    ['Phone', navigator.userAgent],
+    ['Screen', `${innerWidth}×${innerHeight} at ${devicePixelRatio}x, held ${orientationNow()}, on ${document.body.dataset['screen']}`],
+    ['Camera', `${settings.width ?? '?'}×${settings.height ?? '?'} at ${settings.frameRate ?? '?'} fps`],
+    ['Recording as', capture.mimeType || '?'],
+    ['Moving by', scrubMode === 'step' ? 'Step' : 'Drag'],
+    ['Window', `${leadMs} ms before, ${tailMs} ms after; hits ${hitTiming.leadMs} ms before, ${hitTiming.tailMs} ms after`],
+    ['Installed', navigator.serviceWorker?.controller ? 'yes, working offline' : 'no'],
+  ];
+}
+
+/** The bout as it stands — no footage, no title: counts, times and sizes. */
+function reportState() {
+  if (!bout) return [];
+  const lines = [`${bout.exchanges.length} exchange${bout.exchanges.length === 1 ? '' : 's'}`];
+  bout.exchanges.forEach((each, index) => {
+    const hits = each.marks.reduce((sum, mark) => sum + (mark.hits?.length ?? 0), 0);
+    const take = each.takes[0];
+    const size = take ? `${(media.sizeOf(take.media) / 1e6).toFixed(1)} MB` : 'no recording';
+    lines.push(
+      `exchange ${index + 1}: ${each.marks.length} marks at ${each.marks.map((mark) => `${(mark.atMs / 1000).toFixed(1)}s`).join(', ') || '—'}; ` +
+        `${hits} hits; ${take ? `${(take.durationMs / 1000).toFixed(1)}s, ${size}` : size}`
+    );
+  });
+  if (selection) lines.push(`ticked for the cut: ${selection.chosen.length}`);
+  return lines;
+}
+
+function currentReport() {
+  return { ...reportAt, note: el('report-note').value };
+}
+
+function renderReport() {
+  const report = currentReport();
+  el('report-text').textContent = reportText(report);
+  el('report-issue').href = issueUrl(ISSUES, report);
+}
+
+function openReport() {
+  trace('report opened');
+  reportAt = { facts: reportFacts(), state: reportState(), log: traced.entries(performance.now()), nowMs: performance.now() };
+  el('report-status').textContent = '';
+  renderReport();
+  el('report').hidden = false;
+}
+
+async function shareReport() {
+  const text = reportText(currentReport());
+  try {
+    await navigator.share({ title: 'SBA Replay Lite — problem report', text });
+    el('report-status').textContent = 'Sent.';
+  } catch (error) {
+    if (error?.name === 'AbortError') return;
+    // No share sheet, or it would not take words: copying still gets it out.
+    await copyReport(`The share sheet would not take it (${error?.message ?? error}).`);
+  }
+}
+
+async function copyReport(why = '') {
+  const text = reportText(currentReport());
+  try {
+    await navigator.clipboard.writeText(text);
+    el('report-status').textContent = `${why} Copied — paste it into a message or an email.`.trim();
+  } catch {
+    // Not allowed to copy: open the report, so it can be selected by hand.
+    el('report').querySelector('details').open = true;
+    el('report-status').textContent = `${why} Could not copy it — select the report below by hand.`.trim();
+  }
+}
+
+/**
+ * Press and hold to report, on things already on each screen — the version,
+ * the time on the review picture, the summary's heading — so a report can be
+ * made where the problem is, without a button in the way while filming.
+ */
+function holdToReport(element) {
+  let timer = null;
+  const cancel = () => {
+    clearTimeout(timer);
+    timer = null;
+  };
+  element.addEventListener('pointerdown', () => {
+    cancel();
+    timer = setTimeout(() => {
+      timer = null;
+      openReport();
+    }, 800);
+  });
+  for (const ending of ['pointerup', 'pointerleave', 'pointercancel']) element.addEventListener(ending, cancel);
+  element.addEventListener('contextmenu', (event) => event.preventDefault());
 }
 
 // ---------------------------------------------------------------- the trimmings
@@ -1543,7 +1699,10 @@ el('export-discard').addEventListener('click', askToEndBout);
 el('saving-new').addEventListener('click', newBoutAfterSaving);
 // The download is the browser's to do once the link is followed; the panel
 // changes a moment later, so as not to stand in the way of it.
-el('saving-download').addEventListener('click', () => setTimeout(showSaved, 0));
+el('saving-download').addEventListener('click', () => {
+  trace('downloaded', ready?.name);
+  setTimeout(showSaved, 0);
+});
 el('export-save').addEventListener('click', () => void saveReel());
 el('export-raw').addEventListener('click', () => void saveRaw());
 renderScrubMode();
@@ -1553,6 +1712,15 @@ el('hit-tail').addEventListener('input', (event) => setHitTiming({ ...hitTiming,
 el('scrub-mode').addEventListener('click', () => setScrubMode(scrubMode === 'step' ? 'drag' : 'step'));
 el('scrub-setting').addEventListener('change', (event) => setScrubMode(event.target.value));
 el('open-saved').addEventListener('click', () => el('open-file').click());
+el('report-open').addEventListener('click', openReport);
+el('report-close').addEventListener('click', () => {
+  el('report').hidden = true;
+});
+el('report-note').addEventListener('input', renderReport);
+el('report-share').addEventListener('click', () => void shareReport());
+el('report-copy').addEventListener('click', () => void copyReport());
+el('report-issue').addEventListener('click', () => trace('report sent as an issue'));
+for (const id of ['version', 'readout', 'export-heading']) holdToReport(el(id));
 el('open-file').addEventListener('change', (event) => {
   const [file] = event.target.files ?? [];
   // Cleared, so picking the same zip again still counts as a change.

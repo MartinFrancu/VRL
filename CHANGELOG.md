@@ -8,6 +8,19 @@ One entry per chunk, newest first, marked with the chunk's own letter:
 
 See `.claude/skills/chunks/SKILL.md` for the agreement these letters come from.
 
+## 1.1.52
+
+- **D** — **Report a problem.** A form, from Settings & diagnostics or by
+  pressing and holding the version (start screen), the time on the picture
+  (review) or "The bout" (summary): say what happened, and the app adds its
+  version, the phone and its settings, the bout's marks and hits (never the
+  footage), and what it did in the last two minutes — screens, marks, drags,
+  slow seeks, saves and shares and how they went, and every error, including
+  those that never reached the screen. Sent by Share, Copy, or as a GitHub
+  issue that opens filled in and labelled `bug`. Kept in memory only, and
+  only ever sent by the referee. The help page says how, and links to the
+  full README.
+
 ## 1.1.51
 
 - **B** — The test build could not be built anywhere but this project's cloud

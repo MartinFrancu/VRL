@@ -12,7 +12,7 @@
 // and the next opening has the new version. A version behind is a fair price
 // for never waiting.
 
-const CACHE = 'vrl-v12';
+const CACHE = 'vrl-v13';
 
 const SHELL = [
   './',
@@ -34,6 +34,7 @@ const SHELL = [
   './app/render/reel.js',
   './app/render/record-reel.js',
   './app/render/seeker.js',
+  './app/report/report.js',
   './app/store/raw.js',
   './app/store/zip.js',
   './manifest.webmanifest',

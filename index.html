@@ -425,6 +425,37 @@
       #saving.saved h3 { color: #5ad18a; }
       #confirm .danger { background: var(--mark); border-color: var(--mark); color: #fff; }
 
+      /* Report a problem: over everything, the help and settings included. */
+      #report {
+        position: fixed; inset: 0; z-index: 40; display: grid; place-content: center; padding: 16px;
+        background: rgba(0, 0, 0, 0.72);
+      }
+      #report[hidden] { display: none; }
+      #report .box {
+        background: var(--panel); border: 1px solid var(--rule); border-radius: 14px; padding: 18px;
+        width: min(420px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow: auto;
+      }
+      #report h3 { margin: 0 0 10px; font-size: 18px; }
+      #report p { margin: 10px 0; font-size: 13.5px; color: var(--faded); }
+      #report textarea {
+        width: 100%; box-sizing: border-box; font: inherit; font-size: 16px; padding: 10px;
+        border-radius: 10px; border: 1px solid var(--faded); background: rgba(11, 15, 18, 0.7); color: #fff;
+      }
+      #report .row { display: flex; gap: 8px; }
+      #report .row > * { flex: 1; }
+      #report-issue {
+        display: block; text-align: center; text-decoration: none; padding: 12px 8px;
+        border: 1px solid var(--faded); border-radius: 10px; color: var(--ink);
+      }
+      #report-share { background: var(--accent); border-color: var(--accent); color: #031417; font-weight: 600; }
+      #report .status:empty { display: none; }
+      #report details { font-size: 12.5px; color: var(--faded); }
+      #report pre {
+        white-space: pre-wrap; word-break: break-word; max-height: 40vh; overflow: auto;
+        font-size: 11.5px; background: #06090b; padding: 8px; border-radius: 8px;
+      }
+      #report .close { width: 100%; margin-top: 10px; }
+
       /* ---------- the panel behind the ⓘ ---------- */
 
       #diag {
@@ -470,6 +501,7 @@
       #help .sheet { max-width: 34em; margin: 0 auto; }
       #help h2 { font-size: 15px; color: var(--accent); margin: 26px 0 8px; letter-spacing: 0.02em; }
       #help h2:first-of-type { margin-top: 8px; }
+      #help a { color: var(--accent); }
       #help p { font-size: 15px; line-height: 1.5; margin: 0 0 10px; color: var(--ink); }
       #help ol { margin: 0; padding: 0; list-style: none; counter-reset: step; }
       /* The number hangs in the margin. Not a grid or a flex row: those make a
@@ -625,7 +657,7 @@
       <div class="sheet">
         <nav>
           <button id="export-back">BACK</button>
-          <h2>The bout</h2>
+          <h2 id="export-heading">The bout</h2>
         </nav>
         <ul id="picks"></ul>
         <p id="export-length"></p>
@@ -663,6 +695,30 @@
     </div>
 
     <!-- ---------------- throwing a bout away ---------------- -->
+    <!-- Report a problem: what happened, with what the app knows and did. -->
+    <div id="report" hidden>
+      <div class="box">
+        <h3>Report a problem</h3>
+        <textarea id="report-note" rows="3" placeholder="What happened? A sentence is enough."></textarea>
+        <p>
+          Sent with it: the app's version, the phone, what the app did in the
+          last two minutes, and the bout's marks and hits — never the footage.
+          Nothing leaves the phone until you send it.
+        </p>
+        <div class="row">
+          <button id="report-share">Share</button>
+          <button id="report-copy">Copy</button>
+          <a id="report-issue" target="_blank" rel="noopener">GitHub issue</a>
+        </div>
+        <p id="report-status" class="status"></p>
+        <details>
+          <summary>What will be sent</summary>
+          <pre id="report-text"></pre>
+        </details>
+        <button id="report-close" class="close">Close</button>
+      </div>
+    </div>
+
     <div id="confirm" hidden>
       <div class="box">
         <h3 id="confirm-title">Discard this bout?</h3>
@@ -703,6 +759,31 @@
           video has been saved, <b>New bout</b> starts the next one.
         </p>
 
+        <h2>Something went wrong?</h2>
+        <p>
+          <b>Report a problem</b>, then say what happened in a sentence. It opens from
+          <b>Settings &amp; diagnostics</b> below, or wherever you are by
+          <b>pressing and holding</b> the version number (start screen), the time on
+          the picture (review) or <b>The bout</b> (summary).
+        </p>
+        <p>
+          The app adds what it knows — its version, the phone, what it did in the
+          last two minutes, and the bout's marks and hits, never the footage — and
+          you send it by <b>Share</b>, <b>Copy</b>, or as a <b>GitHub issue</b>.
+          Report as soon as it happens: the app only remembers two minutes.
+        </p>
+        <p>
+          If the problem is in the footage or the hits themselves, <b>Save raw</b>
+          the bout too and send that: it holds everything needed to see it again.
+        </p>
+
+        <h2>More</h2>
+        <p>
+          The full guide — how it works, what to know before an event, and how it
+          is built — is the
+          <a href="https://github.com/MartinFrancu/VRL#readme" target="_blank" rel="noopener">README on GitHub</a>.
+        </p>
+
         <h2>Put it on another phone</h2>
         <p>Point their camera at this.</p>
         <img class="qr" src="qr.svg" alt="" width="180" height="180" />
@@ -719,6 +800,7 @@
 
     <div id="diag" hidden>
       <button class="close" id="diag-close">Close</button>
+      <button id="report-open">Report a problem</button>
       <h2>how much to show either side of a mark</h2>
       <div class="tune">
         <label>before <input id="lead" type="range" min="500" max="4000" step="100" /><span id="lead-value"></span></label>

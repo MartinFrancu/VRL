@@ -183,6 +183,11 @@ export async function openApp(browser, { url, shareSheet = false }) {
           window.__shareRefused = (window.__shareRefused ?? 0) + 1;
           throw new DOMException('share must follow a tap', 'NotAllowedError');
         }
+        // Words alone — a problem report — rather than a file.
+        if (!data.files?.length) {
+          window.__shared.push({ title: data.title, text: data.text });
+          return;
+        }
         const file = data.files[0];
         if (kind === 'refusing' || (kind === 'android' && file.type.includes(';'))) {
           throw new DOMException('Permission denied', 'NotAllowedError');
@@ -612,6 +617,34 @@ export async function openApp(browser, { url, shareSheet = false }) {
         leadMs: Number(document.getElementById('hit-lead').value),
         tailMs: Number(document.getElementById('hit-tail').value),
       })),
+
+    /** Open "Report a problem" from Settings & diagnostics, by way of the help page. */
+    async openReportFromSettings() {
+      await page.locator('#help-open').click();
+      await page.locator('#info').click();
+      await page.locator('#report-open').click();
+      await page.waitForFunction(() => !document.getElementById('report').hidden);
+    },
+
+    /** Press and hold something on the screen, as a referee does to open a report there. */
+    async holdOn(id, ms = 1000) {
+      const box = await page.locator(`#${id}`).boundingBox();
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+      await page.mouse.down();
+      await page.waitForTimeout(ms);
+      await page.mouse.up();
+    },
+
+    reportShowing: () => read(() => !document.getElementById('report').hidden),
+
+    /** Say what happened, in the report's box. */
+    typeReport: (words) => page.locator('#report-note').fill(words),
+
+    /** The report as it would be sent. */
+    reportText: () => read(() => document.getElementById('report-text').textContent),
+
+    /** Where "GitHub issue" goes. */
+    reportIssueUrl: () => read(() => document.getElementById('report-issue').href),
 
     /** Which way the review screen moves through a moment: 'Drag' or 'Step'. */
     scrubMode: () => read(() => document.getElementById('scrub-mode').textContent.trim()),

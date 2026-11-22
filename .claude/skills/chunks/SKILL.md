@@ -67,6 +67,15 @@ Meta files — the backlog, notes, READMEs, comments — are held more loosely.
 They are easy to read, easy to check, and hard to break. Production code is not:
 it does not move between branches without being asked for.
 
+## Where bugs come from
+
+Problems are reported as GitHub issues labelled `bug` — from the app's own
+**Report a problem** form (which files them with the app's version, the phone,
+the last two minutes of what it did, and the bout's marks), or filed by hand
+from what Martin says. Read the open ones at the start of a session when bugs
+are on the table. A **B** chunk for one says `Fixes #n` in its commit, which
+closes the issue when it reaches `main`, and its CHANGELOG line names it.
+
 ## What the tests do in each
 
 - **R** — tests do not change. They are the evidence the behaviour did not.

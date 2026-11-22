@@ -1840,3 +1840,112 @@ describe('opening a saved bout', () => {
   });
 });
 
+/**
+ * Report a problem: what the referee says happened, with what the app knows
+ * and what it did in the last two minutes — handed over by Share, Copy or as
+ * a GitHub issue. Opened from Settings, or by pressing and holding the version
+ * (start screen), the time on the picture (review) or "The bout" (summary).
+ */
+describe('reporting a problem', () => {
+  test('opens on review by holding the time on the picture, knowing what led up to it', async ({ onTestFinished }) => {
+    const app = await freshApp(onTestFinished);
+    await filmBout(app, 1);
+    await app.review();
+
+    await app.holdOn('readout');
+
+    expect(await app.reportShowing()).toBe(true);
+    const text = await app.reportText();
+    expect(text).toContain(`App: ${versionInManifest()}`);
+    expect(text).toMatch(/s {2}START/);
+    expect(text).toMatch(/s {2}mark/);
+    expect(text).toMatch(/s {2}screen {2}review/);
+    expect(text).toContain('1 exchange');
+  });
+
+  test('opens from Settings, and carries what was typed', async ({ onTestFinished }) => {
+    const app = await freshApp(onTestFinished);
+    await app.openReportFromSettings();
+
+    await app.typeReport('The picture froze after the second mark');
+
+    expect(await app.reportText()).toContain('What happened: The picture froze after the second mark');
+  });
+
+  test('opens on the start screen by holding the version, and on the summary by holding its heading', async ({ onTestFinished }) => {
+    const app = await freshApp(onTestFinished);
+    await app.holdOn('version');
+    expect(await app.reportShowing()).toBe(true);
+    await app.page.locator('#report-close').click();
+
+    await filmBout(app, 1);
+    await app.openSummary();
+    await app.holdOn('export-heading');
+    expect(await app.reportShowing()).toBe(true);
+  });
+
+  /** A tap is not a hold: the version and the time stay what they are. */
+  test('does not open for a tap', async ({ onTestFinished }) => {
+    const app = await freshApp(onTestFinished);
+
+    await app.holdOn('version', 100);
+
+    expect(await app.reportShowing()).toBe(false);
+  });
+
+  /** The errors nobody saw — they never reached the screen. */
+  test('includes errors the page never showed', async ({ onTestFinished }) => {
+    const app = await freshApp(onTestFinished);
+    await app.page.evaluate(() => setTimeout(() => Promise.reject(new Error('lost somewhere in a test')), 0));
+    await app.page.waitForTimeout(100);
+
+    await app.openReportFromSettings();
+
+    expect(await app.reportText()).toContain('lost somewhere in a test');
+  });
+
+  test('opens as a new GitHub issue, filled in', async ({ onTestFinished }) => {
+    const app = await freshApp(onTestFinished);
+    await app.openReportFromSettings();
+    await app.typeReport('Saving said permission denied');
+
+    const url = new URL(await app.reportIssueUrl());
+
+    expect(url.origin + url.pathname).toBe('https://github.com/MartinFrancu/VRL/issues/new');
+    expect(url.searchParams.get('title')).toBe('Saving said permission denied');
+    expect(url.searchParams.get('body')).toContain(`App: ${versionInManifest()}`);
+    expect(url.href.length).toBeLessThanOrEqual(7_500);
+  });
+
+  test('shares as words, from a tap on Share', async ({ onTestFinished }) => {
+    const app = await openApp(browser, { url: server.url, shareSheet: true });
+    onTestFinished(() => app.close());
+    await app.openReportFromSettings();
+    await app.typeReport('Hits show on the wrong mark');
+
+    await app.page.locator('#report-share').click();
+
+    const shared = await app.page.evaluate(() => window.__shared);
+    expect(shared).toHaveLength(1);
+    expect(shared[0].text).toContain('What happened: Hits show on the wrong mark');
+  });
+
+  test('copies, and says so', async ({ onTestFinished }) => {
+    const app = await freshApp(onTestFinished);
+    await app.page.evaluate(() => {
+      window.__copied = null;
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: { writeText: async (text) => void (window.__copied = text) },
+      });
+    });
+    await app.openReportFromSettings();
+    await app.typeReport('Step went the wrong way');
+
+    await app.page.locator('#report-copy').click();
+
+    expect(await app.page.evaluate(() => window.__copied)).toContain('What happened: Step went the wrong way');
+    expect(await app.page.locator('#report-status').textContent()).toMatch(/Copied/);
+  });
+});
+
